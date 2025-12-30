@@ -1,0 +1,336 @@
+2025-12-12 18:35:24,267 - INFO - __main__ - ✅ Бот успішно запущено!
+2025-12-12 18:35:24,267 - INFO - aiogram.dispatcher - Start polling
+2025-12-12 18:35:24,319 - INFO - aiogram.dispatcher - Run polling for bot @pidsadkalviv_bot id=8301191163 - 'Підсадка Львів'
+2025-12-12 18:35:33,389 - INFO - aiogram.event - Update id=892632845 is handled. Duration 433 ms by bot id=8301191163
+2025-12-12 18:35:37,181 - INFO - aiogram.event - Update id=892632846 is handled. Duration 148 ms by bot id=8301191163
+2025-12-12 18:35:38,862 - INFO - aiogram.event - Update id=892632847 is handled. Duration 248 ms by bot id=8301191163
+2025-12-12 18:35:45,029 - INFO - aiogram.event - Update id=892632848 is not handled. Duration 59 ms by bot id=8301191163
+2025-12-12 18:35:45,029 - ERROR - aiogram.event - Cause exception while process update id=892632848 by bot id=8301191163
+NameError: name 'get_user' is not defined
+Traceback (most recent call last):
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\dispatcher.py", line 320, in _process_update
+    response = await self.feed_update(bot, update, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\dispatcher.py", line 164, in feed_update
+    response = await self.update.wrap_outer_middleware(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<7 lines>...
+    )
+    ^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\middlewares\error.py", line 27, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\middlewares\user_context.py", line 58, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\fsm\middleware.py", line 43, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\event\telegram.py", line 126, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\dispatcher.py", line 283, in _listen_update
+    return await self.propagate_event(update_type=update_type, event=event, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 161, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 153, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 189, in _propagate_event
+    response = await router.propagate_event(update_type=update_type, event=event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 161, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 153, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 181, in _propagate_event
+    response = await observer.trigger(event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\event\telegram.py", line 126, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\Source\Repos\pidasdka.project\tg_bot\tg_bot\handlers\profile.py", line 143, in edit_profile_start
+    user = get_user(call.from_user.id) # Використовуємо хелпер замість прямого SQL
+           ^^^^^^^^
+NameError: name 'get_user' is not defined
+2025-12-12 18:36:17,315 - INFO - __main__ - ✅ Бот успішно запущено!
+2025-12-12 18:36:17,315 - INFO - aiogram.dispatcher - Start polling
+2025-12-12 18:36:17,369 - INFO - aiogram.dispatcher - Run polling for bot @pidsadkalviv_bot id=8301191163 - 'Підсадка Львів'
+2025-12-12 18:36:19,797 - INFO - aiogram.event - Update id=892632849 is handled. Duration 396 ms by bot id=8301191163
+2025-12-12 18:36:25,903 - INFO - aiogram.event - Update id=892632850 is not handled. Duration 63 ms by bot id=8301191163
+2025-12-12 18:36:25,904 - ERROR - aiogram.event - Cause exception while process update id=892632850 by bot id=8301191163
+NameError: name 'get_user' is not defined
+Traceback (most recent call last):
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\dispatcher.py", line 320, in _process_update
+    response = await self.feed_update(bot, update, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\dispatcher.py", line 164, in feed_update
+    response = await self.update.wrap_outer_middleware(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<7 lines>...
+    )
+    ^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\middlewares\error.py", line 27, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\middlewares\user_context.py", line 58, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\fsm\middleware.py", line 43, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\event\telegram.py", line 126, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\dispatcher.py", line 283, in _listen_update
+    return await self.propagate_event(update_type=update_type, event=event, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 161, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 153, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 189, in _propagate_event
+    response = await router.propagate_event(update_type=update_type, event=event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 161, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 153, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 181, in _propagate_event
+    response = await observer.trigger(event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\event\telegram.py", line 126, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\Source\Repos\pidasdka.project\tg_bot\tg_bot\handlers\profile.py", line 143, in edit_profile_start
+    user = get_user(call.from_user.id) # Використовуємо хелпер замість прямого SQL
+           ^^^^^^^^
+NameError: name 'get_user' is not defined
+2025-12-12 18:37:51,405 - INFO - __main__ - ✅ Бот успішно запущено!
+2025-12-12 18:37:51,406 - INFO - aiogram.dispatcher - Start polling
+2025-12-12 18:37:51,457 - INFO - aiogram.dispatcher - Run polling for bot @pidsadkalviv_bot id=8301191163 - 'Підсадка Львів'
+2025-12-12 18:37:51,502 - ERROR - aiogram.dispatcher - Failed to fetch updates - TelegramConflictError: Telegram server says - Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+2025-12-12 18:37:51,502 - WARNING - aiogram.dispatcher - Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 8301191163)
+2025-12-12 18:37:55,396 - INFO - aiogram.dispatcher - Connection established (tryings = 1, bot id = 8301191163)
+2025-12-12 18:37:55,530 - INFO - aiogram.event - Update id=892632851 is handled. Duration 133 ms by bot id=8301191163
+2025-12-12 18:37:55,553 - ERROR - aiogram.dispatcher - Failed to fetch updates - TelegramConflictError: Telegram server says - Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+2025-12-12 18:37:55,553 - WARNING - aiogram.dispatcher - Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 8301191163)
+2025-12-12 18:37:56,597 - ERROR - aiogram.dispatcher - Failed to fetch updates - TelegramConflictError: Telegram server says - Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+2025-12-12 18:37:56,597 - WARNING - aiogram.dispatcher - Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 8301191163)
+2025-12-12 18:37:56,829 - INFO - aiogram.dispatcher - Connection established (tryings = 1, bot id = 8301191163)
+2025-12-12 18:37:57,116 - INFO - aiogram.event - Update id=892632852 is handled. Duration 285 ms by bot id=8301191163
+2025-12-12 18:38:00,642 - ERROR - aiogram.dispatcher - Failed to fetch updates - TelegramConflictError: Telegram server says - Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+2025-12-12 18:38:00,643 - WARNING - aiogram.dispatcher - Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 8301191163)
+2025-12-12 18:38:00,705 - INFO - aiogram.dispatcher - Connection established (tryings = 1, bot id = 8301191163)
+2025-12-12 18:38:00,790 - INFO - aiogram.event - Update id=892632853 is not handled. Duration 84 ms by bot id=8301191163
+2025-12-12 18:38:00,790 - ERROR - aiogram.event - Cause exception while process update id=892632853 by bot id=8301191163
+NameError: name 'get_user' is not defined
+Traceback (most recent call last):
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\dispatcher.py", line 320, in _process_update
+    response = await self.feed_update(bot, update, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\dispatcher.py", line 164, in feed_update
+    response = await self.update.wrap_outer_middleware(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<7 lines>...
+    )
+    ^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\middlewares\error.py", line 27, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\middlewares\user_context.py", line 58, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\fsm\middleware.py", line 43, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\event\telegram.py", line 126, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\dispatcher.py", line 283, in _listen_update
+    return await self.propagate_event(update_type=update_type, event=event, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 161, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 153, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 189, in _propagate_event
+    response = await router.propagate_event(update_type=update_type, event=event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 161, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 153, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 181, in _propagate_event
+    response = await observer.trigger(event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\event\telegram.py", line 126, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\Source\Repos\pidasdka.project\tg_bot\tg_bot\handlers\profile.py", line 143, in edit_profile_start
+    user = get_user(call.from_user.id) # Використовуємо хелпер замість прямого SQL
+           ^^^^^^^^
+NameError: name 'get_user' is not defined
+2025-12-12 18:38:01,687 - ERROR - aiogram.dispatcher - Failed to fetch updates - TelegramConflictError: Telegram server says - Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+2025-12-12 18:38:01,688 - WARNING - aiogram.dispatcher - Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 8301191163)
+2025-12-12 18:38:05,732 - ERROR - aiogram.dispatcher - Failed to fetch updates - TelegramConflictError: Telegram server says - Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+2025-12-12 18:38:05,732 - WARNING - aiogram.dispatcher - Sleep for 1.264624 seconds and try again... (tryings = 1, bot id = 8301191163)
+2025-12-12 18:38:13,584 - INFO - __main__ - ✅ Бот успішно запущено!
+2025-12-12 18:38:13,584 - INFO - aiogram.dispatcher - Start polling
+2025-12-12 18:38:13,628 - INFO - aiogram.dispatcher - Run polling for bot @pidsadkalviv_bot id=8301191163 - 'Підсадка Львів'
+2025-12-12 18:38:14,626 - INFO - aiogram.event - Update id=892632854 is handled. Duration 402 ms by bot id=8301191163
+2025-12-12 18:38:16,018 - INFO - aiogram.event - Update id=892632855 is handled. Duration 158 ms by bot id=8301191163
+2025-12-12 18:38:17,474 - INFO - aiogram.event - Update id=892632856 is handled. Duration 491 ms by bot id=8301191163
+2025-12-12 18:38:26,378 - INFO - aiogram.event - Update id=892632857 is handled. Duration 200 ms by bot id=8301191163
+2025-12-12 18:38:30,877 - INFO - aiogram.event - Update id=892632858 is handled. Duration 426 ms by bot id=8301191163
+2025-12-12 18:38:34,223 - INFO - aiogram.event - Update id=892632859 is handled. Duration 295 ms by bot id=8301191163
+2025-12-12 18:38:38,621 - INFO - aiogram.event - Update id=892632860 is handled. Duration 237 ms by bot id=8301191163
+2025-12-12 18:38:42,110 - INFO - aiogram.event - Update id=892632861 is handled. Duration 203 ms by bot id=8301191163
+2025-12-12 18:38:50,137 - INFO - aiogram.event - Update id=892632862 is handled. Duration 195 ms by bot id=8301191163
+2025-12-12 18:38:53,064 - INFO - aiogram.event - Update id=892632863 is handled. Duration 130 ms by bot id=8301191163
+2025-12-12 18:38:56,302 - INFO - aiogram.event - Update id=892632864 is handled. Duration 121 ms by bot id=8301191163
+2025-12-12 18:38:59,696 - INFO - aiogram.event - Update id=892632865 is handled. Duration 310 ms by bot id=8301191163
+2025-12-12 18:39:03,912 - INFO - aiogram.event - Update id=892632866 is handled. Duration 226 ms by bot id=8301191163
+2025-12-12 18:39:10,063 - INFO - aiogram.event - Update id=892632867 is handled. Duration 176 ms by bot id=8301191163
+2025-12-12 18:39:12,657 - INFO - aiogram.event - Update id=892632868 is handled. Duration 268 ms by bot id=8301191163
+2025-12-12 18:39:16,782 - INFO - aiogram.event - Update id=892632869 is handled. Duration 331 ms by bot id=8301191163
+2025-12-12 18:39:21,864 - INFO - aiogram.event - Update id=892632870 is handled. Duration 65 ms by bot id=8301191163
+2025-12-12 18:39:26,767 - INFO - aiogram.event - Update id=892632871 is handled. Duration 329 ms by bot id=8301191163
+2025-12-12 18:39:30,068 - INFO - aiogram.event - Update id=892632872 is handled. Duration 428 ms by bot id=8301191163
+2025-12-12 18:39:31,397 - INFO - aiogram.event - Update id=892632873 is handled. Duration 138 ms by bot id=8301191163
+2025-12-12 18:39:35,003 - INFO - aiogram.event - Update id=892632874 is handled. Duration 267 ms by bot id=8301191163
+2025-12-12 18:39:46,157 - INFO - aiogram.event - Update id=892632875 is handled. Duration 218 ms by bot id=8301191163
+2025-12-12 18:39:47,330 - INFO - aiogram.event - Update id=892632876 is handled. Duration 288 ms by bot id=8301191163
+2025-12-12 18:39:50,953 - INFO - aiogram.event - Update id=892632877 is handled. Duration 173 ms by bot id=8301191163
+2025-12-12 18:39:55,572 - INFO - aiogram.event - Update id=892632878 is handled. Duration 509 ms by bot id=8301191163
+2025-12-12 18:39:57,788 - INFO - aiogram.event - Update id=892632879 is handled. Duration 144 ms by bot id=8301191163
+2025-12-12 18:40:00,013 - INFO - aiogram.event - Update id=892632880 is handled. Duration 107 ms by bot id=8301191163
+2025-12-12 18:40:01,942 - INFO - aiogram.event - Update id=892632881 is handled. Duration 396 ms by bot id=8301191163
+2025-12-12 18:40:04,720 - INFO - aiogram.event - Update id=892632882 is handled. Duration 321 ms by bot id=8301191163
+2025-12-12 18:40:06,615 - INFO - aiogram.event - Update id=892632883 is handled. Duration 184 ms by bot id=8301191163
+2025-12-12 18:40:09,400 - INFO - aiogram.event - Update id=892632884 is handled. Duration 487 ms by bot id=8301191163
+2025-12-12 18:40:12,027 - INFO - aiogram.event - Update id=892632885 is handled. Duration 245 ms by bot id=8301191163
+2025-12-12 18:40:15,015 - INFO - aiogram.event - Update id=892632886 is handled. Duration 190 ms by bot id=8301191163
+2025-12-12 18:40:16,531 - INFO - aiogram.event - Update id=892632887 is handled. Duration 312 ms by bot id=8301191163
+2025-12-12 18:40:17,816 - INFO - aiogram.event - Update id=892632888 is handled. Duration 189 ms by bot id=8301191163
+2025-12-12 18:40:19,682 - INFO - aiogram.event - Update id=892632889 is handled. Duration 282 ms by bot id=8301191163
+2025-12-12 18:40:25,555 - INFO - aiogram.event - Update id=892632890 is handled. Duration 221 ms by bot id=8301191163
+2025-12-12 18:40:27,922 - INFO - aiogram.event - Update id=892632891 is handled. Duration 296 ms by bot id=8301191163
+2025-12-18 17:07:31,090 - INFO - __main__ - ✅ Бот успішно запущено!
+2025-12-18 17:07:31,090 - INFO - aiogram.dispatcher - Start polling
+2025-12-18 17:07:31,170 - INFO - aiogram.dispatcher - Run polling for bot @pidsadkalviv_bot id=8301191163 - 'Підсадка Львів'
+2025-12-18 17:07:55,373 - INFO - aiogram.event - Update id=892632894 is handled. Duration 596 ms by bot id=8301191163
+2025-12-18 17:07:56,871 - INFO - aiogram.event - Update id=892632895 is handled. Duration 91 ms by bot id=8301191163
+2025-12-18 17:07:59,802 - INFO - aiogram.event - Update id=892632896 is handled. Duration 258 ms by bot id=8301191163
+2025-12-18 17:08:12,750 - INFO - aiogram.event - Update id=892632897 is handled. Duration 285 ms by bot id=8301191163
+2025-12-18 17:08:16,195 - INFO - aiogram.event - Update id=892632898 is handled. Duration 248 ms by bot id=8301191163
+2025-12-18 17:08:21,569 - INFO - aiogram.event - Update id=892632899 is handled. Duration 555 ms by bot id=8301191163
+2025-12-18 17:08:23,183 - INFO - aiogram.event - Update id=892632900 is handled. Duration 96 ms by bot id=8301191163
+2025-12-18 17:08:24,476 - INFO - aiogram.event - Update id=892632901 is handled. Duration 93 ms by bot id=8301191163
+2025-12-18 17:08:27,467 - INFO - aiogram.event - Update id=892632902 is handled. Duration 251 ms by bot id=8301191163
+2025-12-18 17:08:31,512 - INFO - aiogram.event - Update id=892632903 is handled. Duration 118 ms by bot id=8301191163
+2025-12-18 17:08:32,627 - INFO - aiogram.event - Update id=892632904 is handled. Duration 258 ms by bot id=8301191163
+2025-12-18 17:08:36,438 - INFO - aiogram.event - Update id=892632905 is handled. Duration 193 ms by bot id=8301191163
+2025-12-18 17:08:43,905 - INFO - aiogram.event - Update id=892632906 is handled. Duration 263 ms by bot id=8301191163
+2025-12-18 17:08:59,091 - INFO - aiogram.event - Update id=892632907 is handled. Duration 2411 ms by bot id=8301191163
+2025-12-18 17:09:07,697 - INFO - aiogram.event - Update id=892632908 is handled. Duration 262 ms by bot id=8301191163
+2025-12-18 17:09:12,162 - INFO - aiogram.event - Update id=892632909 is handled. Duration 340 ms by bot id=8301191163
+2025-12-18 17:09:18,550 - INFO - aiogram.event - Update id=892632910 is handled. Duration 349 ms by bot id=8301191163
+2025-12-18 17:09:20,223 - INFO - aiogram.event - Update id=892632911 is handled. Duration 233 ms by bot id=8301191163
+2025-12-18 17:09:24,465 - INFO - aiogram.event - Update id=892632912 is handled. Duration 261 ms by bot id=8301191163
+2025-12-18 17:09:28,950 - INFO - aiogram.event - Update id=892632913 is handled. Duration 104 ms by bot id=8301191163
+2025-12-18 17:09:30,195 - INFO - aiogram.event - Update id=892632914 is handled. Duration 202 ms by bot id=8301191163
+2025-12-18 17:09:46,343 - INFO - aiogram.event - Update id=892632915 is handled. Duration 510 ms by bot id=8301191163
+2025-12-18 17:09:52,218 - INFO - aiogram.event - Update id=892632916 is handled. Duration 271 ms by bot id=8301191163
+2025-12-18 17:09:53,775 - INFO - aiogram.event - Update id=892632917 is handled. Duration 220 ms by bot id=8301191163
+2025-12-18 17:10:05,612 - INFO - aiogram.event - Update id=892632918 is handled. Duration 277 ms by bot id=8301191163
+2025-12-18 17:10:07,707 - INFO - aiogram.event - Update id=892632919 is handled. Duration 187 ms by bot id=8301191163
+2025-12-18 17:10:12,486 - INFO - aiogram.event - Update id=892632920 is handled. Duration 1966 ms by bot id=8301191163
+2025-12-18 17:10:17,723 - INFO - aiogram.event - Update id=892632921 is handled. Duration 224 ms by bot id=8301191163
+2025-12-18 17:10:19,227 - INFO - aiogram.event - Update id=892632922 is handled. Duration 492 ms by bot id=8301191163
+2025-12-18 17:10:20,730 - INFO - aiogram.event - Update id=892632923 is handled. Duration 345 ms by bot id=8301191163
+2025-12-18 17:10:23,771 - INFO - aiogram.event - Update id=892632924 is handled. Duration 220 ms by bot id=8301191163
+2025-12-18 17:10:29,958 - INFO - aiogram.event - Update id=892632925 is handled. Duration 298 ms by bot id=8301191163
+2025-12-18 17:10:31,613 - INFO - aiogram.event - Update id=892632926 is handled. Duration 436 ms by bot id=8301191163
+2025-12-18 17:10:33,107 - INFO - aiogram.event - Update id=892632927 is handled. Duration 78 ms by bot id=8301191163
+2025-12-18 17:10:37,748 - INFO - aiogram.event - Update id=892632928 is handled. Duration 166 ms by bot id=8301191163
+2025-12-18 17:10:39,762 - INFO - aiogram.event - Update id=892632929 is handled. Duration 386 ms by bot id=8301191163
+2025-12-18 17:32:18,877 - INFO - __main__ - ✅ Бот успішно запущено!
+2025-12-18 17:32:18,877 - INFO - aiogram.dispatcher - Start polling
+2025-12-18 17:32:18,954 - INFO - aiogram.dispatcher - Run polling for bot @pidsadkalviv_bot id=8301191163 - 'Підсадка Львів'
+2025-12-18 17:32:45,922 - INFO - aiogram.event - Update id=892632930 is handled. Duration 554 ms by bot id=8301191163
+2025-12-18 17:32:47,094 - INFO - aiogram.event - Update id=892632931 is handled. Duration 200 ms by bot id=8301191163
+2025-12-18 17:32:48,472 - INFO - aiogram.event - Update id=892632932 is handled. Duration 103 ms by bot id=8301191163
+2025-12-18 17:32:49,723 - INFO - aiogram.event - Update id=892632933 is handled. Duration 171 ms by bot id=8301191163
+2025-12-18 17:32:50,897 - INFO - aiogram.event - Update id=892632934 is handled. Duration 231 ms by bot id=8301191163
+2025-12-18 17:32:54,206 - INFO - aiogram.event - Update id=892632935 is handled. Duration 263 ms by bot id=8301191163
+2025-12-18 17:32:56,757 - INFO - aiogram.event - Update id=892632936 is handled. Duration 112 ms by bot id=8301191163
+2025-12-18 17:32:57,969 - INFO - aiogram.event - Update id=892632937 is handled. Duration 209 ms by bot id=8301191163
+2025-12-18 17:33:00,179 - INFO - aiogram.event - Update id=892632938 is handled. Duration 503 ms by bot id=8301191163
+2025-12-18 17:33:06,368 - INFO - aiogram.event - Update id=892632939 is handled. Duration 201 ms by bot id=8301191163
+2025-12-18 17:33:08,388 - INFO - aiogram.event - Update id=892632940 is handled. Duration 274 ms by bot id=8301191163
+2025-12-18 17:33:09,722 - INFO - aiogram.event - Update id=892632941 is handled. Duration 123 ms by bot id=8301191163
+2025-12-18 17:33:11,330 - INFO - aiogram.event - Update id=892632942 is handled. Duration 286 ms by bot id=8301191163
+2025-12-18 17:33:13,222 - INFO - aiogram.event - Update id=892632943 is handled. Duration 337 ms by bot id=8301191163
+2025-12-18 17:33:16,420 - INFO - aiogram.event - Update id=892632944 is handled. Duration 247 ms by bot id=8301191163
+2025-12-18 17:33:18,219 - INFO - aiogram.event - Update id=892632945 is handled. Duration 203 ms by bot id=8301191163
+2025-12-18 17:33:20,787 - INFO - aiogram.event - Update id=892632946 is handled. Duration 262 ms by bot id=8301191163
+2025-12-18 17:33:22,135 - INFO - aiogram.event - Update id=892632947 is handled. Duration 198 ms by bot id=8301191163
+2025-12-18 17:33:35,992 - INFO - aiogram.event - Update id=892632948 is handled. Duration 2193 ms by bot id=8301191163
+2025-12-18 17:33:43,152 - INFO - aiogram.event - Update id=892632949 is handled. Duration 1145 ms by bot id=8301191163
+2025-12-18 17:33:44,800 - INFO - aiogram.event - Update id=892632950 is handled. Duration 901 ms by bot id=8301191163
+2025-12-18 17:33:51,090 - INFO - aiogram.event - Update id=892632951 is handled. Duration 107 ms by bot id=8301191163
+2025-12-18 17:33:51,845 - INFO - aiogram.event - Update id=892632952 is handled. Duration 93 ms by bot id=8301191163
+2025-12-18 17:36:06,681 - INFO - aiogram.event - Update id=892632953 is handled. Duration 220 ms by bot id=8301191163
+2025-12-18 17:36:07,661 - INFO - aiogram.event - Update id=892632954 is handled. Duration 249 ms by bot id=8301191163
+2025-12-18 17:36:09,745 - INFO - aiogram.event - Update id=892632955 is handled. Duration 216 ms by bot id=8301191163
+2025-12-18 17:36:20,588 - INFO - aiogram.event - Update id=892632956 is handled. Duration 94 ms by bot id=8301191163
+2025-12-18 17:36:21,716 - INFO - aiogram.event - Update id=892632957 is handled. Duration 181 ms by bot id=8301191163
