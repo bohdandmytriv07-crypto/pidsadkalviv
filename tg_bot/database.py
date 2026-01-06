@@ -102,9 +102,23 @@ def init_db():
             user_id INTEGER,
             message_id INTEGER
         )""")
+
+        # 8. Таблиця міст (для розумного пошуку)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS cities (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE,
+            popularity INTEGER DEFAULT 0
+        )""")
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS chat_messages (
+            user_id INTEGER,
+            message_id INTEGER
+        )''')
         
         conn.commit()
-        
+
+
 # ==========================================
 # 👤 КОРИСТУВАЧІ (USERS)
 # ==========================================
@@ -517,3 +531,32 @@ def get_and_clear_chat_msgs(user_id: int) -> List[int]:
         conn.execute("DELETE FROM chat_logs WHERE user_id = ?", (user_id,))
         conn.commit()
         return ids
+
+
+# ==========================================
+# 🏙️ МІСТА (ДЛЯ РОЗУМНОГО ПОШУКУ)
+# ==========================================
+
+def get_all_cities_names() -> List[str]:
+    """Отримує список усіх міст для пошуку."""
+    with get_db() as conn:
+        # Сортуємо: спочатку популярні, потім за алфавітом
+        rows = conn.execute("SELECT name FROM cities ORDER BY popularity DESC, name ASC").fetchall()
+        return [row['name'] for row in rows]
+
+
+def add_or_update_city(city_name: str):
+    """Додає місто в базу або піднімає його рейтинг."""
+    if not city_name or len(city_name) < 2: return
+    
+    clean_name = city_name.strip().title() # Робимо "київ" -> "Київ"
+    
+    with get_db() as conn:
+        cursor = conn.cursor()
+        # Спробуємо додати нове
+        try:
+            cursor.execute("INSERT INTO cities (name, popularity) VALUES (?, 1)", (clean_name,))
+        except sqlite3.IntegrityError:
+            # Якщо вже є -> +1 до популярності
+            cursor.execute("UPDATE cities SET popularity = popularity + 1 WHERE name = ?", (clean_name,))
+        conn.commit()

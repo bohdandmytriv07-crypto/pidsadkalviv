@@ -4,19 +4,20 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.exceptions import TelegramBadRequest
 
-# Імпорти з ваших модулів
-from utils import clean_user_input, update_interface, is_valid_city
+from utils import (
+    clean_user_input, update_interface, is_valid_city, 
+    get_city_suggestion, validate_city_real, update_or_send_msg
+)
 from states import SearchStates
 from database import (
     search_trips, add_booking, get_user, get_user_bookings, 
     get_trip_details, delete_booking, get_recent_searches, save_search_history,
-    get_user_history, add_subscription
+    get_user_history, add_subscription, add_or_update_city
 )
 from keyboards import kb_back, kb_dates, kb_menu
 
 router = Router()
 
-# Кількість поїздок на одній сторінці
 PAGE_SIZE = 3
 
 # ==========================================
@@ -25,25 +26,33 @@ PAGE_SIZE = 3
 
 @router.callback_query(F.data == "role_passenger")
 async def passenger_menu_handler(call: types.CallbackQuery, state: FSMContext):
+    # Запам'ятовуємо ID меню перед очищенням
+    menu_msg_id = call.message.message_id
+    
     await state.clear()
-    await state.update_data(role="passenger")
+    await state.update_data(role="passenger", last_msg_id=menu_msg_id) # 🔥 ВІДНОВЛЮЄМО ID
     
     msg = await call.message.edit_text(
         "👋 <b>Меню пасажира</b>\nОберіть дію:",
         reply_markup=kb_menu("passenger"),
         parse_mode="HTML"
     )
-    await state.update_data(last_interface_id=msg.message_id)
+    # Оновлюємо ID на випадок, якщо це було нове повідомлення
+    await state.update_data(last_interface_id=msg.message_id, last_msg_id=msg.message_id)
 
 
 # ==========================================
-# 🔍 ПОШУК ПОЇЗДОК (Search Flow)
+# 🔍 ПОШУК ПОЇЗДОК
 # ==========================================
 
 @router.callback_query(F.data == "pass_find")
 async def search_start_handler(call: types.CallbackQuery, state: FSMContext):
-    """Початок пошуку поїздок."""
+    # 🔥 КРИТИЧНО ВАЖЛИВО: Зберігаємо ID старого повідомлення
+    prev_msg_id = call.message.message_id
+    
     await state.clear()
+    # Записуємо його назад у state, щоб update_or_send_msg знав, що редагувати
+    await state.update_data(last_msg_id=prev_msg_id)
     
     if not await _check_profile_filled(call):
         return
@@ -62,16 +71,16 @@ async def search_start_handler(call: types.CallbackQuery, state: FSMContext):
             cb_data = f"hist_{orig}_{dest}"
             keyboard_rows.append([InlineKeyboardButton(text=f"🔄 {orig} ➝ {dest}", callback_data=cb_data)])
     else:
-        msg_text = "🔍 <b>Звідки виїжджаємо?</b>\nВведіть місто (напр. Львів):"
+        msg_text = "🔍 <b>Звідки виїжджаємо?</b>\nВведіть місто (напр. Київ):"
 
     keyboard_rows.append([InlineKeyboardButton(text="🔙 Назад", callback_data="role_passenger")])
     keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
 
-    await update_interface(call.message, msg_text, keyboard)
+    # Тепер ця функція точно знайде старе повідомлення і замінить його
+    await update_or_send_msg(call.bot, call.message.chat.id, state, msg_text, keyboard)
 
 
 async def _check_profile_filled(call: types.CallbackQuery) -> bool:
-    """Перевіряє, чи заповнений профіль користувача."""
     user = get_user(call.from_user.id)
     if not user or not user['phone'] or user['phone'] == "-":
         await call.answer("❌ Спочатку заповніть профіль!", show_alert=True)
@@ -81,15 +90,17 @@ async def _check_profile_filled(call: types.CallbackQuery) -> bool:
             [InlineKeyboardButton(text="🔙 Назад", callback_data="role_passenger")]
         ])
         
-        with suppress(TelegramBadRequest):
-            await call.message.delete()
-        
-        await call.message.answer(
-            "⚠️ <b>Доступ заборонено.</b>\n\n"
-            "Щоб водій міг з вами зв'язатися, додайте номер телефону в профілі.",
-            reply_markup=keyboard,
-            parse_mode="HTML"
-        )
+        # Передаємо None замість state, щоб створити нове, або поточний state щоб замінити
+        # Краще замінити поточне меню на попередження
+        try:
+            await call.message.edit_text(
+                "⚠️ <b>Доступ заборонено.</b>\n\nЩоб водій міг з вами зв'язатися, додайте номер телефону в профілі.",
+                reply_markup=keyboard,
+                parse_mode="HTML"
+            )
+        except:
+            await call.message.answer("⚠️ Доступ заборонено. Заповніть профіль.", reply_markup=keyboard)
+            
         return False
     return True
 
@@ -104,96 +115,147 @@ async def history_search_select(call: types.CallbackQuery, state: FSMContext):
     await state.update_data(origin=origin, dest=dest)
     await state.set_state(SearchStates.date)
     
-    with suppress(TelegramBadRequest):
-        await call.message.delete()
-
-    await call.message.answer(
+    await update_or_send_msg(
+        call.bot, call.message.chat.id, state,
         f"🚀 Маршрут: <b>{origin} ➝ {dest}</b>\n📅 <b>Коли їдемо?</b>", 
-        reply_markup=kb_dates("sdate"), 
-        parse_mode="HTML"
+        kb_dates("sdate")
     )
 
 
-# --- ВВЕДЕННЯ МІСТ (РУЧНИЙ ПОШУК) ---
+# --- ВВЕДЕННЯ МІСТ ---
 
 @router.message(SearchStates.origin)
 async def process_search_origin(message: types.Message, state: FSMContext):
     await clean_user_input(message)
-    
     raw_text = message.text.strip()
 
-    if not is_valid_city(raw_text):
-        data = await state.get_data()
-        with suppress(TelegramBadRequest):
-            if data.get('last_msg_id'):
-                await message.bot.delete_message(chat_id=message.chat.id, message_id=data['last_msg_id'])
+    suggestion = get_city_suggestion(raw_text)
 
-        msg = await message.answer(
-            "⚠️ <b>Помилка в назві!</b>\n"
-            "Не використовуйте спецсимволи (@, # тощо).\n\n"
-            "🔍 <b>Звідки виїжджаємо?</b>\nВведіть місто:", 
-            reply_markup=kb_back(), 
-            parse_mode="HTML"
+    if suggestion:
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text=f"✅ Так, {suggestion}", callback_data=f"fix_orig_{suggestion}")],
+            [InlineKeyboardButton(text="❌ Ні, залишити як є", callback_data="fix_orig_ignore")]
+        ])
+        
+        await state.update_data(temp_origin=raw_text)
+        
+        await update_or_send_msg(
+            message.bot, message.chat.id, state,
+            f"🤔 Ви написали <b>{raw_text}</b>.\nМожливо, ви мали на увазі <b>{suggestion}</b>?", 
+            keyboard
         )
-        await state.update_data(last_msg_id=msg.message_id)
         return
 
-    clean_city = raw_text
+    wait_msg = await message.answer("🌍 Перевіряю назву міста...")
+    real_name = validate_city_real(raw_text)
+    with suppress(TelegramBadRequest): await wait_msg.delete()
+
+    if real_name:
+        clean_city = real_name
+        add_or_update_city(clean_city)
+    else:
+        await update_or_send_msg(
+            message.bot, message.chat.id, state,
+            f"❌ <b>Місто '{raw_text}' не знайдено!</b>\nСпробуйте ще раз.", 
+            kb_back()
+        )
+        return
+
     await state.update_data(origin=clean_city)
-    
     await state.set_state(SearchStates.dest)
     
-    data = await state.get_data()
-    with suppress(TelegramBadRequest):
-         if data.get('last_msg_id'):
-            await message.bot.delete_message(chat_id=message.chat.id, message_id=data['last_msg_id'])
-
-    msg = await message.answer(
-        "🏁 <b>Куди їдемо?</b>\nВведіть місто:", 
-        reply_markup=kb_back(), 
-        parse_mode="HTML"
+    await update_or_send_msg(
+        message.bot, message.chat.id, state,
+        f"✅ Звідки: <b>{clean_city}</b>\n\n🏁 <b>Куди їдемо?</b>\nВведіть місто:", 
+        kb_back()
     )
-    await state.update_data(last_msg_id=msg.message_id)
+
+
+@router.callback_query(F.data.startswith("fix_orig_"))
+async def fix_origin_handler(call: types.CallbackQuery, state: FSMContext):
+    action = call.data.split("_")[2]
+    
+    if action == "ignore":
+        data = await state.get_data()
+        final_city = data.get("temp_origin", "").title()
+    else:
+        final_city = action
+
+    await state.update_data(origin=final_city)
+    await state.set_state(SearchStates.dest)
+    
+    await update_or_send_msg(
+        call.bot, call.message.chat.id, state,
+        f"✅ Звідки: <b>{final_city}</b>\n\n🏁 <b>Куди їдемо?</b>\nВведіть місто:", 
+        kb_back()
+    )
 
 
 @router.message(SearchStates.dest)
 async def process_search_dest(message: types.Message, state: FSMContext):
     await clean_user_input(message)
-    
     raw_text = message.text.strip()
 
-    if not is_valid_city(raw_text):
-        data = await state.get_data()
-        with suppress(TelegramBadRequest):
-            if data.get('last_msg_id'):
-                await message.bot.delete_message(chat_id=message.chat.id, message_id=data['last_msg_id'])
+    suggestion = get_city_suggestion(raw_text)
 
-        msg = await message.answer(
-            "⚠️ <b>Помилка в назві!</b>\n"
-            "Не використовуйте спецсимволи.\n\n"
-            "🏁 <b>Куди їдемо?</b>\nВведіть місто:", 
-            reply_markup=kb_back(), 
-            parse_mode="HTML"
+    if suggestion:
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text=f"✅ Так, {suggestion}", callback_data=f"fix_dest_{suggestion}")],
+            [InlineKeyboardButton(text="❌ Ні, залишити як є", callback_data="fix_dest_ignore")]
+        ])
+        
+        await state.update_data(temp_dest=raw_text)
+        
+        await update_or_send_msg(
+            message.bot, message.chat.id, state,
+            f"🤔 Ви написали <b>{raw_text}</b>.\nМожливо, ви мали на увазі <b>{suggestion}</b>?", 
+            keyboard
         )
-        await state.update_data(last_msg_id=msg.message_id)
         return
 
-    clean_city = raw_text
-    await state.update_data(dest=clean_city)
-    
-    await state.set_state(SearchStates.date)
-    data = await state.get_data()
-    
-    with suppress(TelegramBadRequest):
-        if data.get('last_msg_id'):
-            await message.bot.delete_message(chat_id=message.chat.id, message_id=data['last_msg_id'])
+    wait_msg = await message.answer("🌍 Перевіряю назву міста...")
+    real_name = validate_city_real(raw_text)
+    with suppress(TelegramBadRequest): await wait_msg.delete()
 
-    msg = await message.answer(
-        "📅 <b>Коли їдемо?</b>\nОберіть дату:", 
-        reply_markup=kb_dates("sdate"), 
-        parse_mode="HTML"
+    if real_name:
+        clean_city = real_name
+        add_or_update_city(clean_city)
+    else:
+        await update_or_send_msg(
+            message.bot, message.chat.id, state,
+            f"❌ <b>Місто '{raw_text}' не знайдено!</b>\nСпробуйте ще раз.", 
+            kb_back()
+        )
+        return
+
+    await state.update_data(dest=clean_city)
+    await state.set_state(SearchStates.date)
+    
+    await update_or_send_msg(
+        message.bot, message.chat.id, state,
+        f"🏁 Куди: <b>{clean_city}</b>\n\n📅 <b>Коли їдемо?</b>\nОберіть дату:", 
+        kb_dates("sdate")
     )
-    await state.update_data(last_msg_id=msg.message_id)
+
+
+@router.callback_query(F.data.startswith("fix_dest_"))
+async def fix_dest_handler(call: types.CallbackQuery, state: FSMContext):
+    action = call.data.split("_")[2]
+    
+    if action == "ignore":
+        data = await state.get_data()
+        final_city = data.get("temp_dest", "").title()
+    else:
+        final_city = action
+
+    await state.update_data(dest=final_city)
+    await state.set_state(SearchStates.date)
+    
+    await update_or_send_msg(
+        call.bot, call.message.chat.id, state,
+        f"🏁 Куди: <b>{final_city}</b>\n\n📅 <b>Коли їдемо?</b>", 
+        kb_dates("sdate")
+    )
 
 
 # --- ВИКОНАННЯ ПОШУКУ ---
@@ -206,6 +268,7 @@ async def execute_search(call: types.CallbackQuery, state: FSMContext):
     save_search_history(call.from_user.id, data['origin'], data['dest'])
     raw_trips = search_trips(data['origin'], data['dest'], date_val, call.from_user.id)
     
+    # Видаляємо календар перед показом результатів (картки будуть новими повідомленнями)
     with suppress(TelegramBadRequest):
         await call.message.delete()
     
@@ -231,7 +294,7 @@ async def execute_search(call: types.CallbackQuery, state: FSMContext):
 
 
 # ==========================================
-# 📄 ПАГІНАЦІЯ
+# 📄 ПАГІНАЦІЯ (Тут чистота не потрібна, це список карток)
 # ==========================================
 
 async def _render_trips_page(message: types.Message, state: FSMContext):
@@ -244,11 +307,10 @@ async def _render_trips_page(message: types.Message, state: FSMContext):
     end_index = start_index + PAGE_SIZE
     current_slice = trips[start_index:end_index]
     
-    # --- 🛑 ЗМІНА: Зберігаємо ID повідомлення "Знайдено поїздок" ---
+    # Заголовок (зберігаємо ID, щоб видалити при перегортанні)
     if page == 0 and start_index == 0:
         header_msg = await message.answer(f"🔎 <b>Знайдено поїздок: {len(trips)}</b>", parse_mode="HTML")
         await state.update_data(search_header_msg_id=header_msg.message_id)
-    # -------------------------------------------------------------
 
     for trip in current_slice:
         free_seats = trip['seats_total'] - trip['seats_taken']
@@ -285,7 +347,6 @@ async def _render_trips_page(message: types.Message, state: FSMContext):
     ])
     
     sent_msg = await message.answer("🔽 Навігація:", reply_markup=nav_kb)
-    # Зберігаємо ID навігації, щоб видалити її при бронюванні
     await state.update_data(last_nav_msg_id=sent_msg.message_id)
 
 
@@ -335,27 +396,23 @@ async def process_booking_handler(call: types.CallbackQuery, state: FSMContext):
         user = get_user(passenger_id)
         
         # --- 1. ОЧИЩЕННЯ ЕКРАНУ ---
-        
-        # а) Видаляємо картку поїздки (на якій натиснули кнопку)
         with suppress(TelegramBadRequest):
             await call.message.delete()
 
         data = await state.get_data()
         
-        # б) Видаляємо панель навігації ("Вперед/Назад")
+        # Видаляємо навігацію і заголовок
         nav_msg_id = data.get("last_nav_msg_id") 
         if nav_msg_id:
             with suppress(TelegramBadRequest):
                 await call.bot.delete_message(chat_id=call.message.chat.id, message_id=nav_msg_id)
         
-        # в) Видаляємо заголовок "Знайдено поїздок: X"
         header_msg_id = data.get("search_header_msg_id")
         if header_msg_id:
             with suppress(TelegramBadRequest):
                 await call.bot.delete_message(chat_id=call.message.chat.id, message_id=header_msg_id)
         
-        # --- 2. ФОРМУВАННЯ УСПІШНОГО ПОВІДОМЛЕННЯ ---
-
+        # --- 2. УСПІШНЕ ПОВІДОМЛЕННЯ ---
         all_bookings = get_user_bookings(passenger_id)
         current_booking = next((b for b in all_bookings if str(b['trip_id']) == str(trip_id)), None)
         booking_id = current_booking['id'] if current_booking else None
@@ -379,11 +436,9 @@ async def process_booking_handler(call: types.CallbackQuery, state: FSMContext):
             reply_markup=kb_success,
             parse_mode="HTML"
         )
-        
-        # Зберігаємо ID цього повідомлення
         await state.update_data(last_msg_id=success_msg.message_id)
 
-        # --- 3. СПОВІЩЕННЯ ВОДІЮ ---
+        # Сповіщення водію
         try:
             free_seats = trip['seats_total'] - trip['seats_taken'] - 1
             driver_msg = (
@@ -409,7 +464,7 @@ async def process_booking_handler(call: types.CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == "pass_my_books")
 async def show_my_bookings_handler(call: types.CallbackQuery, state: FSMContext):
-    # 1. Очистка попередніх повідомлень (карток і заголовків)
+    # Очистка старих повідомлень
     data = await state.get_data()
     old_msgs = data.get("booking_msg_ids", [])
     if old_msgs:
@@ -421,9 +476,8 @@ async def show_my_bookings_handler(call: types.CallbackQuery, state: FSMContext)
         await call.message.delete()
 
     bookings = get_user_bookings(call.from_user.id)
-    new_msg_ids = [] # Сюди запишемо нові ID (заголовок + картки)
+    new_msg_ids = []
 
-    # --- ЯКЩО ПУСТО ---
     if not bookings:
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🔍 Знайти поїздку", callback_data="pass_find")],
@@ -437,7 +491,6 @@ async def show_my_bookings_handler(call: types.CallbackQuery, state: FSMContext)
         await state.update_data(booking_msg_ids=new_msg_ids)
         return
 
-    # --- ЯКЩО Є БРОНЮВАННЯ ---
     header = await call.message.answer("🎫 <b>Ваші бронювання:</b>", parse_mode="HTML")
     new_msg_ids.append(header.message_id)
     
@@ -459,7 +512,6 @@ async def show_my_bookings_handler(call: types.CallbackQuery, state: FSMContext)
         msg = await call.message.answer(txt, reply_markup=keyboard, parse_mode="HTML")
         new_msg_ids.append(msg.message_id)
 
-    # Записуємо список усіх ID в пам'ять
     await state.update_data(booking_msg_ids=new_msg_ids)
 
 
@@ -472,7 +524,6 @@ async def cancel_booking_handler(call: types.CallbackQuery, state: FSMContext):
     if info:
         await call.answer("✅ Бронювання скасовано!", show_alert=True)
         
-        # Сповіщення водія
         driver_msg = (
             f"❌ <b>Скасування бронювання!</b>\n"
             f"Пасажир <b>{info['passenger_name']}</b> скасував поїздку.\n\n"
@@ -483,7 +534,6 @@ async def cancel_booking_handler(call: types.CallbackQuery, state: FSMContext):
         with suppress(Exception):
             await call.bot.send_message(chat_id=info['driver_id'], text=driver_msg, parse_mode="HTML")
         
-        # 2. ПЕРЕЗАВАНТАЖУЄМО ЕКРАН БРОНЮВАНЬ
         await show_my_bookings_handler(call, state)
 
     else:
@@ -504,10 +554,11 @@ async def show_history_handler(call: types.CallbackQuery, state: FSMContext):
     ])
     
     if not history:
-        await update_interface(
-            call.message,
+        # Тут не треба update_interface, бо ми прийшли з меню, де було редагування
+        with suppress(TelegramBadRequest): await call.message.delete()
+        await call.message.answer(
             "📜 <b>Ваша історія порожня.</b>\nВи ще не здійснили жодної поїздки.", 
-            kb_back_only
+            reply_markup=kb_back_only, parse_mode="HTML"
         )
         return
 

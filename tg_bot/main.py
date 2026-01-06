@@ -4,9 +4,11 @@ import sys
 from datetime import datetime, timedelta
 
 from aiogram import Bot, Dispatcher
+from aiogram.client.default import DefaultBotProperties
+from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
 
-# --- ІМПОРТИ З ВАШОГО ПРОЕКТУ ---
+# Налаштування та БД (ці файли зазвичай лежать поруч з main.py)
 from config import API_TOKEN
 from database import (
     init_db, 
@@ -17,8 +19,12 @@ from database import (
 )
 from middlewares import ThrottlingMiddleware
 
-# Імпорт хендлерів (роутерів)
-from handlers import common, profile, driver, passenger, chat
+# 👇 ВИПРАВЛЕНО: Додано "handlers." до шляхів імпорту
+from handlers.common import router as common_router
+from handlers.profile import router as profile_router
+from handlers.driver import router as driver_router
+from handlers.passenger import router as passenger_router
+from handlers.chat import router as chat_router
 
 # ==========================================
 # ⚙️ НАЛАШТУВАННЯ ЛОГУВАННЯ
@@ -35,6 +41,11 @@ logger = logging.getLogger(__name__)
 # 🕒 ФОНОВА ЗАДАЧА (CRON)
 # ==========================================
 async def check_trips_periodically(bot: Bot):
+    """
+    Періодично перевіряє активні поїздки:
+    1. Надсилає нагадування за 1 годину.
+    2. Завершує поїздки через 1 годину після старту.
+    """
     logger.info("🕒 Фонова перевірка поїздок запущена.")
     while True:
         try:
@@ -53,13 +64,13 @@ async def check_trips_periodically(bot: Bot):
                     
                     trip_full_str = f"{day:02d}.{month:02d}.{year} {trip['time']}"
                     trip_dt = datetime.strptime(trip_full_str, "%d.%m.%Y %H:%M")
+                    
                     time_diff_minutes = (trip_dt - now).total_seconds() / 60
 
-                    # 1. Сповіщення (за 60 хв)
+                    # 1. СПОВІЩЕННЯ (за 60 хв)
                     if 0 < time_diff_minutes <= 60 and trip['is_notified'] == 0:
                         logger.info(f"🔔 Сповіщення для поїздки {trip['id']}")
                         
-                        # Пасажирам
                         passengers = get_trip_passengers(trip['id'])
                         for p in passengers:
                             try:
@@ -70,7 +81,6 @@ async def check_trips_periodically(bot: Bot):
                                 )
                             except Exception: pass
                         
-                        # Водію
                         try:
                             await bot.send_message(
                                 chat_id=trip['user_id'],
@@ -81,10 +91,10 @@ async def check_trips_periodically(bot: Bot):
 
                         mark_trip_notified(trip['id'])
 
-                    # 2. Закриття (через 1 годину після старту)
-                    if trip_dt + timedelta(hours=1) < now:
+                    # 2. АВТО-ЗАВЕРШЕННЯ
+                    if time_diff_minutes < -60:
                         finish_trip(trip['id'])
-                        logger.info(f"🏁 Поїздка {trip['id']} завершена.")
+                        logger.info(f"🏁 Поїздка {trip['id']} автоматично завершена.")
 
                 except ValueError: continue
                 except Exception as e: logger.error(f"Error trip {trip.get('id')}: {e}")
@@ -101,31 +111,24 @@ async def check_trips_periodically(bot: Bot):
 async def main():
     init_db()
     
-    bot = Bot(token=API_TOKEN)
+    bot = Bot(token=API_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dp = Dispatcher(storage=MemoryStorage())
 
-    # Підключення Middleware
     dp.message.middleware(ThrottlingMiddleware())
     dp.callback_query.middleware(ThrottlingMiddleware())
 
-    # --- РЕЄСТРАЦІЯ РОУТЕРІВ (ПОРЯДОК ВАЖЛИВИЙ!) ---
-    
-    # 1. Загальні команди (/start, /help) - мають спрацьовувати першими
-    dp.include_router(common.router)
-    
-    # 2. Специфічні меню (профіль, водій, пасажир) - перехоплюють введення даних
-    dp.include_router(profile.router)
-    dp.include_router(driver.router)
-    dp.include_router(passenger.router)
-    
-    # 3. Чат - ловить все інше (текст переписки)
-    # Якщо поставити його вище, він буде "з'їдати" команди і введення міст
-    dp.include_router(chat.router)       
+    # Реєстрація роутерів
+    dp.include_router(common_router)
+    dp.include_router(profile_router)
+    dp.include_router(driver_router)
+    dp.include_router(passenger_router)
+    dp.include_router(chat_router)      
 
     await bot.delete_webhook(drop_pending_updates=True)
     asyncio.create_task(check_trips_periodically(bot))
 
     logger.info("✅ Бот успішно запущено!")
+    
     try:
         await dp.start_polling(bot)
     except Exception as e:
@@ -136,5 +139,3 @@ if __name__ == '__main__':
         asyncio.run(main())
     except KeyboardInterrupt:
         logger.info("Bot stopped.")
-
-

@@ -1,136 +1,135 @@
-﻿import logging
+﻿import asyncio
 from contextlib import suppress
 from aiogram import Router, F, types, Bot
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from aiogram.exceptions import TelegramBadRequest
+from aiogram.types import ReplyKeyboardRemove, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
+from aiogram.fsm.context import FSMContext
 
-# Імпорти з ваших файлів
+# Імпорти
 from database import (
-    set_active_chat, get_active_chat_partner, delete_active_chat,
-    save_chat_msg, get_and_clear_chat_msgs, get_user, save_user
+    set_active_chat, get_active_chat_partner, delete_active_chat, get_user,
+    save_chat_msg, get_and_clear_chat_msgs # 👈 Додано нові функції
 )
-from keyboards import kb_main_role
+from keyboards import kb_chat_actions, kb_menu
 
 router = Router()
 
 # ==========================================
-# 💬 ПОЧАТОК ЧАТУ
+# 📞 1. ПОЧАТОК ЧАТУ
 # ==========================================
 
 @router.callback_query(F.data.startswith("chat_start_"))
-async def start_chat_handler(call: types.CallbackQuery, bot: Bot):
-    """
-    Ініціалізація чату: створення запису в БД, відправка привітання.
-    """
+async def start_chat_handler(call: types.CallbackQuery, bot: Bot, state: FSMContext):
+    target_user_id = int(call.data.split("_")[2])
     my_id = call.from_user.id
-    try:
-        partner_id = int(call.data.split("_")[2])
-    except (ValueError, IndexError):
-        await call.answer("Помилка ID", show_alert=True)
+
+    if target_user_id == my_id:
+        await call.answer("Це ви!", show_alert=True)
         return
+
+    target_user = get_user(target_user_id)
+    if not target_user:
+        await call.answer("Користувача не знайдено.", show_alert=True)
+        return
+
+    set_active_chat(my_id, target_user_id)
     
-    # 0. Якщо мене немає в базі (після очищення), створимо
-    if not get_user(my_id):
-        save_user(my_id, call.from_user.full_name, "-")
-
-    # 1. Записуємо в базу, що я говорю з цим партнером
-    set_active_chat(my_id, partner_id)
-
-    # Отримуємо ім'я партнера для краси
-    partner_user = get_user(partner_id)
-    partner_name = partner_user['name'] if partner_user else "Користувач"
-
-    # 2. Видаляємо старі повідомлення (щоб не було сміття)
-    with suppress(TelegramBadRequest):
+    # Видаляємо попереднє меню
+    try:
         await call.message.delete()
+    except: pass
 
-    # 3. Створюємо повідомлення "Чат відкрито"
-    kb_chat = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔴 Завершити чат", callback_data="chat_stop")]
-    ])
-    
+    # Повідомлення про старт
     msg = await call.message.answer(
-        f"💬 <b>Чат з {partner_name} відкрито!</b>\n"
-        f"Пишіть повідомлення, і я передам їх.\n"
-        f"👇 Натисніть кнопку нижче, щоб вийти.",
-        reply_markup=kb_chat,
+        f"💬 <b>Чат з {target_user['name']}</b>\n"
+        f"Пишіть повідомлення, я передам.", 
+        reply_markup=kb_chat_actions(), 
         parse_mode="HTML"
     )
     
-    # 4. Зберігаємо ID цього повідомлення (щоб потім видалити)
+    # 🔥 Зберігаємо ID системного повідомлення
     save_chat_msg(my_id, msg.message_id)
-    await call.answer()
+    
+    set_active_chat(target_user_id, my_id) 
 
 
 # ==========================================
-# 📨 ПЕРЕСИЛКА ПОВІДОМЛЕНЬ
+# 🛑 2. ЗАВЕРШЕННЯ ЧАТУ (Очищення)
 # ==========================================
 
-@router.message()
-async def chat_message_handler(message: types.Message, bot: Bot):
-    """
-    Перехоплює всі текстові повідомлення.
-    Якщо є активний чат — пересилає партнеру.
-    """
-    my_id = message.from_user.id
+@router.message(F.text == "❌ Завершити чат")
+async def end_chat_text_handler(message: types.Message, state: FSMContext, bot: Bot):
+    user_id = message.from_user.id
+    delete_active_chat(user_id)
     
-    # Перевіряємо, чи є у користувача активний чат
-    partner_id = get_active_chat_partner(my_id)
+    # 1. Очищаємо кнопку знизу (через тимчасове повідомлення)
+    temp_msg = await message.answer("🔄 Очищення чату...", reply_markup=ReplyKeyboardRemove())
     
-    # Якщо чату немає — ігноруємо (повідомлення піде далі в інші хендлери)
+    # 2. Отримуємо список всіх повідомлень з бази
+    msg_ids_to_delete = get_and_clear_chat_msgs(user_id)
+    
+    # Додаємо в список на видалення саме це повідомлення "Завершити чат" і тимчасове
+    msg_ids_to_delete.append(message.message_id)
+    msg_ids_to_delete.append(temp_msg.message_id)
+
+    # 3. Видаляємо ВСІ повідомлення циклом
+    for mid in msg_ids_to_delete:
+        with suppress(TelegramBadRequest):
+            await bot.delete_message(chat_id=user_id, message_id=mid)
+
+    # 4. Повертаємо головне меню
+    data = await state.get_data()
+    role = data.get("role", "passenger")
+    
+    new_menu = await message.answer(
+        f"✅ <b>Чат завершено.</b>\nМеню {role}:", 
+        reply_markup=kb_menu(role), 
+        parse_mode="HTML"
+    )
+    await state.update_data(last_msg_id=new_menu.message_id)
+
+
+# ==========================================
+# 📨 3. ПЕРЕСИЛАННЯ (Зі збереженням ID)
+# ==========================================
+
+@router.message(F.text & ~F.text.startswith("/"))
+@router.message(F.photo | F.voice | F.video | F.location | F.sticker) 
+async def chat_relay_handler(message: types.Message, bot: Bot):
+    user_id = message.from_user.id
+    partner_id = get_active_chat_partner(user_id)
+    
     if not partner_id:
         return
 
-    # --- ПЕРЕСИЛКА ---
+    # 🔥 1. Зберігаємо повідомлення ВІДПРАВНИКА (щоб видалити у нього потім)
+    save_chat_msg(user_id, message.message_id)
+
+    sender = get_user(user_id)
+    sender_name = sender['name'] if sender else "Співрозмовник"
+
     try:
-        # Кнопка для партнера, щоб він теж міг відповісти
-        kb_reply = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="↩️ Відповісти", callback_data=f"chat_start_{my_id}")]
-        ])
+        sent_msg = None
         
-        # Відправляємо повідомлення партнеру
-        # Використовуємо copy_to, щоб підтримувати фото, стікери тощо
-        sent_msg = await message.copy_to(
-            chat_id=partner_id,
-            reply_markup=kb_reply
-        )
+        # Пересилаємо
+        if message.text:
+            msg_text = f"👤 <b>{sender_name}:</b>\n{message.text}"
+            sent_msg = await bot.send_message(partner_id, msg_text, reply_markup=kb_chat_actions(), parse_mode="HTML")
+        else:
+            sent_msg = await message.copy_to(
+                chat_id=partner_id,
+                caption=f"👤 <b>{sender_name}</b> надіслав файл.",
+                reply_markup=kb_chat_actions(),
+                parse_mode="HTML"
+            )
         
-        # Зберігаємо ID повідомлення У ПАРТНЕРА (щоб можна було очистити його чат теж)
-        save_chat_msg(partner_id, sent_msg.message_id)
+        # 🔥 2. Зберігаємо повідомлення ОТРИМУВАЧА (щоб видалити у нього, коли він натисне вихід)
+        if sent_msg:
+            save_chat_msg(partner_id, sent_msg.message_id)
+
+    except TelegramForbiddenError:
+        await message.answer("❌ Користувач заблокував бота.")
+        delete_active_chat(user_id)
         
-    except Exception as e:
-        logging.warning(f"Помилка доставки повідомлення: {e}")
-        await message.answer("❌ Не вдалося доставити повідомлення. Користувач заблокував бота.")
-
-
-# ==========================================
-# 🛑 ЗАВЕРШЕННЯ ЧАТУ (З ОЧИЩЕННЯМ)
-# ==========================================
-
-@router.callback_query(F.data == "chat_stop")
-async def stop_chat_handler(call: types.CallbackQuery, bot: Bot):
-    """
-    Завершує чат, видаляє всі системні повідомлення і повертає меню.
-    """
-    user_id = call.from_user.id
-    
-    # 1. Видаляємо запис про активний чат
-    delete_active_chat(user_id)
-    
-    # 2. --- ОЧИЩЕННЯ ПОВІДОМЛЕНЬ БОТА ---
-    msg_ids = get_and_clear_chat_msgs(user_id)
-    
-    for mid in msg_ids:
-        with suppress(TelegramBadRequest):
-            await bot.delete_message(chat_id=user_id, message_id=mid)
-            
-    # Також видаляємо кнопку "Завершити"
-    with suppress(TelegramBadRequest):
-        await call.message.delete()
-
-    # 3. Сповіщення про завершення і повернення в меню
-    await call.message.answer(
-        "✅ <b>Чат завершено.</b>",
-        reply_markup=kb_main_role(), 
-        parse_mode="HTML"
-    )
+    except Exception:
+        pass

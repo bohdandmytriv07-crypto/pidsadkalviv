@@ -1,7 +1,10 @@
 ﻿from datetime import datetime, timedelta
 from typing import List, Tuple
-
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import (
+    InlineKeyboardMarkup, InlineKeyboardButton, 
+    ReplyKeyboardMarkup, KeyboardButton, 
+    ReplyKeyboardRemove
+)
 
 # --- КОНСТАНТИ ---
 SUPPORT_URL = "https://t.me/senkidesigner"
@@ -18,7 +21,7 @@ def kb_main_role() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🚗 Я водій", callback_data="role_driver")],
         [InlineKeyboardButton(text="🚶 Я пасажир", callback_data="role_passenger")],
-        [InlineKeyboardButton(text="🆘 Підтримка / Повідомити про баг", url=SUPPORT_URL)],
+        [InlineKeyboardButton(text="🆘 Підтримка / Баг", url=SUPPORT_URL)],
     ])
 
 
@@ -104,3 +107,20 @@ def kb_dates(prefix: str = "date") -> InlineKeyboardMarkup:
     rows.append([InlineKeyboardButton(text="🔙 Скасувати", callback_data="menu_home")])
     
     return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+# ==========================================
+# 💬 ЧАТ (КНОПКИ ЗНИЗУ)
+# ==========================================
+
+def kb_chat_actions() -> ReplyKeyboardMarkup:
+    """
+    Кнопка знизу екрану для завершення чату.
+    """
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="❌ Завершити чат")]
+        ],
+        resize_keyboard=True,
+        is_persistent=True # Щоб кнопка не зникала після натискання
+    )
