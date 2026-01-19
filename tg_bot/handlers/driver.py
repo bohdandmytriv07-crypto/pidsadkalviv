@@ -28,14 +28,15 @@ router = Router()
 
 @router.callback_query(F.data == "drv_create")
 async def start_create_trip_handler(call: types.CallbackQuery, state: FSMContext, bot: Bot):
-    # 🔥 Зберігаємо ID меню перед очищенням
+    # Запам'ятовуємо ID меню
     menu_msg_id = call.message.message_id
     
     # 1. Скидаємо стани
     await state.clear()
     
-    # 🔥 Відновлюємо ID меню в новому стані
-    await state.update_data(last_msg_id=menu_msg_id)
+    # 🔥 ВИПРАВЛЕННЯ: Зберігаємо роль "driver" разом з ID повідомлення
+    # Тепер, якщо натиснути "Скасувати", бот знатиме, що повертати треба меню водія
+    await state.update_data(last_msg_id=menu_msg_id, role="driver")
     
     await call.answer()
     
@@ -233,7 +234,6 @@ async def process_time(message: types.Message, state: FSMContext, bot: Bot):
     await state.update_data(time=message.text)
     data = await state.get_data()
     
-    # Якщо це повтор поїздки
     if data.get('saved_price'):
         message.text = str(data.get('saved_price'))
         await finalize_trip_creation(message, state, bot)
@@ -288,7 +288,6 @@ async def finalize_trip_creation(message: types.Message, state: FSMContext, bot:
         )
         return 
 
-    # Створюємо ID і запис у базі
     trip_id = str(uuid.uuid4())[:8]
     create_trip(
         trip_id, message.from_user.id, 
@@ -311,7 +310,6 @@ async def finalize_trip_creation(message: types.Message, state: FSMContext, bot:
         f"💰 {final_price} грн"
     )
 
-    # 🔥 ОНОВЛЮЄМО ОСТАННЄ ПОВІДОМЛЕННЯ
     await update_or_send_msg(bot, message.chat.id, state, success_text, kb_return)
     
     await state.clear()
@@ -356,7 +354,6 @@ async def _notify_subscribers(bot, driver_id, trip_id, trip_data, price):
 
 @router.callback_query(F.data == "drv_my_trips")
 async def show_driver_trips(call: types.CallbackQuery, state: FSMContext):
-    # 1. Очищення старих карток
     data = await state.get_data()
     old_trip_msgs = data.get("trip_msg_ids", [])
     

@@ -2,13 +2,13 @@
 import logging
 import sys
 from datetime import datetime, timedelta
-
+from handlers.admin import router as admin_router
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
 
-# Налаштування та БД (ці файли зазвичай лежать поруч з main.py)
+
 from config import API_TOKEN
 from database import (
     init_db, 
@@ -118,6 +118,7 @@ async def main():
     dp.callback_query.middleware(ThrottlingMiddleware())
 
     # Реєстрація роутерів
+    dp.include_router(admin_router)
     dp.include_router(common_router)
     dp.include_router(profile_router)
     dp.include_router(driver_router)
