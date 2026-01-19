@@ -1,5 +1,6 @@
-﻿from contextlib import suppress
-from aiogram import Router, F, types
+﻿import uuid
+from contextlib import suppress
+from aiogram import Router, F, types, Bot
 from aiogram.fsm.context import FSMContext
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.exceptions import TelegramBadRequest
@@ -30,7 +31,7 @@ async def passenger_menu_handler(call: types.CallbackQuery, state: FSMContext):
     menu_msg_id = call.message.message_id
     
     await state.clear()
-    await state.update_data(role="passenger", last_msg_id=menu_msg_id) # 🔥 ВІДНОВЛЮЄМО ID
+    await state.update_data(role="passenger", last_msg_id=menu_msg_id)
     
     msg = await call.message.edit_text(
         "👋 <b>Меню пасажира</b>\nОберіть дію:",
@@ -47,11 +48,10 @@ async def passenger_menu_handler(call: types.CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == "pass_find")
 async def search_start_handler(call: types.CallbackQuery, state: FSMContext):
-    # 🔥 КРИТИЧНО ВАЖЛИВО: Зберігаємо ID старого повідомлення
+    # Зберігаємо ID старого повідомлення
     prev_msg_id = call.message.message_id
     
     await state.clear()
-    # Записуємо його назад у state, щоб update_or_send_msg знав, що редагувати
     await state.update_data(last_msg_id=prev_msg_id)
     
     if not await _check_profile_filled(call):
@@ -76,7 +76,6 @@ async def search_start_handler(call: types.CallbackQuery, state: FSMContext):
     keyboard_rows.append([InlineKeyboardButton(text="🔙 Назад", callback_data="role_passenger")])
     keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
 
-    # Тепер ця функція точно знайде старе повідомлення і замінить його
     await update_or_send_msg(call.bot, call.message.chat.id, state, msg_text, keyboard)
 
 
@@ -90,8 +89,6 @@ async def _check_profile_filled(call: types.CallbackQuery) -> bool:
             [InlineKeyboardButton(text="🔙 Назад", callback_data="role_passenger")]
         ])
         
-        # Передаємо None замість state, щоб створити нове, або поточний state щоб замінити
-        # Краще замінити поточне меню на попередження
         try:
             await call.message.edit_text(
                 "⚠️ <b>Доступ заборонено.</b>\n\nЩоб водій міг з вами зв'язатися, додайте номер телефону в профілі.",
@@ -125,12 +122,29 @@ async def history_search_select(call: types.CallbackQuery, state: FSMContext):
 # --- ВВЕДЕННЯ МІСТ ---
 
 @router.message(SearchStates.origin)
-async def process_search_origin(message: types.Message, state: FSMContext):
+async def process_search_origin(message: types.Message, state: FSMContext, bot: Bot):
     await clean_user_input(message)
     raw_text = message.text.strip()
 
+    # 1. Пошук в базі
     suggestion = get_city_suggestion(raw_text)
 
+    # 🔥 ВИПРАВЛЕННЯ: Якщо знайшли точне співпадіння - не питаємо
+    if suggestion and suggestion.lower() == raw_text.lower():
+        clean_city = suggestion
+        add_or_update_city(clean_city)
+        
+        await state.update_data(origin=clean_city)
+        await state.set_state(SearchStates.dest)
+        
+        await update_or_send_msg(
+            bot, message.chat.id, state,
+            f"✅ Звідки: <b>{clean_city}</b>\n\n🏁 <b>Куди їдемо?</b>\nВведіть місто:", 
+            kb_back()
+        )
+        return
+
+    # 2. Якщо схоже, але не точне - питаємо
     if suggestion:
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text=f"✅ Так, {suggestion}", callback_data=f"fix_orig_{suggestion}")],
@@ -146,6 +160,7 @@ async def process_search_origin(message: types.Message, state: FSMContext):
         )
         return
 
+    # 3. Перевірка в інтернеті
     wait_msg = await message.answer("🌍 Перевіряю назву міста...")
     real_name = validate_city_real(raw_text)
     with suppress(TelegramBadRequest): await wait_msg.delete()
@@ -153,22 +168,21 @@ async def process_search_origin(message: types.Message, state: FSMContext):
     if real_name:
         clean_city = real_name
         add_or_update_city(clean_city)
+        
+        await state.update_data(origin=clean_city)
+        await state.set_state(SearchStates.dest)
+        
+        await update_or_send_msg(
+            message.bot, message.chat.id, state,
+            f"✅ Звідки: <b>{clean_city}</b>\n\n🏁 <b>Куди їдемо?</b>\nВведіть місто:", 
+            kb_back()
+        )
     else:
         await update_or_send_msg(
             message.bot, message.chat.id, state,
             f"❌ <b>Місто '{raw_text}' не знайдено!</b>\nСпробуйте ще раз.", 
             kb_back()
         )
-        return
-
-    await state.update_data(origin=clean_city)
-    await state.set_state(SearchStates.dest)
-    
-    await update_or_send_msg(
-        message.bot, message.chat.id, state,
-        f"✅ Звідки: <b>{clean_city}</b>\n\n🏁 <b>Куди їдемо?</b>\nВведіть місто:", 
-        kb_back()
-    )
 
 
 @router.callback_query(F.data.startswith("fix_orig_"))
@@ -181,6 +195,7 @@ async def fix_origin_handler(call: types.CallbackQuery, state: FSMContext):
     else:
         final_city = action
 
+    add_or_update_city(final_city)
     await state.update_data(origin=final_city)
     await state.set_state(SearchStates.dest)
     
@@ -192,12 +207,29 @@ async def fix_origin_handler(call: types.CallbackQuery, state: FSMContext):
 
 
 @router.message(SearchStates.dest)
-async def process_search_dest(message: types.Message, state: FSMContext):
+async def process_search_dest(message: types.Message, state: FSMContext, bot: Bot):
     await clean_user_input(message)
     raw_text = message.text.strip()
 
+    # 1. Пошук в базі
     suggestion = get_city_suggestion(raw_text)
 
+    # 🔥 ВИПРАВЛЕННЯ: Точне співпадіння
+    if suggestion and suggestion.lower() == raw_text.lower():
+        clean_city = suggestion
+        add_or_update_city(clean_city)
+        
+        await state.update_data(dest=clean_city)
+        await state.set_state(SearchStates.date)
+        
+        await update_or_send_msg(
+            bot, message.chat.id, state,
+            f"🏁 Куди: <b>{clean_city}</b>\n\n📅 <b>Коли їдемо?</b>\nОберіть дату:", 
+            kb_dates("sdate")
+        )
+        return
+
+    # 2. Схоже місто
     if suggestion:
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text=f"✅ Так, {suggestion}", callback_data=f"fix_dest_{suggestion}")],
@@ -213,6 +245,7 @@ async def process_search_dest(message: types.Message, state: FSMContext):
         )
         return
 
+    # 3. Інтернет
     wait_msg = await message.answer("🌍 Перевіряю назву міста...")
     real_name = validate_city_real(raw_text)
     with suppress(TelegramBadRequest): await wait_msg.delete()
@@ -220,22 +253,21 @@ async def process_search_dest(message: types.Message, state: FSMContext):
     if real_name:
         clean_city = real_name
         add_or_update_city(clean_city)
+        
+        await state.update_data(dest=clean_city)
+        await state.set_state(SearchStates.date)
+        
+        await update_or_send_msg(
+            message.bot, message.chat.id, state,
+            f"🏁 Куди: <b>{clean_city}</b>\n\n📅 <b>Коли їдемо?</b>\nОберіть дату:", 
+            kb_dates("sdate")
+        )
     else:
         await update_or_send_msg(
             message.bot, message.chat.id, state,
             f"❌ <b>Місто '{raw_text}' не знайдено!</b>\nСпробуйте ще раз.", 
             kb_back()
         )
-        return
-
-    await state.update_data(dest=clean_city)
-    await state.set_state(SearchStates.date)
-    
-    await update_or_send_msg(
-        message.bot, message.chat.id, state,
-        f"🏁 Куди: <b>{clean_city}</b>\n\n📅 <b>Коли їдемо?</b>\nОберіть дату:", 
-        kb_dates("sdate")
-    )
 
 
 @router.callback_query(F.data.startswith("fix_dest_"))
@@ -248,6 +280,7 @@ async def fix_dest_handler(call: types.CallbackQuery, state: FSMContext):
     else:
         final_city = action
 
+    add_or_update_city(final_city)
     await state.update_data(dest=final_city)
     await state.set_state(SearchStates.date)
     
@@ -268,49 +301,55 @@ async def execute_search(call: types.CallbackQuery, state: FSMContext):
     save_search_history(call.from_user.id, data['origin'], data['dest'])
     raw_trips = search_trips(data['origin'], data['dest'], date_val, call.from_user.id)
     
-    # Видаляємо календар перед показом результатів (картки будуть новими повідомленнями)
+    # Видаляємо календар
     with suppress(TelegramBadRequest):
         await call.message.delete()
     
+    # Список для збереження ID повідомлень (для видалення при виході в меню)
+    search_msg_ids = []
+
     if not raw_trips:
         kb_subscribe = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🔔 Сповістити про появу", callback_data=f"sub_{data['origin']}_{data['dest']}_{date_val}")],
             [InlineKeyboardButton(text="🔙 Назад", callback_data="pass_find")]
         ])
         
-        await call.message.answer(
+        msg = await call.message.answer(
             f"😔 <b>На жаль, поїздок не знайдено.</b>\n"
             f"Маршрут: {data['origin']} -> {data['dest']} на {date_val}\n"
             f"Ми можемо написати вам, коли водій створить таку поїздку.",
             reply_markup=kb_subscribe,
             parse_mode="HTML"
         )
+        search_msg_ids.append(msg.message_id)
+        await state.update_data(search_msg_ids=search_msg_ids)
         return
 
     trips_list = [dict(row) for row in raw_trips]
-    await state.update_data(all_trips=trips_list, current_page=0)
+    await state.update_data(all_trips=trips_list, current_page=0, search_msg_ids=search_msg_ids)
     
     await _render_trips_page(call.message, state)
 
 
 # ==========================================
-# 📄 ПАГІНАЦІЯ (Тут чистота не потрібна, це список карток)
+# 📄 ПАГІНАЦІЯ
 # ==========================================
 
 async def _render_trips_page(message: types.Message, state: FSMContext):
     data = await state.get_data()
     trips = data.get('all_trips', [])
     page = data.get('current_page', 0)
+    search_msg_ids = data.get('search_msg_ids', [])
     
     total_pages = (len(trips) - 1) // PAGE_SIZE + 1
     start_index = page * PAGE_SIZE
     end_index = start_index + PAGE_SIZE
     current_slice = trips[start_index:end_index]
     
-    # Заголовок (зберігаємо ID, щоб видалити при перегортанні)
+    # Заголовок (зберігаємо ID)
     if page == 0 and start_index == 0:
         header_msg = await message.answer(f"🔎 <b>Знайдено поїздок: {len(trips)}</b>", parse_mode="HTML")
-        await state.update_data(search_header_msg_id=header_msg.message_id)
+        search_msg_ids.append(header_msg.message_id)
 
     for trip in current_slice:
         free_seats = trip['seats_total'] - trip['seats_taken']
@@ -328,7 +367,8 @@ async def _render_trips_page(message: types.Message, state: FSMContext):
             [InlineKeyboardButton(text="💬 Написати водію", callback_data=f"chat_start_{trip['user_id']}")]
         ])
         
-        await message.answer(txt, reply_markup=keyboard, parse_mode="HTML")
+        msg = await message.answer(txt, reply_markup=keyboard, parse_mode="HTML")
+        search_msg_ids.append(msg.message_id)
     
     # Навігація
     buttons = []
@@ -343,19 +383,25 @@ async def _render_trips_page(message: types.Message, state: FSMContext):
     nav_kb = InlineKeyboardMarkup(inline_keyboard=[
         buttons,
         [InlineKeyboardButton(text="🔍 Новий пошук", callback_data="pass_find")],
-        [InlineKeyboardButton(text="🏠 У меню", callback_data="role_passenger")]
+        [InlineKeyboardButton(text="🏠 У меню", callback_data="role_passenger")] # Це тепер menu_home за логікою
     ])
     
+    # Щоб не спамити навігацією, видаляємо стару якщо є
+    old_nav_id = data.get("last_nav_msg_id")
+    if old_nav_id:
+        with suppress(TelegramBadRequest):
+            await message.bot.delete_message(chat_id=message.chat.id, message_id=old_nav_id)
+
     sent_msg = await message.answer("🔽 Навігація:", reply_markup=nav_kb)
-    await state.update_data(last_nav_msg_id=sent_msg.message_id)
+    search_msg_ids.append(sent_msg.message_id) # Додаємо навігацію в список на видалення
+    
+    # Оновлюємо список ID в стані
+    await state.update_data(last_nav_msg_id=sent_msg.message_id, search_msg_ids=search_msg_ids)
 
 
 @router.callback_query(F.data == "page_next")
 async def next_page_handler(call: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    with suppress(TelegramBadRequest):
-        await call.message.bot.delete_message(chat_id=call.message.chat.id, message_id=data.get('last_nav_msg_id'))
-    
     new_page = data.get('current_page', 0) + 1
     await state.update_data(current_page=new_page)
     await _render_trips_page(call.message, state)
@@ -364,9 +410,6 @@ async def next_page_handler(call: types.CallbackQuery, state: FSMContext):
 @router.callback_query(F.data == "page_prev")
 async def prev_page_handler(call: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    with suppress(TelegramBadRequest):
-        await call.message.bot.delete_message(chat_id=call.message.chat.id, message_id=data.get('last_nav_msg_id'))
-    
     new_page = max(0, data.get('current_page', 0) - 1)
     await state.update_data(current_page=new_page)
     await _render_trips_page(call.message, state)
@@ -401,16 +444,13 @@ async def process_booking_handler(call: types.CallbackQuery, state: FSMContext):
 
         data = await state.get_data()
         
-        # Видаляємо навігацію і заголовок
-        nav_msg_id = data.get("last_nav_msg_id") 
-        if nav_msg_id:
-            with suppress(TelegramBadRequest):
-                await call.bot.delete_message(chat_id=call.message.chat.id, message_id=nav_msg_id)
+        # Видаляємо всю сторінку пошуку
+        ids_to_clean = data.get("search_msg_ids", [])
+        if data.get("last_nav_msg_id"): ids_to_clean.append(data.get("last_nav_msg_id"))
         
-        header_msg_id = data.get("search_header_msg_id")
-        if header_msg_id:
+        for mid in ids_to_clean:
             with suppress(TelegramBadRequest):
-                await call.bot.delete_message(chat_id=call.message.chat.id, message_id=header_msg_id)
+                await call.bot.delete_message(chat_id=call.message.chat.id, message_id=mid)
         
         # --- 2. УСПІШНЕ ПОВІДОМЛЕННЯ ---
         all_bookings = get_user_bookings(passenger_id)
@@ -459,12 +499,12 @@ async def process_booking_handler(call: types.CallbackQuery, state: FSMContext):
 
 
 # ==========================================
-# 🗂 МОЇ БРОНЮВАННЯ (З авто-оновленням)
+# 🗂 МОЇ БРОНЮВАННЯ
 # ==========================================
 
 @router.callback_query(F.data == "pass_my_books")
 async def show_my_bookings_handler(call: types.CallbackQuery, state: FSMContext):
-    # Очистка старих повідомлень
+    # Очистка
     data = await state.get_data()
     old_msgs = data.get("booking_msg_ids", [])
     if old_msgs:
@@ -554,7 +594,6 @@ async def show_history_handler(call: types.CallbackQuery, state: FSMContext):
     ])
     
     if not history:
-        # Тут не треба update_interface, бо ми прийшли з меню, де було редагування
         with suppress(TelegramBadRequest): await call.message.delete()
         await call.message.answer(
             "📜 <b>Ваша історія порожня.</b>\nВи ще не здійснили жодної поїздки.", 

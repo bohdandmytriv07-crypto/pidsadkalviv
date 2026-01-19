@@ -106,30 +106,38 @@ async def set_role_handler(call: types.CallbackQuery, state: FSMContext):
 @router.callback_query(F.data == "menu_home")
 async def back_to_menu_handler(call: types.CallbackQuery, state: FSMContext, bot: Bot):
     """
-    Повертає в меню поточної ролі.
-    ВАЖЛИВО: Ця функція також чистить екран від чатів та списків.
+    Повертає в меню і чистить ВСЕ сміття (поїздки водія, пошук пасажира, чати).
     """
-    # Запам'ятовуємо ID поточного повідомлення (меню/кнопки "назад"), яке ми натиснули
+    # Запам'ятовуємо ID кнопки, яку натиснули (щоб її не видалити, а відредагувати)
     prev_msg_id = call.message.message_id
     
     data = await state.get_data()
-    role = data.get("role", "passenger") # За замовчуванням пасажир
+    role = data.get("role", "passenger")
     
-    # Збираємо сміття (старі списки поїздок тощо)
+    # Збираємо всі ID для видалення
     ids_to_clean = []
+    
+    # 1. Поїздки водія
     ids_to_clean.extend(data.get("trip_msg_ids", []))
+    
+    # 2. Бронювання
     ids_to_clean.extend(data.get("booking_msg_ids", []))
     
-    # Видаляємо все зайве, КРІМ поточного повідомлення (бо ми його відредагуємо)
+    # 3. 🔥 Результати пошуку (НОВЕ)
+    ids_to_clean.extend(data.get("search_msg_ids", []))
+    
+    # 4. Активні чати
+    from database import delete_active_chat, get_and_clear_chat_msgs
+    delete_active_chat(call.from_user.id)
+    ids_to_clean.extend(get_and_clear_chat_msgs(call.from_user.id))
+
+    # Видаляємо все, КРІМ поточного повідомлення
     for msg_id in ids_to_clean:
         if msg_id != prev_msg_id:
             with suppress(TelegramBadRequest):
                 await bot.delete_message(chat_id=call.message.chat.id, message_id=msg_id)
 
-    # Якщо був чат - виходимо з нього
-    delete_active_chat(call.from_user.id)
-
-    # Очищаємо пам'ять, АЛЕ відновлюємо ID повідомлення і роль
+    # Очищаємо стан, але відновлюємо роль і ID меню
     await state.clear()
     await state.update_data(role=role, last_msg_id=prev_msg_id)
     
