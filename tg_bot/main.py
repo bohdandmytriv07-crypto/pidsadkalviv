@@ -1,6 +1,7 @@
 ﻿import asyncio
 import logging
 import sys
+from logging.handlers import RotatingFileHandler
 from datetime import datetime, timedelta
 from handlers.admin import router as admin_router
 from aiogram import Bot, Dispatcher
@@ -140,3 +141,11 @@ if __name__ == '__main__':
         asyncio.run(main())
     except KeyboardInterrupt:
         logger.info("Bot stopped.")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[
+        RotatingFileHandler("bot.log", maxBytes=5*1024*1024, backupCount=2), # 5 MB на файл
+        logging.StreamHandler(sys.stdout)
+    ]
+)

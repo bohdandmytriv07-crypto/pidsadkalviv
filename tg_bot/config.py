@@ -1,3 +1,7 @@
-﻿# config.py
-API_TOKEN = '8301191163:AAFJIy9435n9tyqh1sPH9-f_PG_S-Hi-smA'
-DB_FILE = "bot_database.db"
+﻿import os
+from dotenv import load_dotenv
+load_dotenv()
+
+API_TOKEN = os.getenv("BOT_TOKEN")
+DB_FILE = os.getenv("DB_PATH", "ridebot.db")
+ADMIN_IDS = list(map(int, os.getenv("ADMIN_IDS", "").split(",")))

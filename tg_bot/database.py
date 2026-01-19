@@ -1,7 +1,7 @@
 ﻿import sqlite3
 from datetime import datetime
 from config import DB_FILE # Переконайтеся, що в config.py є: DB_FILE = "ridebot.db"
-
+import pytz
 # ==========================================
 # ⚙️ НАЛАШТУВАННЯ ПІДКЛЮЧЕННЯ (OPTIMIZED)
 # ==========================================
