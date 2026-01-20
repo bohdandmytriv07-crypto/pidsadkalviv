@@ -7,7 +7,7 @@ from aiogram.exceptions import TelegramBadRequest
 
 from database import get_user, save_user
 from states import ProfileStates
-from keyboards import kb_back, kb_menu
+from keyboards import kb_back, kb_menu, kb_car_type # 👈 Нова клавіатура
 from utils import clean_user_input, send_new_clean_msg, delete_prev_msg, update_or_send_msg
 
 router = Router()
@@ -63,11 +63,12 @@ async def back_to_model_handler(call: types.CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == "back_to_body")
 async def back_to_body_handler(call: types.CallbackQuery, state: FSMContext):
+    # Повертаємося до вибору типу кузова (КНОПКИ)
     await state.set_state(ProfileStates.body)
     await update_or_send_msg(
         call.bot, call.message.chat.id, state,
-        "🚜 <b>Крок 4/5</b>\nВведіть тип кузова:\n<i>(напр. Седан, Універсал)</i>",
-        kb_back()
+        "🚙 <b>Крок 4/5</b>\nОберіть тип авто:",
+        kb_car_type()
     )
     await call.answer()
 
@@ -132,7 +133,7 @@ async def edit_profile_start(call: types.CallbackQuery, state: FSMContext):
                 f"📱 Телефон: {user['phone']}\n"
                 f"🚘 Авто: {user['model']} {user['color']}\n"
                 f"🔢 Номер: <code>{user['number']}</code>\n"
-                f"🚜 Кузов: {user['body']}"
+                f"🚙 Тип: {user['body']}"
             )
 
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -140,12 +141,10 @@ async def edit_profile_start(call: types.CallbackQuery, state: FSMContext):
             [InlineKeyboardButton(text="🔙 Назад", callback_data="menu_home")]
         ])
         
-        # Тут ми не знаємо, чи було повідомлення старе чи нове, тому намагаємося редагувати
         try:
             await call.message.edit_text(profile_text, reply_markup=keyboard, parse_mode="HTML")
             await state.update_data(last_msg_id=call.message.message_id)
         except:
-            # Якщо не вийшло - видаляємо старе і шлемо нове
             await _delete_message_safe(call.message)
             msg = await call.message.answer(profile_text, reply_markup=keyboard, parse_mode="HTML")
             await state.update_data(last_msg_id=msg.message_id)
@@ -157,14 +156,12 @@ async def edit_profile_start(call: types.CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == "profile_new")
 async def start_profile_registration(call: types.CallbackQuery, state: FSMContext):
-    # Зберігаємо ID
     prev_id = call.message.message_id
-    
     data = await state.get_data()
     role = data.get("role", "passenger")
     
     await state.clear()
-    await state.update_data(role=role, last_msg_id=prev_id) # 🔥 ВІДНОВЛЮЄМО ID
+    await state.update_data(role=role, last_msg_id=prev_id)
     await state.set_state(ProfileStates.name)
     
     steps = "1/2" if role == "passenger" else "1/5"
@@ -195,7 +192,6 @@ async def process_name(message: types.Message, state: FSMContext):
     await state.update_data(name=message.text)
     await state.set_state(ProfileStates.phone)
     
-    # Видаляємо попереднє повідомлення, бо далі йде Reply клавіатура
     await delete_prev_msg(state, message.bot, message.chat.id)
     
     keyboard = ReplyKeyboardMarkup(
@@ -220,7 +216,6 @@ async def process_name(message: types.Message, state: FSMContext):
 
 @router.message(ProfileStates.phone)
 async def process_phone(message: types.Message, state: FSMContext):
-    # Тут ми не можемо "чисто" видалити, бо юзер міг натиснути кнопку
     with suppress(TelegramBadRequest): await message.delete()
     
     phone_to_save = None
@@ -301,40 +296,30 @@ async def process_model(message: types.Message, state: FSMContext):
         return
 
     await state.update_data(model=message.text)
-    await state.set_state(ProfileStates.body)
     
+    # 🔥 ПЕРЕХІД ДО ТИПУ КУЗОВА (КНОПКИ)
+    await state.set_state(ProfileStates.body)
     await update_or_send_msg(
         message.bot, message.chat.id, state,
-        "🚜 <b>Крок 4/5</b>\nВведіть тип кузова:\n<i>(напр. Седан, Універсал)</i>", 
-        markup=None
+        "🚙 <b>Крок 4/5</b>\nОберіть тип авто:", 
+        kb_car_type() # 👈 Тут показуємо нові кнопки
     )
 
 
-# --- КРОК 4: КУЗОВ (Водій) ---
+# --- КРОК 4: КУЗОВ (Водій) - ОБРОБКА КНОПОК ---
 
-@router.message(ProfileStates.body)
-async def process_body(message: types.Message, state: FSMContext):
-    await clean_user_input(message)
+@router.callback_query(ProfileStates.body, F.data.startswith("body_"))
+async def process_body_buttons(call: types.CallbackQuery, state: FSMContext):
+    selected_type = "Легкова" if call.data == "body_car" else "Бус"
     
-    if message.text and message.text.startswith("/"):
-        await update_or_send_msg(message.bot, message.chat.id, state, CMD_ERROR_TEXT, kb_error_retry("back_to_body"))
-        return
-
-    if not message.text or len(message.text) < 3 or re.search(r'\d', message.text):
-        await update_or_send_msg(
-            message.bot, message.chat.id, state, 
-            "❌ <b>Некоректний кузов.</b>\nВведіть словами (напр. Седан):", 
-            kb_error_retry("back_to_body")
-        )
-        return
-
-    await state.update_data(body=message.text)
+    await state.update_data(body=selected_type)
+    
+    # Перехід до кольору
     await state.set_state(ProfileStates.color)
-    
     await update_or_send_msg(
-        message.bot, message.chat.id, state,
-        "🎨 <b>Крок 5/5</b>\nВведіть колір авто:\n<i>(напр. Чорний, Білий)</i>", 
-        markup=None
+        call.bot, call.message.chat.id, state,
+        f"✅ Тип: <b>{selected_type}</b>\n\n🎨 <b>Крок 5/5</b>\nВведіть колір авто:\n<i>(напр. Чорний, Білий)</i>",
+        kb_back() # Кнопка назад тепер поверне до вибору типу
     )
 
 
@@ -433,7 +418,6 @@ async def process_number(message: types.Message, state: FSMContext):
         return
 
     # ЗБЕРЕЖЕННЯ ПРОФІЛЮ ВОДІЯ
-    # Прибираємо старе питання
     await delete_prev_msg(state, message.bot, message.chat.id)
 
     save_user(
@@ -445,7 +429,7 @@ async def process_number(message: types.Message, state: FSMContext):
     
     msg = await message.answer("✅ <b>Водій готовий!</b>", reply_markup=kb_menu("driver"), parse_mode="HTML")
     await state.clear()
-    await state.update_data(role="driver", last_interface_id=msg.message_id) # Зберігаємо нове меню
+    await state.update_data(role="driver", last_interface_id=msg.message_id)
 
 
 # ==========================================
@@ -454,7 +438,6 @@ async def process_number(message: types.Message, state: FSMContext):
 
 @router.callback_query(F.data == "profile_add_car")
 async def add_car_details_start(call: types.CallbackQuery, state: FSMContext):
-    # Зберігаємо ID
     prev_id = call.message.message_id
     
     user = get_user(call.from_user.id)
@@ -467,7 +450,7 @@ async def add_car_details_start(call: types.CallbackQuery, state: FSMContext):
         role="driver",        
         name=user['name'],    
         phone=user['phone'],
-        last_msg_id=prev_id # 🔥 ВІДНОВЛЮЄМО ID
+        last_msg_id=prev_id 
     )
     
     await state.set_state(ProfileStates.model)

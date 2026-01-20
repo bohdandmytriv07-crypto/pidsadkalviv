@@ -124,3 +124,8 @@ def kb_chat_actions() -> ReplyKeyboardMarkup:
         resize_keyboard=True,
         is_persistent=True # Щоб кнопка не зникала після натискання
     )
+def kb_car_type():
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🚗 Легкова", callback_data="body_car")],
+        [InlineKeyboardButton(text="🚐 Бус / Мінівен", callback_data="body_bus")]
+    ])

@@ -34,8 +34,7 @@ async def start_create_trip_handler(call: types.CallbackQuery, state: FSMContext
     # 1. Скидаємо стани
     await state.clear()
     
-    # 🔥 ВИПРАВЛЕННЯ: Зберігаємо роль "driver" разом з ID повідомлення
-    # Тепер, якщо натиснути "Скасувати", бот знатиме, що повертати треба меню водія
+    # 🔥 Зберігаємо роль та ID меню для повернення
     await state.update_data(last_msg_id=menu_msg_id, role="driver")
     
     await call.answer()
@@ -137,62 +136,36 @@ async def process_origin(message: types.Message, state: FSMContext, bot: Bot):
     await clean_user_input(message)
     raw_text = message.text.strip()
     
-    # 1. Шукаємо схоже місто в базі
+    # 1. ЛОКАЛЬНА БАЗА
     suggestion = get_city_suggestion(raw_text)
     
-    # 🔥 ВИПРАВЛЕННЯ: Якщо знайшли місто і воно ІДЕНТИЧНЕ введеному (незалежно від регістру)
-    if suggestion and suggestion.lower() == raw_text.lower():
-        # Одразу записуємо і йдемо далі, не питаючи "Ви мали на увазі..."
-        clean_city = suggestion
-        add_or_update_city(clean_city) # Оновлюємо рейтинг міста
-        
-        await state.update_data(origin=clean_city)
-        await state.set_state(TripStates.destination)
-        
-        await update_or_send_msg(
-            bot, message.chat.id, state,
-            f"✅ Звідки: <b>{clean_city}</b>\n\n🏁 <b>Куди їдемо?</b>\nВведіть місто:", 
-            kb_back()
-        )
-        return
-
-    # 2. Якщо слова РІЗНІ, але схожі (наприклад "Лвів" vs "Львівв") - тоді питаємо
     if suggestion:
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text=f"✅ Так, {suggestion}", callback_data=f"city_yes_{suggestion}")],
-            [InlineKeyboardButton(text="❌ Ні, залишити як є", callback_data="city_no")]
-        ])
-        await state.update_data(temp_city=raw_text) # Запам'ятовуємо, що ввів юзер
-        await update_or_send_msg(
-            bot, message.chat.id, state,
-            f"🤔 Ви написали <b>{raw_text}</b>.\nМожливо, ви мали на увазі <b>{suggestion}</b>?", 
-            keyboard
-        )
-        return
-
-    # 3. Якщо в базі нічого схожого немає - перевіряємо через інтернет/валідатор
-    msg_wait = await message.answer("🌍 Перевіряю назву міста...")
-    real_name = validate_city_real(raw_text)
-    with suppress(TelegramBadRequest): await msg_wait.delete()
-
-    if real_name:
-        clean_city = real_name
-        add_or_update_city(clean_city)
-        
-        await state.update_data(origin=clean_city)
-        await state.set_state(TripStates.destination)
-        
-        await update_or_send_msg(
-            bot, message.chat.id, state,
-            f"✅ Звідки: <b>{clean_city}</b>\n\n🏁 <b>Куди їдемо?</b>\nВведіть місто:", 
-            kb_back()
-        )
+        clean_city = suggestion
     else:
-        await update_or_send_msg(
-            bot, message.chat.id, state,
-            f"❌ <b>Місто '{raw_text}' не знайдено!</b>\nСпробуйте ще раз або введіть найближче велике місто.",
-            kb_back()
-        )
+        # 2. ІНТЕРНЕТ
+        msg_wait = await message.answer("🌍 Перевіряю назву міста...")
+        real_name = validate_city_real(raw_text)
+        with suppress(TelegramBadRequest): await msg_wait.delete()
+
+        if real_name:
+            clean_city = real_name
+            add_or_update_city(clean_city)
+        else:
+            await update_or_send_msg(
+                bot, message.chat.id, state,
+                f"❌ <b>Місто '{raw_text}' не знайдено!</b>\nСпробуйте ще раз або введіть найближче велике місто.",
+                kb_back()
+            )
+            return
+
+    await state.update_data(origin=clean_city)
+    await state.set_state(TripStates.destination)
+    
+    await update_or_send_msg(
+        bot, message.chat.id, state,
+        f"✅ Звідки: <b>{clean_city}</b>\n\n🏁 <b>Куди їдемо?</b>\nВведіть місто:", 
+        kb_back()
+    )
 
 
 @router.message(TripStates.destination)
@@ -200,61 +173,36 @@ async def process_destination(message: types.Message, state: FSMContext, bot: Bo
     await clean_user_input(message)
     raw_text = message.text.strip()
 
-    # 1. Пошук в базі
+    # 1. База
     suggestion = get_city_suggestion(raw_text)
     
-    # 🔥 ВИПРАВЛЕННЯ: Ідентичне співпадіння
-    if suggestion and suggestion.lower() == raw_text.lower():
-        clean_city = suggestion
-        add_or_update_city(clean_city)
-        
-        await state.update_data(destination=clean_city)
-        await state.set_state(TripStates.date)
-        
-        await update_or_send_msg(
-            bot, message.chat.id, state,
-            "📅 <b>Коли плануєте поїздку?</b>", 
-            kb_dates("sdate")
-        )
-        return
-
-    # 2. Схоже, але різне
     if suggestion:
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text=f"✅ Так, {suggestion}", callback_data=f"city_yes_{suggestion}")],
-            [InlineKeyboardButton(text="❌ Ні, залишити як є", callback_data="city_no")]
-        ])
-        await state.update_data(temp_city=raw_text)
-        await update_or_send_msg(
-            bot, message.chat.id, state,
-            f"🤔 Ви написали <b>{raw_text}</b>.\nМожливо, ви мали на увазі <b>{suggestion}</b>?", 
-            keyboard
-        )
-        return
-
-    # 3. Перевірка в інтернеті
-    msg_wait = await message.answer("🌍 Перевіряю назву міста...")
-    real_name = validate_city_real(raw_text)
-    with suppress(TelegramBadRequest): await msg_wait.delete()
-
-    if real_name:
-        clean_city = real_name
-        add_or_update_city(clean_city)
-        
-        await state.update_data(destination=clean_city)
-        await state.set_state(TripStates.date)
-        
-        await update_or_send_msg(
-            bot, message.chat.id, state,
-            "📅 <b>Коли плануєте поїздку?</b>", 
-            kb_dates("sdate")
-        )
+        clean_city = suggestion
     else:
-        await update_or_send_msg(
-            bot, message.chat.id, state,
-            f"❌ <b>Місто '{raw_text}' не знайдено!</b>\nСпробуйте ще раз.",
-            kb_back()
-        )
+        # 2. Інтернет
+        msg_wait = await message.answer("🌍 Перевіряю назву міста...")
+        real_name = validate_city_real(raw_text)
+        with suppress(TelegramBadRequest): await msg_wait.delete()
+
+        if real_name:
+            clean_city = real_name
+            add_or_update_city(clean_city)
+        else:
+            await update_or_send_msg(
+                bot, message.chat.id, state,
+                f"❌ <b>Місто '{raw_text}' не знайдено!</b>\nСпробуйте ще раз.",
+                kb_back()
+            )
+            return
+    
+    await state.update_data(destination=clean_city)
+    await state.set_state(TripStates.date)
+    
+    await update_or_send_msg(
+        bot, message.chat.id, state,
+        "📅 <b>Коли плануєте поїздку?</b>", 
+        kb_dates("tripdate")
+    )
 
 
 @router.callback_query(TripStates.date)
@@ -285,9 +233,9 @@ async def process_time(message: types.Message, state: FSMContext, bot: Bot):
     await state.update_data(time=message.text)
     data = await state.get_data()
     
+    # 🔥 ВИПРАВЛЕННЯ: Якщо це повтор поїздки, одразу створюємо її, передаючи збережену ціну
     if data.get('saved_price'):
-        message.text = str(data.get('saved_price'))
-        await finalize_trip_creation(message, state, bot)
+        await finalize_trip_creation(message, state, bot, price_override=data.get('saved_price'))
         return
 
     await state.set_state(TripStates.seats)
@@ -322,16 +270,26 @@ async def process_seats(message: types.Message, state: FSMContext, bot: Bot):
 
 
 @router.message(TripStates.price)
-async def finalize_trip_creation(message: types.Message, state: FSMContext, bot: Bot):
-    await clean_user_input(message)
-    data = await state.get_data()
-    
-    try:
-        final_price = int(message.text)
-    except ValueError:
-        final_price = data.get('saved_price')
+async def finalize_trip_creation(message: types.Message, state: FSMContext, bot: Bot, price_override=None):
+    """
+    Завершує створення поїздки.
+    price_override - використовується для автоматичного створення (повтор поїздки).
+    """
+    if price_override:
+        final_price = int(price_override)
+    else:
+        await clean_user_input(message)
+        try:
+            final_price = int(message.text)
+        except ValueError:
+            await update_or_send_msg(
+                bot, message.chat.id, state, 
+                "⚠️ <b>Ціна має бути числом!</b>\n💰 Введіть ціну:", 
+                kb_back()
+            )
+            return
 
-    if not final_price or final_price <= 0:
+    if final_price <= 0:
         await update_or_send_msg(
             bot, message.chat.id, state,
             "⚠️ <b>Ціна має бути більше 0!</b>\n💰 <b>Вкажіть вартість поїздки (грн):</b>",
@@ -339,6 +297,9 @@ async def finalize_trip_creation(message: types.Message, state: FSMContext, bot:
         )
         return 
 
+    data = await state.get_data()
+    
+    # Створюємо ID і запис у базі
     trip_id = str(uuid.uuid4())[:8]
     create_trip(
         trip_id, message.from_user.id, 
@@ -363,8 +324,10 @@ async def finalize_trip_creation(message: types.Message, state: FSMContext, bot:
 
     await update_or_send_msg(bot, message.chat.id, state, success_text, kb_return)
     
+    # Відновлюємо роль і ID меню, щоб кнопки працювали
+    last_msg_id = data.get('last_msg_id')
     await state.clear()
-    await state.update_data(role="driver", last_msg_id=data.get('last_msg_id'))
+    await state.update_data(role="driver", last_msg_id=last_msg_id)
     
     await _notify_subscribers(bot, message.from_user.id, trip_id, data, final_price)
 
@@ -405,6 +368,7 @@ async def _notify_subscribers(bot, driver_id, trip_id, trip_data, price):
 
 @router.callback_query(F.data == "drv_my_trips")
 async def show_driver_trips(call: types.CallbackQuery, state: FSMContext):
+    # 1. Очищення старих карток
     data = await state.get_data()
     old_trip_msgs = data.get("trip_msg_ids", [])
     

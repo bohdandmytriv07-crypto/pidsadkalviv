@@ -123,6 +123,16 @@ def init_db():
             message_id INTEGER
         )
     ''')
+    # 👇 9. ІСТОРІЯ ПОВІДОМЛЕНЬ (ТЕКСТОВА)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS chat_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sender_id INTEGER,
+            receiver_id INTEGER,
+            message_text TEXT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
 
     conn.commit()
     conn.close()
@@ -523,3 +533,51 @@ def finish_trip(trip_id):
     conn.commit()
     conn.close()
     conn.close()
+# ==========================================
+# 📜 ІСТОРІЯ ЧАТУ (НОВЕ)
+# ==========================================
+
+def save_message_to_history(sender_id, receiver_id, text):
+    """Зберігає текст повідомлення в історію."""
+    conn = get_connection()
+    try:
+        conn.execute(
+            "INSERT INTO chat_history (sender_id, receiver_id, message_text) VALUES (?, ?, ?)", 
+            (sender_id, receiver_id, text)
+        )
+        conn.commit()
+    except: pass
+    conn.close()
+
+def get_chat_history_text(user_id, partner_id, limit=10):
+    """
+    Повертає відформатовану історію останніх повідомлень між двома людьми.
+    """
+    conn = get_connection()
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    # Вибираємо повідомлення де учасники - це ми і партнер (в будь-яку сторону)
+    query = """
+        SELECT sender_id, message_text 
+        FROM chat_history 
+        WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)
+        ORDER BY id DESC LIMIT ?
+    """
+    rows = cursor.execute(query, (user_id, partner_id, partner_id, user_id, limit)).fetchall()
+    conn.close()
+    
+    if not rows:
+        return None
+
+    # Розвертаємо, щоб старі були зверху
+    rows = rows[::-1]
+    
+    history_text = "📜 <b>Історія повідомлень:</b>\n"
+    for row in rows:
+        if row['sender_id'] == user_id:
+            history_text += f"👤 Ви: {row['message_text']}\n"
+        else:
+            history_text += f"🚕 Співрозмовник: {row['message_text']}\n"
+            
+    return history_text + "➖➖➖➖➖➖➖➖\n"
