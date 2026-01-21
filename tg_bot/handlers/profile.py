@@ -7,7 +7,7 @@ from aiogram.exceptions import TelegramBadRequest
 
 from database import get_user, save_user
 from states import ProfileStates
-from keyboards import kb_back, kb_menu, kb_car_type # 👈 Нова клавіатура
+from keyboards import kb_back, kb_menu, kb_car_type
 from utils import clean_user_input, send_new_clean_msg, delete_prev_msg, update_or_send_msg
 
 router = Router()
@@ -181,10 +181,11 @@ async def process_name(message: types.Message, state: FSMContext):
         )
         return
 
-    if not message.text or not re.match(r"^[A-Za-zА-Яа-яІіЇїЄєҐґ\s'-]+$", message.text):
+    # Проста перевірка імені
+    if not message.text or len(message.text) < 2:
         await update_or_send_msg(
             message.bot, message.chat.id, state, 
-            "❌ <b>Помилка!</b>\nІм'я не може містити цифри.\nСпробуйте ще раз:", 
+            "❌ <b>Занадто коротке ім'я.</b>\nСпробуйте ще раз:", 
             kb_error_retry("back_to_name")
         )
         return
@@ -212,49 +213,48 @@ async def process_name(message: types.Message, state: FSMContext):
     )
 
 
-# --- КРОК 2: ТЕЛЕФОН ---
+# --- КРОК 2: ТЕЛЕФОН (ПОКРАЩЕНО) ---
 
 @router.message(ProfileStates.phone)
 async def process_phone(message: types.Message, state: FSMContext):
     with suppress(TelegramBadRequest): await message.delete()
     
     phone_to_save = None
+    raw_text = ""
 
     if message.contact:
-        phone_to_save = re.sub(r'\D', '', message.contact.phone_number)
-    
+        raw_text = message.contact.phone_number
     elif message.text:
-        text = message.text.strip()
+        raw_text = message.text.strip()
         
-        if text.startswith("/"):
+        if raw_text.startswith("/"):
             await update_or_send_msg(message.bot, message.chat.id, state, CMD_ERROR_TEXT, kb_error_retry("back_to_phone"))
             return
-
-        if "не хочу" in text.lower():
-             phone_to_save = "Не вказано"
-        else:
-            clean_phone = re.sub(r'\D', '', text)
-            if len(clean_phone) == 10 and clean_phone.startswith('0'):
-                clean_phone = '38' + clean_phone
-            elif len(clean_phone) == 9: 
-                clean_phone = '380' + clean_phone
             
-            if re.match(r'^380\d{9}$', clean_phone):
-                phone_to_save = clean_phone
-            else:
-                await send_new_clean_msg(
-                    message, state, 
-                    "❌ <b>Некоректний номер.</b>\nВведіть український мобільний (0XX...)\nСпробуйте ще раз:", 
-                    kb_error_retry("back_to_phone")
-                )
-                return
-    else:
-        await send_new_clean_msg(
-            message, state, 
-            "❌ <b>Я очікую номер телефону.</b>", 
-            kb_error_retry("back_to_phone")
-        )
-        return
+        if "не хочу" in raw_text.lower():
+            phone_to_save = "Не вказано"
+    
+    if not phone_to_save:
+        # 🔥 РОЗУМНЕ ФОРМАТУВАННЯ
+        # Видаляємо все крім цифр
+        clean_digits = re.sub(r'\D', '', raw_text)
+        
+        if len(clean_digits) == 10 and clean_digits.startswith('0'):
+            # 097... -> +38097...
+            phone_to_save = f"+38{clean_digits}"
+        elif len(clean_digits) == 12 and clean_digits.startswith('380'):
+            # 380... -> +380...
+            phone_to_save = f"+{clean_digits}"
+        elif len(clean_digits) == 9:
+            # 97... -> +38097... (рідкісний випадок)
+            phone_to_save = f"+380{clean_digits}"
+        else:
+            await send_new_clean_msg(
+                message, state, 
+                "❌ <b>Некоректний номер.</b>\nВведіть у форматі: 097 123 45 67\nСпробуйте ще раз:", 
+                kb_error_retry("back_to_phone")
+            )
+            return
 
     await state.update_data(phone=phone_to_save)
     await delete_prev_msg(state, message.bot, message.chat.id)
