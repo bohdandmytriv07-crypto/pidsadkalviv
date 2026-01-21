@@ -129,3 +129,12 @@ def kb_car_type():
         [InlineKeyboardButton(text="🚗 Легкова", callback_data="body_car")],
         [InlineKeyboardButton(text="🚐 Бус / Мінівен", callback_data="body_bus")]
     ])
+def kb_chat_actions():
+    """Кнопки дій в чаті + шаблони."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="📍 Я на місці", callback_data="tpl_here"),
+            InlineKeyboardButton(text="⏱ Запізнююсь", callback_data="tpl_late")
+        ],
+        [InlineKeyboardButton(text="❌ Завершити діалог", callback_data="chat_leave")]
+    ])

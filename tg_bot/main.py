@@ -1,151 +1,156 @@
 ﻿import asyncio
 import logging
 import sys
-from logging.handlers import RotatingFileHandler
 from datetime import datetime, timedelta
-from handlers.admin import router as admin_router
-from aiogram import Bot, Dispatcher
-from aiogram.client.default import DefaultBotProperties
-from aiogram.enums import ParseMode
+import pytz
+
+from aiogram import Bot, Dispatcher, types
 from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.enums import ParseMode
+from aiogram.client.default import DefaultBotProperties
 
+# Configuration imports
+from config import API_TOKEN, DB_FILE
+from database import init_db, get_connection
 
-from config import API_TOKEN
-from database import (
-    init_db, 
-    get_all_active_trips, 
-    finish_trip, 
-    get_trip_passengers, 
-    mark_trip_notified
-)
-from middlewares import ThrottlingMiddleware
+# Handler imports
+from handlers import common, passenger, driver, admin, profile, chat
 
-# 👇 ВИПРАВЛЕНО: Додано "handlers." до шляхів імпорту
-from handlers.common import router as common_router
-from handlers.profile import router as profile_router
-from handlers.driver import router as driver_router
-from handlers.passenger import router as passenger_router
-from handlers.chat import router as chat_router
-
-# ==========================================
-# ⚙️ НАЛАШТУВАННЯ ЛОГУВАННЯ
-# ==========================================
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
-    handlers=[logging.StreamHandler(sys.stdout)]
-)
-logger = logging.getLogger(__name__)
-
-
-# ==========================================
-# 🕒 ФОНОВА ЗАДАЧА (CRON)
-# ==========================================
-async def check_trips_periodically(bot: Bot):
-    """
-    Періодично перевіряє активні поїздки:
-    1. Надсилає нагадування за 1 годину.
-    2. Завершує поїздки через 1 годину після старту.
-    """
-    logger.info("🕒 Фонова перевірка поїздок запущена.")
-    while True:
-        try:
-            trips = get_all_active_trips()
-            now = datetime.now()
-            
-            for trip in trips:
-                try:
-                    date_parts = trip['date'].split('.')
-                    if len(date_parts) != 2: continue
-                        
-                    day = int(date_parts[0])
-                    month = int(date_parts[1])
-                    year = now.year
-                    if now.month == 12 and month == 1: year += 1
-                    
-                    trip_full_str = f"{day:02d}.{month:02d}.{year} {trip['time']}"
-                    trip_dt = datetime.strptime(trip_full_str, "%d.%m.%Y %H:%M")
-                    
-                    time_diff_minutes = (trip_dt - now).total_seconds() / 60
-
-                    # 1. СПОВІЩЕННЯ (за 60 хв)
-                    if 0 < time_diff_minutes <= 60 and trip['is_notified'] == 0:
-                        logger.info(f"🔔 Сповіщення для поїздки {trip['id']}")
-                        
-                        passengers = get_trip_passengers(trip['id'])
-                        for p in passengers:
-                            try:
-                                await bot.send_message(
-                                    chat_id=p['user_id'],
-                                    text=f"⏰ <b>Нагадування!</b>\nПоїздка до <b>{trip['destination']}</b> через годину ({trip['time']}).",
-                                    parse_mode="HTML"
-                                )
-                            except Exception: pass
-                        
-                        try:
-                            await bot.send_message(
-                                chat_id=trip['user_id'],
-                                text=f"⏰ <b>Нагадування!</b>\nПоїздка до <b>{trip['destination']}</b> стартує через годину.",
-                                parse_mode="HTML"
-                            )
-                        except Exception: pass
-
-                        mark_trip_notified(trip['id'])
-
-                    # 2. АВТО-ЗАВЕРШЕННЯ
-                    if time_diff_minutes < -60:
-                        finish_trip(trip['id'])
-                        logger.info(f"🏁 Поїздка {trip['id']} автоматично завершена.")
-
-                except ValueError: continue
-                except Exception as e: logger.error(f"Error trip {trip.get('id')}: {e}")
-
-        except Exception as e:
-            logger.error(f"Global loop error: {e}")
-
-        await asyncio.sleep(60)
-
-
-# ==========================================
-# 🚀 ГОЛОВНА ФУНКЦІЯ
-# ==========================================
-async def main():
-    init_db()
-    
-    bot = Bot(token=API_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-    dp = Dispatcher(storage=MemoryStorage())
-
-    dp.message.middleware(ThrottlingMiddleware())
-    dp.callback_query.middleware(ThrottlingMiddleware())
-
-    # Реєстрація роутерів
-    dp.include_router(admin_router)
-    dp.include_router(common_router)
-    dp.include_router(profile_router)
-    dp.include_router(driver_router)
-    dp.include_router(passenger_router)
-    dp.include_router(chat_router)      
-
-    await bot.delete_webhook(drop_pending_updates=True)
-    asyncio.create_task(check_trips_periodically(bot))
-
-    logger.info("✅ Бот успішно запущено!")
-    
-    try:
-        await dp.start_polling(bot)
-    except Exception as e:
-        logger.error(f"Error: {e}")
-
-if __name__ == '__main__':
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        logger.info("Bot stopped.")
+# ⚙️ Logging Configuration
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[
-        RotatingFileHandler("bot.log", maxBytes=5*1024*1024, backupCount=2), # 5 MB на файл
-        logging.StreamHandler(sys.stdout)
-    ]
+    stream=sys.stdout
 )
+logger = logging.getLogger(__name__)
+
+async def on_startup():
+    """
+    Actions performed once at bot startup.
+    """
+    logger.info("🚀 Initializing database...")
+    init_db()
+    logger.info("✅ Database ready!")
+
+async def background_tasks(bot: Bot):
+    """
+    Background daemon process that runs indefinitely.
+    It handles:
+    1. Archiving old trips (active -> finished).
+    2. Security cleanup (deleting old chat history and trip records).
+    """
+    logger.info("🕒 Background task scheduler started.")
+    kyiv_tz = pytz.timezone('Europe/Kyiv')
+    
+    while True:
+        try:
+            # 1. Wait 5 minutes (300 seconds) between checks
+            await asyncio.sleep(300) 
+            
+            conn = get_connection()
+            cursor = conn.cursor()
+            
+            # Get current time in Kyiv
+            now = datetime.now(kyiv_tz)
+            current_time = now.time()
+            
+            # --- TASK 1: ARCHIVE OLD TRIPS ---
+            rows = cursor.execute("SELECT id, date, time FROM trips WHERE status='active'").fetchall()
+            archived_count = 0
+            
+            for row in rows:
+                try:
+                    trip_day, trip_month = map(int, row['date'].split('.'))
+                    trip_year = now.year
+                    
+                    trip_datetime = datetime(trip_year, trip_month, trip_day)
+                    
+                    # If trip was yesterday or earlier
+                    if trip_datetime.date() < now.date():
+                        cursor.execute("UPDATE trips SET status='finished' WHERE id=?", (row['id'],))
+                        archived_count += 1
+                        
+                    # If trip is today but time has passed
+                    elif trip_datetime.date() == now.date():
+                        trip_time = datetime.strptime(row['time'], "%H:%M").time()
+                        if current_time > trip_time:
+                             cursor.execute("UPDATE trips SET status='finished' WHERE id=?", (row['id'],))
+                             archived_count += 1
+
+                except ValueError:
+                    continue 
+            
+            if archived_count > 0:
+                conn.commit()
+                logger.info(f"🧹 Archived {archived_count} old trips.")
+
+            # --- TASK 2: SECURITY CLEANUP (DATA MINIMIZATION) ---
+            # Delete chat history older than 48 hours to protect privacy
+            cursor.execute("DELETE FROM chat_history WHERE timestamp < datetime('now', '-2 days')")
+            deleted_msgs = cursor.rowcount
+            
+            # Delete finished trips older than 30 days
+            cursor.execute("DELETE FROM trips WHERE status='finished' AND date < date('now', '-30 days')")
+            deleted_trips = cursor.rowcount
+
+            if deleted_msgs > 0 or deleted_trips > 0:
+                conn.commit()
+                logger.info(f"🛡️ Security Cleanup: Deleted {deleted_msgs} old messages and {deleted_trips} old trips.")
+            
+            conn.close()
+
+        except Exception as e:
+            logger.error(f"⚠️ Error in background task: {e}")
+            await asyncio.sleep(60) # Wait a minute and try again
+
+# 🛡️ Global Error Handler
+async def global_error_handler(event: types.ErrorEvent):
+    """
+    Catches any critical errors in handlers to prevent the bot from crashing.
+    """
+    logger.exception(f"🔥 Critical processing error: {event.exception}")
+    return True
+
+async def main():
+    # Bot and Dispatcher initialization
+    bot = Bot(token=API_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    dp = Dispatcher(storage=MemoryStorage())
+
+    # Register Routers (Order matters!)
+    dp.include_router(admin.router)      # Admin functionality first
+    dp.include_router(common.router)     # Common commands
+    dp.include_router(profile.router)    # Profiles
+    dp.include_router(driver.router)     # Driver functionality
+    dp.include_router(passenger.router)  # Passenger functionality
+    dp.include_router(chat.router)       # Chat system
+
+    # Register Error Handler
+    dp.errors.register(global_error_handler)
+
+    # Database startup
+    await on_startup()
+
+    # Clear webhooks
+    await bot.delete_webhook(drop_pending_updates=True)
+
+    # Start background tasks
+    asyncio.create_task(background_tasks(bot))
+
+    # Start Polling
+    logger.info("🤖 Bot started! Press Ctrl+C to stop.")
+    try:
+        await dp.start_polling(bot)
+    except Exception as e:
+        logger.error(f"💀 Critical Polling Error: {e}")
+    finally:
+        await bot.session.close()
+        logger.info("Bot stopped.")
+
+if __name__ == "__main__":
+    try:
+        # Windows optimization
+        if sys.platform == "win32":
+            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+        asyncio.run(main())
+    except (KeyboardInterrupt, SystemExit):
+        logger.info("🛑 Bot stopped by user.")

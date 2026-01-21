@@ -1,29 +1,32 @@
 ﻿import sqlite3
 from datetime import datetime
-from config import DB_FILE # Переконайтеся, що в config.py є: DB_FILE = "ridebot.db"
 import pytz
+
+# 🔥 Єдине джерело правди про назву файлу
+from config import DB_FILE 
+
 # ==========================================
-# ⚙️ НАЛАШТУВАННЯ ПІДКЛЮЧЕННЯ (OPTIMIZED)
+# ⚙️ НАЛАШТУВАННЯ ПІДКЛЮЧЕННЯ
 # ==========================================
 
 def get_connection():
     """
-    Створює підключення до БД з оптимізацією для високих навантажень.
+    Створює підключення до БД з оптимізацією.
     """
     conn = sqlite3.connect(DB_FILE)
     
-    # 🔥 WAL Mode: дозволяє читати і писати одночасно (пришвидшення x10)
+    # WAL Mode: пришвидшення запису/читання
     conn.execute("PRAGMA journal_mode=WAL;") 
     
-    # Вмикаємо підтримку зовнішніх ключів (Foreign Keys) для цілісності даних
+    # Підтримка зовнішніх ключів
     conn.execute("PRAGMA foreign_keys=ON;")
     
-    # Дозволяє звертатися до колонок по імені (row['phone']), а не по індексу
+    # Доступ до колонок по імені
     conn.row_factory = sqlite3.Row 
     
     return conn
 
-# Ця функція потрібна для admin.py, якщо ви залишили імпорт звідси
+# Аліас для сумісності
 def get_db():
     return get_connection()
 
@@ -37,7 +40,7 @@ def init_db():
     conn = get_connection()
     cursor = conn.cursor()
     
-    # 1. Користувачі
+    # 1. Користувачі (з новою колонкою terms_accepted)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY,
@@ -47,7 +50,8 @@ def init_db():
             body TEXT DEFAULT '-',
             color TEXT DEFAULT '-',
             number TEXT DEFAULT '-',
-            is_banned INTEGER DEFAULT 0
+            is_banned INTEGER DEFAULT 0,
+            terms_accepted INTEGER DEFAULT 0  -- 0 = ні, 1 = так
         )
     ''')
 
@@ -69,7 +73,7 @@ def init_db():
         )
     ''')
 
-    # 3. Бронювання (зв'язок пасажира і поїздки)
+    # 3. Бронювання
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS bookings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -90,7 +94,7 @@ def init_db():
         )
     ''')
 
-    # 5. Підписки на маршрути (щоб отримати сповіщення)
+    # 5. Підписки
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS subscriptions (
             user_id INTEGER,
@@ -100,7 +104,7 @@ def init_db():
         )
     ''')
 
-    # 6. Міста (для автодоповнення)
+    # 6. Міста
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS cities (
             name TEXT PRIMARY KEY,
@@ -108,7 +112,7 @@ def init_db():
         )
     ''')
 
-    # 7. Активні чати (Proxy-чат)
+    # 7. Активні чати
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS active_chats (
             user_id INTEGER PRIMARY KEY,
@@ -116,14 +120,15 @@ def init_db():
         )
     ''')
 
-    # 8. Логи повідомлень чату (для очищення історії)
+    # 8. Логи повідомлень (для видалення)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS chat_messages (
             user_id INTEGER,
             message_id INTEGER
         )
     ''')
-    # 👇 9. ІСТОРІЯ ПОВІДОМЛЕНЬ (ТЕКСТОВА)
+
+    # 9. Історія повідомлень (текст)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS chat_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -139,19 +144,17 @@ def init_db():
 
 
 # ==========================================
-# 👤 КОРИСТУВАЧІ
+# 👤 КОРИСТУВАЧІ & УГОДА
 # ==========================================
 
 def save_user(user_id, name, phone, model="-", body="-", color="-", number="-"):
     conn = get_connection()
     cursor = conn.cursor()
     
-    # Перевіряємо, чи існує користувач
     cursor.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
     exist = cursor.fetchone()
     
     if exist:
-        # Оновлюємо тільки ті поля, які не є прочерком (щоб не стерти дані)
         new_model = model if model != "-" else exist['model']
         new_body = body if body != "-" else exist['body']
         new_color = color if color != "-" else exist['color']
@@ -164,8 +167,8 @@ def save_user(user_id, name, phone, model="-", body="-", color="-", number="-"):
         ''', (name, new_phone, new_model, new_body, new_color, new_number, user_id))
     else:
         cursor.execute('''
-            INSERT INTO users (user_id, name, phone, model, body, color, number)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO users (user_id, name, phone, model, body, color, number, terms_accepted)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 0)
         ''', (user_id, name, phone, model, body, color, number))
         
     conn.commit()
@@ -182,6 +185,34 @@ def get_user(user_id):
 def is_user_banned(user_id):
     u = get_user(user_id)
     return u['is_banned'] == 1 if u else False
+
+def check_terms_status(user_id: int) -> bool:
+    """Перевіряє, чи погодився користувач з правилами."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT terms_accepted FROM users WHERE user_id = ?", (user_id,))
+    row = cursor.fetchone()
+    conn.close()
+    
+    if row and row['terms_accepted'] == 1:
+        return True
+    return False
+
+def accept_terms(user_id: int, full_name: str):
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT user_id FROM users WHERE user_id = ?", (user_id,))
+    if cursor.fetchone():
+        cursor.execute("UPDATE users SET terms_accepted = 1 WHERE user_id = ?", (user_id,))
+    else:
+        cursor.execute('''
+            INSERT INTO users (user_id, name, phone, terms_accepted)
+            VALUES (?, ?, '-', 1)
+        ''', (user_id, full_name))
+        
+    conn.commit()
+    conn.close()
 
 
 # ==========================================
@@ -231,7 +262,6 @@ def kick_passenger(booking_id, driver_id):
     conn = get_connection()
     cursor = conn.cursor()
     
-    # Отримуємо деталі для сповіщення перед видаленням
     cursor.execute('''
         SELECT b.passenger_id, t.origin, t.destination, t.date, t.time, t.id
         FROM bookings b
@@ -254,16 +284,13 @@ def cancel_trip_full(trip_id, driver_id):
     conn = get_connection()
     cursor = conn.cursor()
     
-    # Перевірка прав власності
     cursor.execute("SELECT * FROM trips WHERE id = ? AND user_id = ?", (trip_id, driver_id))
     trip = cursor.fetchone()
     
     if trip:
-        # Отримуємо список пасажирів
         cursor.execute("SELECT passenger_id FROM bookings WHERE trip_id = ?", (trip_id,))
         passengers = [r[0] for r in cursor.fetchall()]
         
-        # Скасовуємо
         cursor.execute("DELETE FROM bookings WHERE trip_id = ?", (trip_id,))
         cursor.execute("UPDATE trips SET status='cancelled' WHERE id = ?", (trip_id,))
         conn.commit()
@@ -299,7 +326,6 @@ def add_booking(trip_id, passenger_id):
     conn = get_connection()
     cursor = conn.cursor()
     
-    # 1. Отримуємо інфо про поїздку
     cursor.execute("SELECT seats_taken, seats_total, user_id FROM trips WHERE id = ?", (trip_id,))
     trip = cursor.fetchone()
     
@@ -316,13 +342,11 @@ def add_booking(trip_id, passenger_id):
         conn.close()
         return False, "Ви водій цієї поїздки."
 
-    # 2. Перевірка дубля
     cursor.execute("SELECT id FROM bookings WHERE trip_id = ? AND passenger_id = ?", (trip_id, passenger_id))
     if cursor.fetchone():
         conn.close()
         return False, "Ви вже забронювали місце."
 
-    # 3. Бронюємо
     try:
         cursor.execute("INSERT INTO bookings (trip_id, passenger_id) VALUES (?, ?)", (trip_id, passenger_id))
         cursor.execute("UPDATE trips SET seats_taken = seats_taken + 1 WHERE id = ?", (trip_id,))
@@ -444,14 +468,11 @@ def get_subscribers_for_trip(origin, destination, date):
     return [r[0] for r in rows]
 
 def add_or_update_city(name):
-    """Додає місто в базу (для підказок)."""
     if len(name) < 2: return
     clean = name.strip().title()
     conn = get_connection()
     try:
-        # Спробуємо вставити, якщо є - ігноруємо
         conn.execute("INSERT OR IGNORE INTO cities (name) VALUES (?)", (clean,))
-        # Можна додати логіку популярності:
         conn.execute("UPDATE cities SET popularity = popularity + 1 WHERE name = ?", (clean,))
         conn.commit()
     except: pass
@@ -460,7 +481,6 @@ def add_or_update_city(name):
 def get_all_cities_names():
     conn = get_connection()
     cursor = conn.cursor()
-    # Сортуємо по популярності
     cursor.execute("SELECT name FROM cities ORDER BY popularity DESC")
     rows = cursor.fetchall()
     conn.close()
@@ -498,7 +518,6 @@ def save_chat_msg(user_id, message_id):
     conn.close()
 
 def get_and_clear_chat_msgs(user_id):
-    """Повертає ID повідомлень для видалення і очищає їх з бази."""
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute('SELECT message_id FROM chat_messages WHERE user_id = ?', (user_id,))
@@ -510,35 +529,10 @@ def get_and_clear_chat_msgs(user_id):
 
 
 # ==========================================
-# 🔄 ФОНОВІ ЗАДАЧІ (CRON)
-# ==========================================
-
-def get_all_active_trips():
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM trips WHERE status = 'active'")
-    rows = cursor.fetchall()
-    conn.close()
-    return [dict(r) for r in rows]
-
-def mark_trip_notified(trip_id):
-    conn = get_connection()
-    conn.execute("UPDATE trips SET is_notified = 1 WHERE id = ?", (trip_id,))
-    conn.commit()
-    conn.close()
-
-def finish_trip(trip_id):
-    conn = get_connection()
-    conn.execute("UPDATE trips SET status = 'finished' WHERE id = ?", (trip_id,))
-    conn.commit()
-    conn.close()
-    conn.close()
-# ==========================================
-# 📜 ІСТОРІЯ ЧАТУ (НОВЕ)
+# 📜 ІСТОРІЯ ЧАТУ (TEXT)
 # ==========================================
 
 def save_message_to_history(sender_id, receiver_id, text):
-    """Зберігає текст повідомлення в історію."""
     conn = get_connection()
     try:
         conn.execute(
@@ -550,14 +544,10 @@ def save_message_to_history(sender_id, receiver_id, text):
     conn.close()
 
 def get_chat_history_text(user_id, partner_id, limit=10):
-    """
-    Повертає відформатовану історію останніх повідомлень між двома людьми.
-    """
     conn = get_connection()
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
-    # Вибираємо повідомлення де учасники - це ми і партнер (в будь-яку сторону)
     query = """
         SELECT sender_id, message_text 
         FROM chat_history 
@@ -570,7 +560,6 @@ def get_chat_history_text(user_id, partner_id, limit=10):
     if not rows:
         return None
 
-    # Розвертаємо, щоб старі були зверху
     rows = rows[::-1]
     
     history_text = "📜 <b>Історія повідомлень:</b>\n"
@@ -581,3 +570,20 @@ def get_chat_history_text(user_id, partner_id, limit=10):
             history_text += f"🚕 Співрозмовник: {row['message_text']}\n"
             
     return history_text + "➖➖➖➖➖➖➖➖\n"
+
+
+# ==========================================
+# 🔄 ФОНОВІ ЗАДАЧІ
+# ==========================================
+
+def mark_trip_notified(trip_id):
+    conn = get_connection()
+    conn.execute("UPDATE trips SET is_notified = 1 WHERE id = ?", (trip_id,))
+    conn.commit()
+    conn.close()
+
+def finish_trip(trip_id):
+    conn = get_connection()
+    conn.execute("UPDATE trips SET status = 'finished' WHERE id = ?", (trip_id,))
+    conn.commit()
+    conn.close()
