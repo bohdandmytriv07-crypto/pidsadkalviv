@@ -40,7 +40,7 @@ def init_db():
     conn = get_connection()
     cursor = conn.cursor()
     
-    # 1. Користувачі (з новою колонкою terms_accepted)
+    # 1. Користувачі (ОБ'ЄДНАНА ВЕРСІЯ)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY,
@@ -136,6 +136,19 @@ def init_db():
             receiver_id INTEGER,
             message_text TEXT,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    # 10. Відгуки та Рейтинг
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS reviews (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            trip_id TEXT,
+            from_user_id INTEGER,
+            to_user_id INTEGER,
+            rating INTEGER,
+            role TEXT, -- 'driver' (кого оцінюють) або 'passenger'
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(trip_id) REFERENCES trips(id)
         )
     ''')
 
@@ -587,3 +600,127 @@ def finish_trip(trip_id):
     conn.execute("UPDATE trips SET status = 'finished' WHERE id = ?", (trip_id,))
     conn.commit()
     conn.close()
+
+
+# ==========================================
+# 📊 АНАЛІТИКА (Для Admin Dashboard)
+# ==========================================
+
+def get_stats_general():
+    """Повертає загальні цифри по проекту."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    stats = {}
+    
+    cursor.execute("SELECT COUNT(*) FROM users")
+    stats['total_users'] = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(DISTINCT user_id) FROM trips")
+    stats['total_drivers'] = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM trips WHERE status='active'")
+    stats['active_trips'] = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM trips WHERE status='finished'")
+    stats['finished_trips'] = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM bookings")
+    stats['total_bookings'] = cursor.fetchone()[0]
+    
+    conn.close()
+    return stats
+
+def get_top_routes(limit=5):
+    """Повертає ТОП маршрутів."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT origin, destination, COUNT(*) as cnt 
+        FROM search_history 
+        GROUP BY origin, destination 
+        ORDER BY cnt DESC 
+        LIMIT ?
+    ''', (limit,))
+    
+    rows = cursor.fetchall()
+    conn.close()
+    return rows
+
+def get_conversion_rate():
+    """Рахує конверсію в бронювання."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT COUNT(*) FROM bookings")
+    bookings = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM search_history")
+    searches = cursor.fetchone()[0]
+    
+    conn.close()
+    
+    if searches == 0: return 0.0
+    return round((bookings / searches) * 100, 1)
+# ==========================================
+# ⭐ СИСТЕМА РЕЙТИНГУ
+# ==========================================
+
+def add_review(trip_id, from_id, to_id, rating, role):
+    """Додає відгук. role - це роль ТОГО, КОГО оцінюють."""
+    conn = get_connection()
+    try:
+        # Перевірка, чи вже оцінював
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT id FROM reviews WHERE trip_id=? AND from_user_id=? AND to_user_id=?", 
+            (trip_id, from_id, to_id)
+        )
+        if cursor.fetchone():
+            conn.close()
+            return False # Вже оцінено
+
+        conn.execute(
+            "INSERT INTO reviews (trip_id, from_user_id, to_user_id, rating, role) VALUES (?, ?, ?, ?, ?)",
+            (trip_id, from_id, to_id, rating, role)
+        )
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"Error adding review: {e}")
+        return False
+    finally:
+        conn.close()
+
+def get_user_rating(user_id, role=None):
+    """
+    Рахує середній рейтинг. 
+    Якщо role вказано - рейтинг саме як водія або пасажира.
+    Повертає: (середнє, кількість_голосів)
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    if role:
+        query = "SELECT AVG(rating), COUNT(rating) FROM reviews WHERE to_user_id=? AND role=?"
+        params = (user_id, role)
+    else:
+        # Загальний рейтинг (і як водія, і як пасажира)
+        query = "SELECT AVG(rating), COUNT(rating) FROM reviews WHERE to_user_id=?"
+        params = (user_id,)
+        
+    cursor.execute(query, params)
+    row = cursor.fetchone()
+    conn.close()
+    
+    avg = row[0] if row[0] else 0.0
+    count = row[1] if row[1] else 0
+    
+    return round(avg, 1), count
+
+def format_rating(rating, count):
+    """Робить красивий рядок: ⭐ 4.8 (12)"""
+    if count == 0:
+        return "⭐ Новий"
+    return f"⭐ {rating} ({count})"

@@ -137,6 +137,7 @@ async def main():
     dp.include_router(driver.router)     # Водій
     dp.include_router(passenger.router)  # Пасажир
     dp.include_router(chat.router)       # Чат система
+    dp.include_router(rating.router)
 
     # Реєстрація обробника помилок
     dp.errors.register(global_error_handler)
