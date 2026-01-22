@@ -3,7 +3,7 @@ import logging
 import sys
 from datetime import datetime
 import pytz
-
+from handlers import rating
 from aiogram import Bot, Dispatcher, types
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.enums import ParseMode
