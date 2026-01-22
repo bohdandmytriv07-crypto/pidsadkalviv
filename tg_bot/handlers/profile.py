@@ -5,7 +5,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.exceptions import TelegramBadRequest
 
-from database import get_user, save_user
+# Імпорти для роботи з базою та рейтингом
+from database import get_user, save_user, get_user_rating, format_rating
 from states import ProfileStates
 from keyboards import kb_back, kb_menu, kb_car_type
 from utils import clean_user_input, send_new_clean_msg, delete_prev_msg, update_or_send_msg
@@ -120,11 +121,16 @@ async def edit_profile_start(call: types.CallbackQuery, state: FSMContext):
     role = data.get("role", "passenger") 
 
     if user:
+        # 🔥 Отримуємо рейтинг
+        avg, count = get_user_rating(call.from_user.id)
+        rating_str = format_rating(avg, count)
+
         if role == "passenger":
             profile_text = (
                 f"👤 <b>Ваш профіль:</b>\n\n"
                 f"📛 Ім'я: <b>{user['name']}</b>\n"
-                f"📱 Телефон: <code>{user['phone']}</code>"
+                f"📱 Телефон: <code>{user['phone']}</code>\n"
+                f"{rating_str}\n" # Додано рейтинг
             )
         else:
             profile_text = (
@@ -133,7 +139,8 @@ async def edit_profile_start(call: types.CallbackQuery, state: FSMContext):
                 f"📱 Телефон: {user['phone']}\n"
                 f"🚘 Авто: {user['model']} {user['color']}\n"
                 f"🔢 Номер: <code>{user['number']}</code>\n"
-                f"🚙 Тип: {user['body']}"
+                f"🚙 Тип: {user['body']}\n"
+                f"{rating_str}\n" # Додано рейтинг
             )
 
         keyboard = InlineKeyboardMarkup(inline_keyboard=[

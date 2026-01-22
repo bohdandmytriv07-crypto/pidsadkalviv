@@ -6,13 +6,16 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.exceptions import TelegramBadRequest
 
-# Імпорти з ваших модулів
+# Імпорти бази даних
 from database import (
     get_user, save_user, create_trip, get_driver_active_trips, 
     get_trip_passengers, cancel_trip_full, kick_passenger, 
     get_last_driver_trip, get_subscribers_for_trip,
-    add_or_update_city
+    add_or_update_city, finish_trip  # 👈 Додано finish_trip
 )
+# Імпорт рейтингу
+from handlers.rating import ask_for_ratings # 👈 Додано для запуску оцінювання
+
 from states import TripStates
 from keyboards import kb_back, kb_dates, kb_menu
 from utils import (
@@ -28,26 +31,18 @@ router = Router()
 
 @router.callback_query(F.data == "drv_create")
 async def start_create_trip_handler(call: types.CallbackQuery, state: FSMContext, bot: Bot):
-    # Запам'ятовуємо ID меню
     menu_msg_id = call.message.message_id
-    
-    # 1. Скидаємо стани
     await state.clear()
-    
-    # 🔥 Зберігаємо роль та ID меню для повернення
     await state.update_data(last_msg_id=menu_msg_id, role="driver")
-    
     await call.answer()
     
     user_id = call.from_user.id
     user = get_user(user_id)
     
-    # 2. Якщо юзера немає в базі - створюємо
     if not user:
         save_user(user_id, call.from_user.full_name, "-")
         user = get_user(user_id)
 
-    # 3. Перевірка профілю
     has_phone = user['phone'] and user['phone'] != "-"
     has_car = user['model'] and user['model'] != "-"
     
@@ -63,11 +58,9 @@ async def start_create_trip_handler(call: types.CallbackQuery, state: FSMContext
             [InlineKeyboardButton(text="👤 Мій профіль / Редагувати", callback_data="profile_edit")],
             [InlineKeyboardButton(text="🔙 В меню", callback_data="menu_home")]
         ])
-        
         await update_or_send_msg(bot, call.message.chat.id, state, text, keyboard)
         return
 
-    # 4. Перевірка на "Повторити минулу поїздку"
     last_trip = get_last_driver_trip(user_id)
     
     if last_trip:
@@ -78,13 +71,11 @@ async def start_create_trip_handler(call: types.CallbackQuery, state: FSMContext
             f"💺 Місць: {last_trip['seats_total']}\n\n"
             f"<i>Ми запитаємо тільки нову дату та час.</i>"
         )
-        
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="⚡️ Так, повторити", callback_data="drv_repeat_last")],
             [InlineKeyboardButton(text="🆕 Ні, новий маршрут", callback_data="drv_new_route")],
             [InlineKeyboardButton(text="🔙 Скасувати", callback_data="menu_home")]
         ])
-        
         await update_or_send_msg(bot, call.message.chat.id, state, trip_details, keyboard)
     else:
         await _start_new_trip_questions(call.message, state, bot)
@@ -120,7 +111,6 @@ async def repeat_route_selected(call: types.CallbackQuery, state: FSMContext):
 
 
 async def _start_new_trip_questions(message: types.Message, state: FSMContext, bot: Bot):
-    """Запускає ланцюжок запитань."""
     await state.set_state(TripStates.origin)
     await update_or_send_msg(
         bot, message.chat.id, state,
@@ -136,13 +126,11 @@ async def process_origin(message: types.Message, state: FSMContext, bot: Bot):
     await clean_user_input(message)
     raw_text = message.text.strip()
     
-    # 1. ЛОКАЛЬНА БАЗА
     suggestion = get_city_suggestion(raw_text)
     
     if suggestion:
         clean_city = suggestion
     else:
-        # 2. ІНТЕРНЕТ
         msg_wait = await message.answer("🌍 Перевіряю назву міста...")
         real_name = validate_city_real(raw_text)
         with suppress(TelegramBadRequest): await msg_wait.delete()
@@ -173,13 +161,11 @@ async def process_destination(message: types.Message, state: FSMContext, bot: Bo
     await clean_user_input(message)
     raw_text = message.text.strip()
 
-    # 1. База
     suggestion = get_city_suggestion(raw_text)
     
     if suggestion:
         clean_city = suggestion
     else:
-        # 2. Інтернет
         msg_wait = await message.answer("🌍 Перевіряю назву міста...")
         real_name = validate_city_real(raw_text)
         with suppress(TelegramBadRequest): await msg_wait.delete()
@@ -233,7 +219,6 @@ async def process_time(message: types.Message, state: FSMContext, bot: Bot):
     await state.update_data(time=message.text)
     data = await state.get_data()
     
-    # 🔥 ВИПРАВЛЕННЯ: Якщо це повтор поїздки, одразу створюємо її, передаючи збережену ціну
     if data.get('saved_price'):
         await finalize_trip_creation(message, state, bot, price_override=data.get('saved_price'))
         return
@@ -271,10 +256,6 @@ async def process_seats(message: types.Message, state: FSMContext, bot: Bot):
 
 @router.message(TripStates.price)
 async def finalize_trip_creation(message: types.Message, state: FSMContext, bot: Bot, price_override=None):
-    """
-    Завершує створення поїздки.
-    price_override - використовується для автоматичного створення (повтор поїздки).
-    """
     if price_override:
         final_price = int(price_override)
     else:
@@ -299,7 +280,6 @@ async def finalize_trip_creation(message: types.Message, state: FSMContext, bot:
 
     data = await state.get_data()
     
-    # Створюємо ID і запис у базі
     trip_id = str(uuid.uuid4())[:8]
     create_trip(
         trip_id, message.from_user.id, 
@@ -324,7 +304,6 @@ async def finalize_trip_creation(message: types.Message, state: FSMContext, bot:
 
     await update_or_send_msg(bot, message.chat.id, state, success_text, kb_return)
     
-    # Відновлюємо роль і ID меню, щоб кнопки працювали
     last_msg_id = data.get('last_msg_id')
     await state.clear()
     await state.update_data(role="driver", last_msg_id=last_msg_id)
@@ -368,7 +347,6 @@ async def _notify_subscribers(bot, driver_id, trip_id, trip_data, price):
 
 @router.callback_query(F.data == "drv_my_trips")
 async def show_driver_trips(call: types.CallbackQuery, state: FSMContext):
-    # 1. Очищення старих карток
     data = await state.get_data()
     old_trip_msgs = data.get("trip_msg_ids", [])
     
@@ -421,6 +399,11 @@ async def show_driver_trips(call: types.CallbackQuery, state: FSMContext):
         else:
             card_text += "\n\n<i>Пасажирів поки немає.</i>"
 
+        # 🔥 КНОПКА ЗАВЕРШЕННЯ ПОЇЗДКИ 🔥
+        keyboard_rows.append([
+            InlineKeyboardButton(text="🏁 Завершити і оцінити", callback_data=f"drv_finish_{trip['id']}")
+        ])
+
         keyboard_rows.append([InlineKeyboardButton(text="❌ Скасувати цю поїздку", callback_data=f"drv_ask_cancel_{trip['id']}")])
         
         card_msg = await call.message.answer(card_text, reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard_rows), parse_mode="HTML")
@@ -431,6 +414,32 @@ async def show_driver_trips(call: types.CallbackQuery, state: FSMContext):
     new_msg_ids.append(back_msg.message_id)
 
     await state.update_data(trip_msg_ids=new_msg_ids)
+
+
+# --- ЗАВЕРШЕННЯ ПОЇЗДКИ ТА РЕЙТИНГ (НОВЕ) ---
+
+@router.callback_query(F.data.startswith("drv_finish_"))
+async def driver_finish_trip_handler(call: types.CallbackQuery):
+    trip_id = call.data.split("_")[2]
+    
+    # 1. Отримуємо пасажирів (поки поїздка ще активна)
+    passengers = get_trip_passengers(trip_id)
+    
+    # 2. Закриваємо поїздку в БД
+    finish_trip(trip_id)
+    
+    await call.answer("🏁 Поїздку успішно завершено!", show_alert=True)
+    
+    # 3. Видаляємо картку поїздки з чату (щоб не мозолила очі)
+    with suppress(TelegramBadRequest):
+        await call.message.delete()
+        
+    # 4. Запускаємо процес оцінювання
+    if passengers:
+        # Ця функція розішле повідомлення всім пасажирам і водію
+        await ask_for_ratings(call.bot, trip_id, call.from_user.id, passengers)
+    else:
+        await call.message.answer("✅ Поїздку переміщено в історію.")
 
 
 # --- ВИСАДКА ПАСАЖИРА ---

@@ -13,7 +13,8 @@ from states import SearchStates
 from database import (
     search_trips, add_booking, get_user, get_user_bookings, 
     get_trip_details, delete_booking, get_recent_searches, save_search_history,
-    get_user_history, add_subscription, add_or_update_city
+    get_user_history, add_subscription, add_or_update_city,
+    get_user_rating, format_rating # 👈 Додано для рейтингу
 )
 from keyboards import kb_back, kb_dates, kb_menu
 
@@ -332,7 +333,7 @@ async def execute_search(call: types.CallbackQuery, state: FSMContext):
 
 
 # ==========================================
-# 📄 ПАГІНАЦІЯ (ДИЗАЙН КАРТОК)
+# 📄 ПАГІНАЦІЯ (ДИЗАЙН КАРТОК + РЕЙТИНГ)
 # ==========================================
 
 async def _render_trips_page(message: types.Message, state: FSMContext):
@@ -355,14 +356,17 @@ async def _render_trips_page(message: types.Message, state: FSMContext):
     for trip in current_slice:
         free_seats = trip['seats_total'] - trip['seats_taken']
         
-        # Гарний дизайн картки
+        # 🔥 Отримуємо рейтинг водія
+        avg, count = get_user_rating(trip['user_id'], role="driver")
+        rating_str = format_rating(avg, count)
+        
         txt = (
             f"🚗 <b>{trip['origin']} ➝ {trip['destination']}</b>\n"
             f"➖➖➖➖➖➖➖➖\n"
             f"📅 <b>{trip['date']}</b> | ⏰ <b>{trip['time']}</b>\n"
             f"💰 Ціна: <b>{trip['price']} грн</b>\n"
             f"💺 Вільно місць: <b>{free_seats}</b>\n"
-            f"👤 Водій: {trip['driver_name']}\n"
+            f"👤 Водій: {trip['driver_name']} ({rating_str})\n" # Додано рейтинг
             f"🚙 Авто: {trip['model']} {trip['color']}"
         )
         
@@ -374,12 +378,11 @@ async def _render_trips_page(message: types.Message, state: FSMContext):
         msg = await message.answer(txt, reply_markup=keyboard, parse_mode="HTML")
         search_msg_ids.append(msg.message_id)
     
-    # Кнопки навігації (Тільки якщо треба)
+    # Кнопки навігації
     nav_buttons = []
     if page > 0:
         nav_buttons.append(InlineKeyboardButton(text="⬅️ Назад", callback_data="page_prev"))
     
-    # Показуємо сторінки, якщо їх більше однієї
     if total_pages > 1:
         nav_buttons.append(InlineKeyboardButton(text=f"{page + 1}/{total_pages}", callback_data="ignore"))
     
@@ -392,7 +395,7 @@ async def _render_trips_page(message: types.Message, state: FSMContext):
         [InlineKeyboardButton(text="🏠 У меню", callback_data="menu_home")]
     ])
     
-    # Видалення старої навігації, щоб вона "стрибала" вниз
+    # Видалення старої навігації
     old_nav_id = data.get("last_nav_msg_id")
     if old_nav_id:
         with suppress(TelegramBadRequest):
@@ -444,6 +447,10 @@ async def process_booking_handler(call: types.CallbackQuery, state: FSMContext):
         trip = get_trip_details(trip_id)
         user = get_user(passenger_id)
         
+        # 🔥 Отримуємо рейтинг водія для відображення в успішному бронюванні
+        avg, count = get_user_rating(trip['user_id'], role="driver")
+        rating_str = format_rating(avg, count)
+        
         # --- 1. ОЧИЩЕННЯ ЕКРАНУ ---
         with suppress(TelegramBadRequest):
             await call.message.delete()
@@ -475,7 +482,7 @@ async def process_booking_handler(call: types.CallbackQuery, state: FSMContext):
             f"🚗 <b>{trip['origin']} ➝ {trip['destination']}</b>\n"
             f"📅 {trip['date']} | ⏰ {trip['time']}\n"
             f"💰 {trip['price']} грн\n\n"
-            f"👤 Водій: <b>{trip['name']}</b>\n"
+            f"👤 Водій: <b>{trip['name']}</b> ({rating_str})\n"
             f"📞 Тел: <code>{trip['phone']}</code>\n"
             f"🚙 Авто: {trip['model']} {trip['number']}\n"
             f"➖➖➖➖➖➖➖➖\n"
@@ -488,10 +495,15 @@ async def process_booking_handler(call: types.CallbackQuery, state: FSMContext):
         # Сповіщення водію
         try:
             free_seats = trip['seats_total'] - trip['seats_taken'] - 1
+            
+            # Рейтинг пасажира
+            p_avg, p_count = get_user_rating(passenger_id, role="passenger")
+            p_rating_str = format_rating(p_avg, p_count)
+            
             driver_msg = (
                 f"🆕 <b>Нове бронювання!</b>\n"
                 f"🚗 {trip['origin']} -> {trip['destination']}\n"
-                f"👤 Пасажир: <b>{user['name']}</b>\n"
+                f"👤 Пасажир: <b>{user['name']}</b> ({p_rating_str})\n"
                 f"📞 Тел: <code>{user['phone']}</code>\n"
                 f"💺 Залишилось місць: <b>{free_seats}</b>" 
             )
@@ -511,7 +523,6 @@ async def process_booking_handler(call: types.CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == "pass_my_books")
 async def show_my_bookings_handler(call: types.CallbackQuery, state: FSMContext):
-    # Очистка
     data = await state.get_data()
     old_msgs = data.get("booking_msg_ids", [])
     if old_msgs:
@@ -542,11 +553,16 @@ async def show_my_bookings_handler(call: types.CallbackQuery, state: FSMContext)
     new_msg_ids.append(header.message_id)
     
     for b in bookings:
+        # Рейтинг водія
+        avg, count = get_user_rating(b['driver_id'], role="driver")
+        rating_str = format_rating(avg, count)
+        
         txt = (
             f"🎫 <b>Поїздка до {b['destination']}</b>\n"
             f"🗓 {b['date']} о {b['time']}\n"
             f"📍 {b['origin']} ➝ {b['destination']}\n"
-            f"👤 Водій: {b['driver_name']} (<code>{b['driver_phone']}</code>)\n"
+            f"👤 Водій: {b['driver_name']} ({rating_str})\n"
+            f"📞 <code>{b['driver_phone']}</code>\n"
             f"💰 {b['price']} грн"
         )
         
@@ -600,7 +616,6 @@ async def show_history_handler(call: types.CallbackQuery, state: FSMContext):
         [InlineKeyboardButton(text="🔙 Назад в меню", callback_data="menu_home")]
     ])
     
-    # Видаляємо меню перед показом історії
     with suppress(TelegramBadRequest): 
         await call.message.delete()
 
@@ -614,6 +629,8 @@ async def show_history_handler(call: types.CallbackQuery, state: FSMContext):
     await call.message.answer("📜 <b>Ваші минулі поїздки (останні 5):</b>", parse_mode="HTML")
     
     for trip in history[:5]:
+        # В історії не завжди є ID водія в старому коді, але краще додати
+        # Для простоти тут показуємо без рейтингу або можна додати запит, якщо є ID
         txt = (
             f"✅ <b>Завершено</b>\n"
             f"🚗 {trip['origin']} ➝ {trip['destination']}\n"
