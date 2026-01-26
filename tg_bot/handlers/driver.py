@@ -11,16 +11,16 @@ from database import (
     get_user, save_user, create_trip, get_driver_active_trips, 
     get_trip_passengers, cancel_trip_full, kick_passenger, 
     get_last_driver_trip, get_subscribers_for_trip,
-    add_or_update_city, finish_trip  # 👈 Додано finish_trip
+    add_or_update_city, finish_trip  
 )
-# Імпорт рейтингу
-from handlers.rating import ask_for_ratings # 👈 Додано для запуску оцінювання
+from handlers.rating import ask_for_ratings 
 
 from states import TripStates
 from keyboards import kb_back, kb_dates, kb_menu
 from utils import (
     clean_user_input, delete_prev_msg, update_or_send_msg, 
-    is_valid_city, validate_city_real, get_city_suggestion
+    is_valid_city, validate_city_real, get_city_suggestion,
+    delete_messages_list  # 🔥 Додано для очищення списку поїздок
 )
 
 router = Router()
@@ -347,14 +347,10 @@ async def _notify_subscribers(bot, driver_id, trip_id, trip_data, price):
 
 @router.callback_query(F.data == "drv_my_trips")
 async def show_driver_trips(call: types.CallbackQuery, state: FSMContext):
-    data = await state.get_data()
-    old_trip_msgs = data.get("trip_msg_ids", [])
+    # 🔥 ВИДАЛЯЄМО СТАРІ КАРТКИ, ЯКЩО ВОНИ Є
+    await delete_messages_list(state, call.bot, call.message.chat.id, "trip_msg_ids")
     
-    if old_trip_msgs:
-        for msg_id in old_trip_msgs:
-            with suppress(TelegramBadRequest):
-                await call.bot.delete_message(chat_id=call.message.chat.id, message_id=msg_id)
-    
+    # Видаляємо саме меню (щоб було чисто)
     with suppress(TelegramBadRequest):
         await call.message.delete()
 
@@ -419,7 +415,7 @@ async def show_driver_trips(call: types.CallbackQuery, state: FSMContext):
 # --- ЗАВЕРШЕННЯ ПОЇЗДКИ ТА РЕЙТИНГ (НОВЕ) ---
 
 @router.callback_query(F.data.startswith("drv_finish_"))
-async def driver_finish_trip_handler(call: types.CallbackQuery):
+async def driver_finish_trip_handler(call: types.CallbackQuery, state: FSMContext):
     trip_id = call.data.split("_")[2]
     
     # 1. Отримуємо пасажирів (поки поїздка ще активна)
@@ -428,18 +424,17 @@ async def driver_finish_trip_handler(call: types.CallbackQuery):
     # 2. Закриваємо поїздку в БД
     finish_trip(trip_id)
     
+    # Показуємо алерт, що все ок
     await call.answer("🏁 Поїздку успішно завершено!", show_alert=True)
     
-    # 3. Видаляємо картку поїздки з чату (щоб не мозолила очі)
-    with suppress(TelegramBadRequest):
-        await call.message.delete()
+    # 3. 🔥 ПЕРЕМАЛЬОВУЄМО СПИСОК ПОЇЗДОК
+    # Це автоматично видалить стару картку і покаже оновлений список (без цієї поїздки)
+    await show_driver_trips(call, state)
         
-    # 4. Запускаємо процес оцінювання
+    # 4. Запускаємо процес оцінювання (фоново)
     if passengers:
         # Ця функція розішле повідомлення всім пасажирам і водію
         await ask_for_ratings(call.bot, trip_id, call.from_user.id, passengers)
-    else:
-        await call.message.answer("✅ Поїздку переміщено в історію.")
 
 
 # --- ВИСАДКА ПАСАЖИРА ---
@@ -466,6 +461,7 @@ async def kick_passenger_handler(call: types.CallbackQuery, state: FSMContext):
         with suppress(Exception):
             await call.bot.send_message(chat_id=info['passenger_id'], text=msg_text, parse_mode="HTML")
 
+        # Оновлюємо список
         await show_driver_trips(call, state)
     else:
         await call.answer("❌ Помилка: не вдалося висадити.", show_alert=True)
@@ -487,6 +483,7 @@ async def ask_cancel_trip_handler(call: types.CallbackQuery):
         [InlineKeyboardButton(text="🔙 Ні, залишити", callback_data="drv_my_trips")]
     ])
     
+    # Редагуємо текст картки на підтвердження
     await call.message.edit_text(confirm_text, reply_markup=keyboard, parse_mode="HTML")
 
 
@@ -497,9 +494,6 @@ async def perform_cancel_trip_handler(call: types.CallbackQuery, state: FSMConte
     trip_info, passengers_to_notify = cancel_trip_full(trip_id, call.from_user.id)
     
     if trip_info:
-        with suppress(TelegramBadRequest):
-            await call.message.delete()
-            
         await call.answer("✅ Поїздку скасовано.", show_alert=True)
         
         msg_text = (
@@ -513,6 +507,7 @@ async def perform_cancel_trip_handler(call: types.CallbackQuery, state: FSMConte
             with suppress(Exception):
                 await call.bot.send_message(chat_id=pass_id, text=msg_text, parse_mode="HTML")
         
+        # Оновлюємо список (це видалить повідомлення підтвердження)
         await show_driver_trips(call, state)
     else:
         await call.answer("❌ Помилка: поїздка не знайдена.", show_alert=True)

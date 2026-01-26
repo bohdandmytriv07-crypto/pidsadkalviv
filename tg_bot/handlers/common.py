@@ -9,10 +9,10 @@ from aiogram.exceptions import TelegramBadRequest
 from database import (
     is_user_banned, save_user, get_and_clear_chat_msgs, 
     delete_active_chat, get_user, 
-    check_terms_status, accept_terms # 👈 Додані нові функції
+    check_terms_status, accept_terms
 )
 from keyboards import kb_main_role, kb_menu
-from utils import clean_user_input, update_or_send_msg, delete_prev_msg
+from utils import clean_user_input, update_or_send_msg, delete_messages_list
 
 router = Router()
 
@@ -27,12 +27,8 @@ async def cmd_start(message: types.Message, state: FSMContext, bot: Bot):
     
     user_id = message.from_user.id
     
-    # Зберігаємо юзера (оновлюємо ім'я, але не чіпаємо телефон, якщо він є)
+    # Зберігаємо юзера
     existing_user = get_user(user_id)
-    current_phone = existing_user['phone'] if existing_user else "-"
-    
-    # Якщо юзера немає, save_user його створить. Якщо є - оновить ім'я.
-    # Але terms_accepted ми тут не ставимо, це робить accept_terms
     if not existing_user:
         save_user(user_id, message.from_user.full_name, "-")
     
@@ -57,18 +53,13 @@ async def cmd_start(message: types.Message, state: FSMContext, bot: Bot):
             f"📋 <b>Угода користувача:</b>\n\n"
             
             f"<b>1. Відмова від відповідальності</b>\n"
-            f"Бот «Підсадка Львів» є виключно інформаційною платформою. Ми не є перевізником, службою таксі або роботодавцем водіїв. "
-            f"Адміністрація не несе відповідальності за скасування поїздок, запізнення, стан авто або поведінку користувачів.\n\n"
+            f"Бот «Підсадка Львів» є виключно інформаційною платформою. Ми не є перевізником.\n\n"
             
             f"<b>2. Конфіденційність даних</b>\n"
-            f"Натискаючи кнопку «Погоджуюсь», ви надаєте згоду на обробку ваших персональних даних (Ім'я, Telegram ID, Номер телефону). "
-            f"Ваш номер телефону буде передано іншому користувачу (водію/пасажиру) <b>тільки у випадку успішного бронювання місця</b> для зв'язку.\n\n"
+            f"Натискаючи кнопку «Погоджуюсь», ви надаєте згоду на обробку ваших персональних даних.\n\n"
             
             f"<b>3. Безпека</b>\n"
-            f"Ми рекомендуємо перевіряти дані співрозмовника перед поїздкою. Ви несете особисту відповідальність за свою безпеку під час подорожі.\n\n"
-            
-            f"<b>4. Принцип «Спільна поїздка»</b>\n"
-            f"Сервіс працює за принципом компенсації витрат на пальне (ridesharing). Це не комерційна послуга перевезення.\n\n"
+            f"Ми рекомендуємо перевіряти дані співрозмовника перед поїздкою.\n\n"
             
             f"<i>Натискаючи кнопку нижче, ви підтверджуєте, що вам виповнилося 18 років і ви приймаєте ці умови.</i>"
         )
@@ -88,16 +79,13 @@ async def cmd_start(message: types.Message, state: FSMContext, bot: Bot):
 
 @router.callback_query(F.data == "terms_ok")
 async def terms_accepted_handler(call: types.CallbackQuery, state: FSMContext):
-    # Записуємо в базу, що юзер погодився
     accept_terms(call.from_user.id, call.from_user.full_name)
     
     await call.answer("Дякую! Доступ відкрито ✅")
     
-    # Видаляємо повідомлення з правилами (для чистоти)
     with suppress(TelegramBadRequest):
         await call.message.delete()
     
-    # Показуємо меню
     await _show_role_menu(call.message, state)
 
 
@@ -118,15 +106,18 @@ async def _show_role_menu(message: types.Message, state: FSMContext):
 
 async def _clean_chat_interface(user_id: int, state: FSMContext, bot: Bot, chat_id: int):
     """Виконує повну очистку інтерфейсу від попередніх повідомлень."""
-    data = await state.get_data()
+    # 1. Видаляємо всі списки повідомлень
+    await delete_messages_list(state, bot, chat_id, "trip_msg_ids")
+    await delete_messages_list(state, bot, chat_id, "booking_msg_ids")
+    await delete_messages_list(state, bot, chat_id, "search_msg_ids")
     
+    # 2. Видаляємо головні меню
+    data = await state.get_data()
     ids_to_delete = []
     if data.get("last_interface_id"): ids_to_delete.append(data.get("last_interface_id"))
     if data.get("last_msg_id"): ids_to_delete.append(data.get("last_msg_id"))
-    ids_to_delete.extend(data.get("trip_msg_ids", []))
-    ids_to_delete.extend(data.get("booking_msg_ids", []))
-    ids_to_delete.extend(data.get("search_msg_ids", [])) # Не забуваємо про пошук
     
+    # 3. Видаляємо чат
     delete_active_chat(user_id) 
     ids_to_delete.extend(get_and_clear_chat_msgs(user_id)) 
 
@@ -135,7 +126,7 @@ async def _clean_chat_interface(user_id: int, state: FSMContext, bot: Bot, chat_
             with suppress(TelegramBadRequest):
                 await bot.delete_message(chat_id=chat_id, message_id=mid)
 
-    # Скидаємо стан
+    # Скидаємо стан повністю
     await state.clear()
 
 
@@ -146,10 +137,8 @@ async def _clean_chat_interface(user_id: int, state: FSMContext, bot: Bot, chat_
 @router.callback_query(F.data == "back_start")
 async def back_to_start_handler(call: types.CallbackQuery, state: FSMContext):
     """Повернення до вибору ролі (Водій/Пасажир)."""
-    prev_msg_id = call.message.message_id
-    
-    await state.clear()
-    await state.update_data(last_msg_id=prev_msg_id)
+    # Чистимо все перед виходом на головну
+    await _clean_chat_interface(call.from_user.id, state, call.bot, call.message.chat.id)
     
     await update_or_send_msg(
         call.bot, call.message.chat.id, state,
@@ -176,36 +165,26 @@ async def set_role_handler(call: types.CallbackQuery, state: FSMContext):
 @router.callback_query(F.data == "menu_home")
 async def back_to_menu_handler(call: types.CallbackQuery, state: FSMContext, bot: Bot):
     """
-    Повертає в меню і чистить ВСЕ сміття.
+    Повертає в меню і чистить ВСЕ сміття (списки поїздок, історію тощо).
     """
-    # Запам'ятовуємо ID кнопки, яку натиснули (щоб її не видалити, а відредагувати)
-    prev_msg_id = call.message.message_id
+    # 1. Очищаємо всі списки карток
+    await delete_messages_list(state, bot, call.message.chat.id, "trip_msg_ids")
+    await delete_messages_list(state, bot, call.message.chat.id, "booking_msg_ids")
+    await delete_messages_list(state, bot, call.message.chat.id, "search_msg_ids")
     
-    # Виконуємо очистку всього КРІМ поточного повідомлення
-    # Тут ми вручну збираємо ID, бо _clean_chat_interface очищає і state, а нам треба зберегти prev_msg_id
+    # 2. Очищаємо чат
+    delete_active_chat(call.from_user.id)
+    chat_msgs = get_and_clear_chat_msgs(call.from_user.id)
+    for mid in chat_msgs:
+        with suppress(TelegramBadRequest):
+            await bot.delete_message(chat_id=call.message.chat.id, message_id=mid)
+
+    # 3. Відновлюємо меню
     data = await state.get_data()
     role = data.get("role", "passenger")
     
-    ids_to_clean = []
-    ids_to_clean.extend(data.get("trip_msg_ids", []))
-    ids_to_clean.extend(data.get("booking_msg_ids", []))
-    ids_to_clean.extend(data.get("search_msg_ids", []))
-    
-    delete_active_chat(call.from_user.id)
-    ids_to_clean.extend(get_and_clear_chat_msgs(call.from_user.id))
-
-    for msg_id in ids_to_clean:
-        if msg_id != prev_msg_id:
-            with suppress(TelegramBadRequest):
-                await bot.delete_message(chat_id=call.message.chat.id, message_id=msg_id)
-
-    # Очищаємо стан, але відновлюємо роль і ID меню
-    await state.clear()
-    await state.update_data(role=role, last_msg_id=prev_msg_id)
-    
     menu_title = "Водія 🚖" if role == "driver" else "Пасажира 🚶"
     
-    # Редагуємо поточне повідомлення на Головне Меню
     await update_or_send_msg(
         bot, call.message.chat.id, state,
         f"Меню {menu_title}:",
@@ -222,6 +201,6 @@ async def cmd_support(message: types.Message):
     await message.answer(
         "🆘 <b>Підтримка</b>\n\n"
         "Знайшли помилку або є пропозиція?\n"
-        "Напишіть розробнику: @admin_username", # Замініть на свій нік
+        "Напишіть розробнику: @dmitriv_bogdan", 
         parse_mode="HTML"
     )

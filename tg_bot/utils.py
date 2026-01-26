@@ -11,7 +11,7 @@ from geopy.geocoders import Nominatim
 # 👇 Імпорт функції, яка дістає збережені міста з твоєї бази
 from database import get_all_cities_names
 
-# 👇 Ініціалізація пошуку в інтернеті (User-Agent обов'язковий, щоб не забанили)
+# 👇 Ініціалізація пошуку в інтернеті
 geolocator = Nominatim(user_agent="ua_ride_bot_pidsadka")
 
 
@@ -20,89 +20,101 @@ geolocator = Nominatim(user_agent="ua_ride_bot_pidsadka")
 # ==========================================
 
 def get_city_suggestion(raw_input: str) -> str | None:
-    """
-    1. Бере всі міста, які ми ВЖЕ знаємо (з бази).
-    2. Шукає схоже (наприклад, юзер ввів 'льві', а в базі є 'Львів').
-    """
+    """Шукає схоже місто у ЛОКАЛЬНІЙ БАЗІ."""
     if not raw_input: return None
     
-    # Отримуємо список міст, які вже збережені в базі даних
     known_cities = get_all_cities_names()
-    
-    if not known_cities:
-        return None
+    if not known_cities: return None
 
-    # Шукаємо найкращий збіг (поріг схожості 75%)
-    # extractOne повертає кортеж: ('Львів', 90)
     best_match = process.extractOne(raw_input, known_cities)
     
     if best_match and best_match[1] >= 75:
-        return best_match[0] # Повертаємо правильну назву з бази
+        return best_match[0]
             
     return None
 
 
 def validate_city_real(city_name: str) -> str | None:
-    """
-    Якщо міста немає в базі, перевіряємо його існування через ІНТЕРНЕТ.
-    """
+    """Перевіряє місто через ІНТЕРНЕТ (OpenStreetMap)."""
     try:
-        # Шукаємо тільки в межах України ('uk' - українська мова результату)
         location = geolocator.geocode(f"{city_name}, Ukraine", language="uk")
-        
         if location:
-            # location.address може бути довгим: "Львів, Львівська громада, ..."
-            # Ми беремо тільки першу частину до коми
-            real_name = location.address.split(',')[0]
-            return real_name
-            
+            return location.address.split(',')[0]
     except Exception as e:
         print(f"⚠️ Помилка геокодера: {e}")
         return None 
-        
     return None
 
 
 def is_valid_city(text: str) -> bool:
-    """
-    Базова перевірка, щоб не шукати в інтернеті набір цифр або матюки.
-    """
+    """Базова перевірка на спецсимволи."""
     if not text or len(text) < 2 or len(text) > 50:
         return False
-    # Якщо в тексті є цифри - це не місто
     if any(char.isdigit() for char in text):
         return False
     return True
 
 
 # ==========================================
-# 📲 ІНТЕРФЕЙС ТА ОЧИЩЕННЯ
+# 🧹 ОЧИЩЕННЯ ТА ІНТЕРФЕЙС (CORE)
 # ==========================================
 
 async def clean_user_input(message: types.Message):
-    """Видаляє повідомлення користувача."""
+    """
+    Видаляє повідомлення, яке написав користувач.
+    Викликати на початку кожного хендлера, де юзер вводить текст.
+    """
     with suppress(TelegramBadRequest):
         await message.delete()
 
+
 async def delete_prev_msg(state: FSMContext, bot: Bot, chat_id: int):
-    """Видаляє попереднє повідомлення бота."""
+    """
+    Видаляє ОДНЕ попереднє повідомлення бота (головне меню або питання).
+    """
     data = await state.get_data()
     last_msg_id = data.get("last_msg_id")
+    
     if last_msg_id:
         with suppress(TelegramBadRequest):
             await bot.delete_message(chat_id=chat_id, message_id=last_msg_id)
+        # Очищаємо змінну, щоб не намагатись видалити двічі
         await state.update_data(last_msg_id=None)
 
+
+async def delete_messages_list(state: FSMContext, bot: Bot, chat_id: int, key: str):
+    """
+    🔥 НОВА ФУНКЦІЯ: Видаляє СПИСОК повідомлень.
+    key - це назва ключа в state (наприклад, 'search_msg_ids'), де лежить список ID.
+    """
+    data = await state.get_data()
+    msg_ids = data.get(key, [])
+    
+    if msg_ids:
+        for mid in msg_ids:
+            with suppress(TelegramBadRequest):
+                await bot.delete_message(chat_id=chat_id, message_id=mid)
+        
+        # Очищаємо список у стані
+        await state.update_data({key: []})
+
+
 async def send_new_clean_msg(message: types.Message, state: FSMContext, text: str, kb=None):
-    """Видаляє старе -> Шле нове."""
+    """
+    Примусово видаляє старе -> Шле нове.
+    Використовується для Reply-клавіатур або зміни розділів.
+    """
     await delete_prev_msg(state, message.bot, message.chat.id)
+    
     msg = await message.answer(text, reply_markup=kb, parse_mode="HTML")
     await state.update_data(last_msg_id=msg.message_id)
 
+
 async def update_or_send_msg(bot: Bot, chat_id: int, state: FSMContext, text: str, kb=None):
     """
-    Спробує відредагувати. Якщо не вийде - видалить і надішле нове.
-    Це робить бота плавним і приємним.
+    Головна функція інтерфейсу.
+    1. Пробує редагувати старе повідомлення (щоб не миготіло).
+    2. Якщо не виходить (повідомлення старе/видалене) -> видаляє старе, шле нове.
     """
     data = await state.get_data()
     last_msg_id = data.get("last_msg_id")
@@ -116,10 +128,12 @@ async def update_or_send_msg(bot: Bot, chat_id: int, state: FSMContext, text: st
                 reply_markup=kb, 
                 parse_mode="HTML"
             )
-            return
+            return # Успіх, виходимо
         except TelegramBadRequest:
-            pass # Повідомлення старе або з фото, редагувати не можна
+            pass # Не вийшло редагувати
             
+    # План Б: Видаляємо старе (якщо воно є) і шлемо нове
     await delete_prev_msg(state, bot, chat_id)
+    
     msg = await bot.send_message(chat_id=chat_id, text=text, reply_markup=kb, parse_mode="HTML")
     await state.update_data(last_msg_id=msg.message_id)

@@ -40,7 +40,7 @@ def init_db():
     conn = get_connection()
     cursor = conn.cursor()
     
-    # 1. Користувачі (ОБ'ЄДНАНА ВЕРСІЯ)
+    # 1. Користувачі
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY,
@@ -138,6 +138,7 @@ def init_db():
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+
     # 10. Відгуки та Рейтинг
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS reviews (
@@ -436,7 +437,17 @@ def get_trip_details(trip_id):
 def get_recent_searches(user_id):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT origin, destination FROM search_history WHERE user_id = ? ORDER BY rowid DESC LIMIT 3", (user_id,))
+    
+    # 🔥 ВИПРАВЛЕННЯ: Групування дублікатів
+    cursor.execute('''
+        SELECT origin, destination 
+        FROM search_history 
+        WHERE user_id = ? 
+        GROUP BY origin, destination
+        ORDER BY MAX(rowid) DESC 
+        LIMIT 3
+    ''', (user_id,))
+    
     rows = cursor.fetchall()
     conn.close()
     return rows
@@ -663,6 +674,8 @@ def get_conversion_rate():
     
     if searches == 0: return 0.0
     return round((bookings / searches) * 100, 1)
+
+
 # ==========================================
 # ⭐ СИСТЕМА РЕЙТИНГУ
 # ==========================================
