@@ -5,19 +5,19 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.exceptions import TelegramBadRequest
 
-# Імпорти інструментів інтерфейсу
 from utils import (
     clean_user_input, update_or_send_msg, delete_messages_list,
     get_city_suggestion, validate_city_real
 )
 
 from states import SearchStates
-# Імпорти бази даних
+
+# 🔥 ВИПРАВЛЕНІ ІМПОРТИ (get_passenger_history тут)
 from database import (
     search_trips, add_booking, get_user, get_user_bookings, 
     get_trip_details, delete_booking, get_recent_searches, save_search_history,
-    get_user_history, add_subscription, get_user_rating, format_rating, log_event,
-    add_or_update_city
+    add_subscription, get_user_rating, format_rating, log_event,
+    add_or_update_city, get_passenger_history
 )
 from keyboards import kb_dates, kb_menu, kb_back
 
@@ -31,13 +31,11 @@ async def show_trip_preview(message: types.Message, state: FSMContext, trip_id: 
     """Показує картку конкретної поїздки, якщо юзер перейшов за посиланням."""
     trip = get_trip_details(trip_id)
     
-    # Якщо поїздки немає або вона вже завершена
     if not trip or trip['status'] != 'active':
         kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🏠 В меню", callback_data="menu_home")]])
         await message.answer("⚠️ <b>Ця поїздка вже неактивна або не існує.</b>", reply_markup=kb, parse_mode="HTML")
         return
 
-    # 🔥 FIX: Заборона бронювати свою ж поїздку
     if trip['user_id'] == message.from_user.id:
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🗂 Перейти до моїх поїздок", callback_data="drv_my_trips")],
@@ -46,10 +44,8 @@ async def show_trip_preview(message: types.Message, state: FSMContext, trip_id: 
         await message.answer("😏 <b>Це ваша власна поїздка!</b>\nВи не можете забронювати місце у себе.", reply_markup=kb, parse_mode="HTML")
         return
 
-    # Встановлюємо роль пасажира
     await state.update_data(role="passenger")
 
-    # Формуємо картку
     free_seats = trip['seats_total'] - trip['seats_taken']
     avg, count = get_user_rating(trip['user_id'], role="driver")
     rating_str = format_rating(avg, count)
@@ -71,7 +67,6 @@ async def show_trip_preview(message: types.Message, state: FSMContext, trip_id: 
     ])
     
     msg = await message.answer(text, reply_markup=kb, parse_mode="HTML")
-    # Зберігаємо ID, щоб потім видалити при переході в меню
     await state.update_data(trip_msg_ids=[msg.message_id])
 
 
@@ -232,7 +227,6 @@ async def prev_page(call: types.CallbackQuery, state: FSMContext):
 async def book_trip(call: types.CallbackQuery, state: FSMContext):
     await delete_messages_list(state, call.bot, call.message.chat.id, "search_msg_ids")
     
-    # 🔥 Перевірка профілю пасажира
     user = get_user(call.from_user.id)
     if not user or user['phone'] == "-":
         kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -263,14 +257,12 @@ async def book_trip(call: types.CallbackQuery, state: FSMContext):
         await _render_trips_page(call.message, state)
 
 # ==========================================
-# 🎫 МОЇ БРОНЮВАННЯ
+# 🎫 МОЇ БРОНЮВАННЯ & ІСТОРІЯ
 # ==========================================
 
 @router.callback_query(F.data == "pass_my_books")
 async def show_bookings(call: types.CallbackQuery, state: FSMContext):
-    # Зупиняємо спіннер (щоб не крутився вічно)
     await call.answer()
-    
     await delete_messages_list(state, call.bot, call.message.chat.id, "booking_msg_ids")
     with suppress(TelegramBadRequest): await call.message.delete()
     
@@ -285,14 +277,13 @@ async def show_bookings(call: types.CallbackQuery, state: FSMContext):
     
     if not bookings:
         kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 В меню", callback_data="menu_home")]])
-        m = await call.message.answer("🎫 <b>Бронювань немає.</b>", reply_markup=kb, parse_mode="HTML")
+        m = await call.message.answer("🎫 <b>Активних бронювань немає.</b>", reply_markup=kb, parse_mode="HTML")
         msg_ids.append(m.message_id)
     else:
-        h = await call.message.answer("🎫 <b>Ваші бронювання:</b>", parse_mode="HTML")
+        h = await call.message.answer("🎫 <b>Активні бронювання:</b>", parse_mode="HTML")
         msg_ids.append(h.message_id)
         
         for b in bookings:
-            # Формуємо картку безпечно
             d_name = b.get('driver_name', 'Водій')
             d_phone = b.get('driver_phone', '-')
             
@@ -308,6 +299,42 @@ async def show_bookings(call: types.CallbackQuery, state: FSMContext):
                 [InlineKeyboardButton(text="❌ Скасувати", callback_data=f"cancel_book_{b['id']}")]
             ])
             m = await call.message.answer(txt, reply_markup=kb, parse_mode="HTML")
+            msg_ids.append(m.message_id)
+            
+        f = await call.message.answer("🔽 Меню:", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🏠 Додому", callback_data="menu_home")]]))
+        msg_ids.append(f.message_id)
+
+    await state.update_data(booking_msg_ids=msg_ids)
+
+@router.callback_query(F.data == "pass_history")
+async def show_passenger_history_handler(call: types.CallbackQuery, state: FSMContext):
+    await call.answer() 
+    await delete_messages_list(state, call.bot, call.message.chat.id, "booking_msg_ids")
+    with suppress(TelegramBadRequest): await call.message.delete()
+    
+    try:
+        history = get_passenger_history(call.from_user.id)
+    except Exception as e:
+        print(f"History Error: {e}")
+        history = []
+
+    msg_ids = []
+    
+    if not history:
+        kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 В меню", callback_data="menu_home")]])
+        m = await call.message.answer("📜 <b>Історія порожня.</b>", reply_markup=kb, parse_mode="HTML")
+        msg_ids.append(m.message_id)
+    else:
+        h = await call.message.answer("📜 <b>Ваші минулі поїздки:</b>", parse_mode="HTML")
+        msg_ids.append(h.message_id)
+        
+        for trip in history:
+            txt = (
+                f"✅ <b>{trip['origin']} ➝ {trip['destination']}</b>\n"
+                f"📅 {trip['date']} | 💰 {trip['price']} грн\n"
+                f"👤 Водій: {trip['driver_name']}"
+            )
+            m = await call.message.answer(txt, parse_mode="HTML")
             msg_ids.append(m.message_id)
             
         f = await call.message.answer("🔽 Меню:", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🏠 Додому", callback_data="menu_home")]]))

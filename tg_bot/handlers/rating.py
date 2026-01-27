@@ -1,9 +1,8 @@
-﻿# 📂 handlers/rating.py
-
-from contextlib import suppress
+﻿from contextlib import suppress
 from aiogram import Router, F, types, Bot
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from database import add_review, get_user
+# 🔥 ВИПРАВЛЕНО: Імпортуємо add_rating замість add_review
+from database import add_rating, get_user
 
 router = Router()
 
@@ -27,8 +26,14 @@ async def process_rating(call: types.CallbackQuery):
     
     from_id = call.from_user.id
     
-    # Записуємо в базу
-    success = add_review(trip_id, from_id, target_id, score, role_being_rated)
+    # 🔥 ВИПРАВЛЕНО: Викликаємо правильну функцію з database.py
+    # add_rating(from_id, to_id, trip_id, role, score)
+    try:
+        add_rating(from_id, target_id, trip_id, role_being_rated, score)
+        success = True
+    except Exception as e:
+        print(f"Rating Error: {e}")
+        success = False
     
     if success:
         target_user = get_user(target_id)
@@ -39,11 +44,8 @@ async def process_rating(call: types.CallbackQuery):
                 f"✅ Ви оцінили <b>{name}</b> на <b>{score} ⭐</b>.\nДякуємо!",
                 parse_mode="HTML"
             )
-            
-        # (Опціонально) Можна сповістити того, кого оцінили
-        # await call.bot.send_message(target_id, f"🌟 Вам поставили оцінку {score} ⭐ за останню поїздку!")
     else:
-        await call.answer("Ви вже оцінили цього користувача.", show_alert=True)
+        await call.answer("Помилка збереження оцінки.", show_alert=True)
         with suppress(Exception):
             await call.message.delete()
 

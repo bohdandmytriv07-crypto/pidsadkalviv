@@ -1,50 +1,50 @@
 ﻿import sqlite3
-import datetime
 import os
+from datetime import datetime
 
-# Ім'я файлу бази даних
 DB_FILE = "bot_database.db"
 
-def fix_migration():
+def fix_database_schema():
     if not os.path.exists(DB_FILE):
-        print(f"❌ Файл {DB_FILE} не знайдено.")
+        print(f"❌ Помилка: Файл {DB_FILE} не знайдено!")
         return
 
+    print(f"🔧 Лікування бази даних: {DB_FILE}...")
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     
-    # Отримуємо поточний час, щоб записати його в старі рядки
-    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    print("🔧 Починаємо виправлення бази...")
+    # 1. Список колонок, які треба додати
+    columns_to_check = [
+        ("users", "rating_driver", "REAL DEFAULT 5.0"),
+        ("users", "rating_pass", "REAL DEFAULT 5.0"),
+        ("users", "created_at", f"DATETIME DEFAULT '{now_str}'"),
+        ("users", "last_active", f"DATETIME DEFAULT '{now_str}'"),
+        ("trips", "description", "TEXT DEFAULT ''"),
+        ("bookings", "created_at", f"DATETIME DEFAULT '{now_str}'"),
+        # 🔥 ВИПРАВЛЕННЯ ПОМИЛКИ ЧАТУ:
+        ("chat_history", "message", "TEXT") 
+    ]
 
-    # --- 1. Додаємо join_date (без default) ---
-    try:
-        cursor.execute("ALTER TABLE users ADD COLUMN join_date TEXT")
-        print("✅ Додано колонку join_date")
-        # Заповнюємо старі записи поточним часом
-        cursor.execute("UPDATE users SET join_date = ? WHERE join_date IS NULL", (now_str,))
-    except sqlite3.OperationalError as e:
-        if "duplicate column" in str(e):
-            print("ℹ️ Колонка join_date вже існує")
-        else:
-            print(f"⚠️ Помилка join_date: {e}")
-
-    # --- 2. Додаємо last_active (без default) ---
-    try:
-        cursor.execute("ALTER TABLE users ADD COLUMN last_active TEXT")
-        print("✅ Додано колонку last_active")
-        # Заповнюємо старі записи поточним часом
-        cursor.execute("UPDATE users SET last_active = ? WHERE last_active IS NULL", (now_str,))
-    except sqlite3.OperationalError as e:
-        if "duplicate column" in str(e):
-            print("ℹ️ Колонка last_active вже існує")
-        else:
-            print(f"⚠️ Помилка last_active: {e}")
+    print("\n🚀 Перевірка колонок...")
+    for table, column, dtype in columns_to_check:
+        try:
+            cursor.execute(f"PRAGMA table_info({table})")
+            existing = [info[1] for info in cursor.fetchall()]
+            
+            if column not in existing:
+                print(f"➕ Додаю колонку '{column}' в '{table}'...")
+                cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column} {dtype}")
+            else:
+                print(f"✅ Колонка '{column}' вже є в '{table}'.")
+                
+        except sqlite3.OperationalError as e:
+            print(f"⚠️ Проблема з таблицею {table}: {e}")
 
     conn.commit()
     conn.close()
-    print("🏁 База виправлена! Можна запускати бота.")
+    print("\n🏁 База даних вилікувана! Запускайте main.py")
 
 if __name__ == "__main__":
-    fix_migration()
+    fix_database_schema()

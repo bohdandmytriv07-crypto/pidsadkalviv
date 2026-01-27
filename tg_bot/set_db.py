@@ -1,9 +1,7 @@
-﻿# setup_db.py
-import sqlite3
+﻿import sqlite3
 from config import DB_FILE
 from database import init_db
 
-# Великий список міст (можеш розширювати скільки завгодно)
 INITIAL_CITIES = [
     "Київ", "Львів", "Одеса", "Дніпро", "Харків", 
     "Запоріжжя", "Вінниця", "Луцьк", "Житомир", 
@@ -22,7 +20,6 @@ def seed_data():
     with sqlite3.connect(DB_FILE) as conn:
         cursor = conn.cursor()
         
-        # Перевіряємо, чи таблиця вже має записи, щоб не дублювати
         count = cursor.execute("SELECT COUNT(*) FROM cities").fetchone()[0]
         if count > 0:
             print(f"⚠️ База вже містить {count} міст. Пропускаю наповнення.")
@@ -31,19 +28,15 @@ def seed_data():
         print("🚀 Додаю міста...")
         for city in INITIAL_CITIES:
             try:
-                # popularity=1 (стартова популярність)
-                cursor.execute("INSERT INTO cities (name, popularity) VALUES (?, 1)", (city,))
+                # 🔥 ВИПРАВЛЕНО: popularity -> search_count
+                cursor.execute("INSERT INTO cities (name, search_count) VALUES (?, 1)", (city,))
             except sqlite3.IntegrityError:
-                pass # Якщо місто вже є - ігноруємо
+                pass 
         
         conn.commit()
         print(f"✅ Успішно додано {len(INITIAL_CITIES)} міст!")
 
 if __name__ == "__main__":
-    # 1. Створюємо таблиці (якщо їх немає)
     init_db()
-    
-    # 2. Наповнюємо даними
     seed_data()
-    
     print("🏁 Налаштування бази завершено. Можна запускати бота!")
