@@ -427,7 +427,14 @@ def save_search_history(user_id, origin, destination):
 
 def get_recent_searches(user_id):
     conn = get_connection()
-    rows = conn.execute("SELECT origin, destination FROM search_history WHERE user_id = ? ORDER BY rowid DESC LIMIT 3", (user_id,)).fetchall()
+    rows = conn.execute('''
+        SELECT origin, destination 
+        FROM search_history 
+        WHERE user_id = ? 
+        GROUP BY origin, destination 
+        ORDER BY MAX(timestamp) DESC 
+        LIMIT 5
+    ''', (user_id,)).fetchall()
     conn.close()
     return [(row['origin'], row['destination']) for row in rows]
 

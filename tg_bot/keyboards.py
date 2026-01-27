@@ -2,6 +2,10 @@
 from typing import List, Tuple
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 
+# ==========================================
+# 🏠 ГОЛОВНІ МЕНЮ
+# ==========================================
+
 def kb_main_role() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🚗 Я водій", callback_data="role_driver")],
@@ -27,6 +31,10 @@ def kb_menu(role: str) -> InlineKeyboardMarkup:
             [InlineKeyboardButton(text="🔙 Змінити роль", callback_data="back_start")]
         ])
 
+# ==========================================
+# 🛠 ДОПОМІЖНІ
+# ==========================================
+
 def kb_back(callback_data: str = "menu_home") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Назад", callback_data=callback_data)]])
 
@@ -49,6 +57,10 @@ def kb_car_type():
         [InlineKeyboardButton(text="🚐 Бус / Мінівен", callback_data="body_bus")]
     ])
 
+# ==========================================
+# 💬 ЧАТ
+# ==========================================
+
 def kb_chat_actions(partner_username=None):
     """Inline-кнопки під повідомленнями."""
     buttons = [
@@ -62,6 +74,13 @@ def kb_chat_actions(partner_username=None):
     
     buttons.append([InlineKeyboardButton(text="❌ Завершити діалог", callback_data="chat_leave")])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+# 🔥 ОСЬ ЦЯ ФУНКЦІЯ, ЯКОЇ НЕ ВИСТАЧАЛО
+def kb_reply(user_id):
+    """Кнопка 'Відповісти' під повідомленням."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="↩️ Відповісти", callback_data=f"chat_reply_{user_id}")]
+    ])
 
 def kb_chat_bottom():
     """Нижня клавіатура для зручності."""

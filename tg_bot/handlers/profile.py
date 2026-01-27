@@ -2,7 +2,8 @@
 from contextlib import suppress
 from aiogram import Router, F, types
 from aiogram.fsm.context import FSMContext
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+# 🔥 FIX: Додано ReplyKeyboardRemove в імпорти
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardRemove
 from database import get_user, save_user, get_user_rating, format_rating
 from states import ProfileStates
 from keyboards import kb_back, kb_menu, kb_car_type
@@ -38,23 +39,29 @@ async def start_reg(call: types.CallbackQuery, state: FSMContext):
 
 @router.message(ProfileStates.name)
 async def process_name(message: types.Message, state: FSMContext):
-    await clean_user_input(message) # 🔥 Видаляємо повідомлення юзера
-    if len(message.text) < 2: return # Ігноруємо надто короткі
+    await clean_user_input(message)
+    if len(message.text) < 2: return 
     
     await state.update_data(name=message.text)
     await state.set_state(ProfileStates.phone)
     
-    # Тут треба спец. функція для reply-клавіатури
-    kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="📱 Надіслати номер", request_contact=True)]], resize_keyboard=True, one_time_keyboard=True)
-    await send_new_clean_msg(message, state, "📱 <b>Ваш номер телефону:</b>\nНатисніть кнопку знизу:", kb)
+    kb = ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text="📱 Надіслати номер", request_contact=True)]], 
+        resize_keyboard=True, 
+        one_time_keyboard=True
+    )
+    # Відправляємо нове повідомлення з кнопкою, щоб воно було свіжим
+    await message.answer("📱 <b>Ваш номер телефону:</b>\nНатисніть кнопку знизу:", reply_markup=kb, parse_mode="HTML")
 
 @router.message(ProfileStates.phone)
 async def process_phone(message: types.Message, state: FSMContext):
-    # Тут не видаляємо clean_user_input, бо це може бути контакт, а він великий
-    with suppress(Exception): await message.delete() 
+    # 🔥 1. Видаляємо клавіатуру "Надіслати номер"
+    rm_msg = await message.answer("⏳ Зберігаю...", reply_markup=ReplyKeyboardRemove())
+    
+    # Видаляємо контакт юзера (щоб чисто було)
+    with suppress(Exception): await message.delete()
     
     phone = message.contact.phone_number if message.contact else message.text
-    # Проста очистка
     phone = re.sub(r'\D', '', phone)
     if not phone.startswith("380"): phone = f"380{phone[-9:]}"
     phone = f"+{phone}"
@@ -62,10 +69,17 @@ async def process_phone(message: types.Message, state: FSMContext):
     await state.update_data(phone=phone)
     data = await state.get_data()
     
+    # Видаляємо повідомлення "Зберігаю..."
+    with suppress(Exception): await rm_msg.delete()
+
     if data.get("role") == "passenger":
-        save_user(message.from_user.id, data['name'], phone)
+        # Передаємо username, якщо є
+        uname = f"@{message.from_user.username}" if message.from_user.username else None
+        save_user(message.from_user.id, data['name'], uname, phone)
+        
         await state.clear()
         await state.update_data(role="passenger")
+        
         msg = await message.answer("✅ <b>Профіль збережено!</b>", reply_markup=kb_menu("passenger"), parse_mode="HTML")
         await state.update_data(last_msg_id=msg.message_id)
     else:
@@ -97,10 +111,18 @@ async def process_color(message: types.Message, state: FSMContext):
 async def process_number(message: types.Message, state: FSMContext):
     await clean_user_input(message)
     data = await state.get_data()
-    save_user(message.from_user.id, data['name'], data['phone'], data['model'], data['body'], data['color'], message.text.upper())
+    
+    uname = f"@{message.from_user.username}" if message.from_user.username else None
+    
+    save_user(
+        message.from_user.id, data['name'], uname, 
+        data['phone'], data['model'], data['body'], 
+        data['color'], message.text.upper()
+    )
     
     await state.clear()
     await state.update_data(role="driver")
+    
     kb = kb_menu("driver")
     msg = await message.answer("✅ <b>Водій готовий!</b>", reply_markup=kb, parse_mode="HTML")
     await state.update_data(last_msg_id=msg.message_id)

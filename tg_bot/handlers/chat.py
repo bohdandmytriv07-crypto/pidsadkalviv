@@ -8,14 +8,12 @@ from aiogram.fsm.context import FSMContext
 from database import (
     set_active_chat, get_active_chat_partner, delete_active_chat, get_user,
     save_chat_msg, get_and_clear_chat_msgs, 
-    save_message_to_history, get_chat_history_text,
-    get_trip_details
+    save_message_to_history, get_chat_history_text
 )
 from keyboards import kb_menu
 
 router = Router()
 
-# Текст кнопки виходу
 EXIT_TEXT = "❌ Завершити діалог"
 
 # ==========================================
@@ -23,36 +21,23 @@ EXIT_TEXT = "❌ Завершити діалог"
 # ==========================================
 
 def kb_chat_actions(partner_username=None):
-    """Inline-кнопки під повідомленнями."""
     buttons = [
-        [
-            InlineKeyboardButton(text="📍 Я на місці", callback_data="tpl_here"),
-            InlineKeyboardButton(text="⏱ Запізнююсь 5 хв", callback_data="tpl_late")
-        ]
+        [InlineKeyboardButton(text="📍 Я на місці", callback_data="tpl_here"),
+         InlineKeyboardButton(text="⏱ Запізнююсь 5 хв", callback_data="tpl_late")]
     ]
-    
-    # 🔥 НОВЕ: Кнопка переходу в ПП (якщо є юзернейм)
     if partner_username:
-        # t.me/username працює на всіх пристроях
-        buttons.append([InlineKeyboardButton(text="✈️ Написати в особисті (ПП)", url=f"https://t.me/{partner_username}")])
-    
-    buttons.append([InlineKeyboardButton(text=EXIT_TEXT, callback_data="chat_leave")])
-    
+        buttons.append([InlineKeyboardButton(text="✈️ Написати в ПП", url=f"https://t.me/{partner_username}")])
+    buttons.append([InlineKeyboardButton(text="❌ Завершити діалог", callback_data="chat_leave")])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 def kb_reply(user_id):
-    """Кнопка 'Відповісти' під повідомленням співрозмовника."""
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="↩️ Відповісти", callback_data=f"chat_reply_{user_id}")]
-    ])
+    return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="↩️ Відповісти", callback_data=f"chat_reply_{user_id}")]])
 
 def kb_chat_bottom():
-    """Нижня клавіатура для зручності."""
     return ReplyKeyboardMarkup(keyboard=[
         [KeyboardButton(text=EXIT_TEXT)],
         [KeyboardButton(text="📍 Надіслати геопозицію", request_location=True), KeyboardButton(text="📞 Надіслати мій номер", request_contact=True)]
     ], resize_keyboard=True)
-
 
 # ==========================================
 # 💬 СТАРТ ЧАТУ
@@ -73,53 +58,36 @@ async def start_chat_handler(call: types.CallbackQuery, bot: Bot, state: FSMCont
         return
 
     set_active_chat(my_id, target_user_id)
-    
-    with suppress(TelegramBadRequest):
-        await call.message.delete()
+    with suppress(TelegramBadRequest): await call.message.delete()
 
-    # 1. Показуємо історію (якщо була)
+    # 1. Історія
     history = get_chat_history_text(my_id, target_user_id)
     if history:
         hist_msg = await call.message.answer(history, parse_mode="HTML")
-        save_chat_msg(my_id, hist_msg.message_id)
+        save_chat_msg(my_id, hist_msg.message_id) # Зберігаємо для видалення
 
-    # 2. Формуємо інформацію про співрозмовника
+    # 2. Інфо
     username = target_user.get('username')
     clean_username = username.replace("@", "") if username else None
-    
     phone_info = f"📞 <code>{target_user['phone']}</code>" if target_user['phone'] != "-" else "<i>(номер приховано)</i>"
-    rating_str = "" # Тут можна додати рейтинг, якщо хочете
-
-    # 3. 🔥 Попередження про безпеку (Anti-Scam)
-    scam_warning = (
-        "\n⚠️ <b>Увага!</b> Ніколи не надсилайте передоплату на карту.\n"
-        "Розраховуйтесь готівкою або при зустрічі."
-    )
-
+    
     intro_text = (
         f"💬 <b>Діалог з {target_user['name']}</b>\n"
         f"{phone_info}\n"
-        f"{scam_warning}\n\n"
-        f"<i>Ви можете писати тут або перейти в особисті повідомлення 👇</i>"
+        f"⚠️ <i>Не надсилайте передоплату на карту!</i>"
     )
 
-    # 🔥 Відправляємо повідомлення з кнопкою ПП
-    msg = await call.message.answer(
-        intro_text, 
-        reply_markup=kb_chat_actions(clean_username), # Передаємо юзернейм для кнопки
-        parse_mode="HTML"
-    )
+    # 3. Інтерфейс
+    msg = await call.message.answer(intro_text, reply_markup=kb_chat_actions(clean_username), parse_mode="HTML")
     save_chat_msg(my_id, msg.message_id)
     
-    # Додатково відкриваємо нижню клавіатуру
     kb_msg = await call.message.answer("⌨️ Клавіатура відкрита:", reply_markup=kb_chat_bottom())
     save_chat_msg(my_id, kb_msg.message_id)
     
     await call.answer()
 
-
 # ==========================================
-# ⚡ ШВИДКІ ВІДПОВІДІ (Templates)
+# ⚡ ШАБЛОНИ
 # ==========================================
 
 @router.callback_query(F.data.startswith("tpl_"))
@@ -127,52 +95,37 @@ async def quick_reply_handler(call: types.CallbackQuery, bot: Bot):
     action = call.data.split("_")[1]
     user_id = call.from_user.id
     partner_id = get_active_chat_partner(user_id)
-    
-    if not partner_id:
-        await call.answer("Чат не активний", show_alert=True)
-        return
+    if not partner_id: return
 
-    tpl_map = {
-        "here": "📍 Я вже на місці! Чекаю.",
-        "late": "⏱ Я трохи запізнююсь (5-10 хв), зачекайте будь ласка."
-    }
-    text_to_send = tpl_map.get(action, "...")
-
-    await _relay_message(bot, user_id, partner_id, text=text_to_send)
+    tpl_map = {"here": "📍 Я вже на місці!", "late": "⏱ Запізнююсь на 5 хв."}
+    await _relay_message(bot, user_id, partner_id, text=tpl_map.get(action, "..."))
     await call.answer()
 
-
 # ==========================================
-# 🛑 ЗАВЕРШЕННЯ
+# 🛑 ОЧИСТКА ТА ВИХІД
 # ==========================================
 
-async def _stop_chat_logic(user_id: int, bot: Bot, state: FSMContext, message_to_reply: types.Message = None):
+async def _stop_chat_logic(user_id: int, bot: Bot, state: FSMContext, trigger_msg: types.Message = None):
     delete_active_chat(user_id)
     
     # Видаляємо нижню клавіатуру
-    removing_msg = await bot.send_message(user_id, "🔄 Завершення діалогу...", reply_markup=ReplyKeyboardRemove())
+    rm_msg = await bot.send_message(user_id, "🔄 Завершення...", reply_markup=ReplyKeyboardRemove())
     
-    # Чистимо екран
+    # 🔥 ЗБИРАЄМО ВСІ ID ДЛЯ ВИДАЛЕННЯ
     msg_ids = get_and_clear_chat_msgs(user_id)
-    msg_ids.append(removing_msg.message_id)
-    if message_to_reply: msg_ids.append(message_to_reply.message_id)
+    msg_ids.append(rm_msg.message_id)
+    if trigger_msg: msg_ids.append(trigger_msg.message_id)
 
+    # Видаляємо пачкою
     for mid in msg_ids:
         with suppress(TelegramBadRequest):
             await bot.delete_message(chat_id=user_id, message_id=mid)
 
-    # Повертаємо в меню
+    # Повертаємо меню
     data = await state.get_data()
     role = data.get("role", "passenger")
-    
-    new_menu = await bot.send_message(
-        user_id,
-        f"✅ <b>Діалог завершено.</b>\nПовертаємось в меню {role}.", 
-        reply_markup=kb_menu(role), 
-        parse_mode="HTML"
-    )
+    new_menu = await bot.send_message(user_id, f"✅ <b>Діалог завершено.</b>", reply_markup=kb_menu(role), parse_mode="HTML")
     await state.update_data(last_msg_id=new_menu.message_id)
-
 
 @router.callback_query(F.data == "chat_leave")
 async def leave_chat_inline(call: types.CallbackQuery, state: FSMContext, bot: Bot):
@@ -182,87 +135,45 @@ async def leave_chat_inline(call: types.CallbackQuery, state: FSMContext, bot: B
 async def leave_chat_text(message: types.Message, state: FSMContext, bot: Bot):
     await _stop_chat_logic(message.from_user.id, bot, state, message)
 
-
 # ==========================================
-# 📨 ПЕРЕСИЛАННЯ (Relay Core)
+# 📨 ПЕРЕСИЛАННЯ
 # ==========================================
 
 async def _relay_message(bot: Bot, sender_id: int, receiver_id: int, text=None, original_msg: types.Message=None):
-    """Універсальна функція пересилки."""
     sender = get_user(sender_id)
     sender_name = sender['name'] if sender else "Співрозмовник"
     
-    # Імітація друку
-    action = "typing"
+    # 🔥 Зберігаємо ID вхідного повідомлення користувача (щоб потім видалити)
     if original_msg:
-        if original_msg.photo: action = "upload_photo"
-        elif original_msg.location: action = "find_location"
-        elif original_msg.voice: action = "record_voice"
-        
+        save_chat_msg(sender_id, original_msg.message_id)
+
     try:
-        await bot.send_chat_action(chat_id=receiver_id, action=action)
-        await asyncio.sleep(0.3)
-        
         sent_msg = None
-        
-        # 1. Текстове повідомлення (або шаблон)
         if text:
-            msg_text = f"👤 <b>{sender_name}:</b>\n{text}"
-            sent_msg = await bot.send_message(
-                receiver_id, msg_text, 
-                reply_markup=kb_reply(sender_id), 
-                parse_mode="HTML"
-            )
+            sent_msg = await bot.send_message(receiver_id, f"👤 <b>{sender_name}:</b>\n{text}", reply_markup=kb_reply(sender_id), parse_mode="HTML")
             save_message_to_history(sender_id, receiver_id, text)
-            
-            # Підтвердження відправнику
-            ack = await bot.send_message(sender_id, f"✅ Ви: {text}")
-            save_chat_msg(sender_id, ack.message_id)
-
-        # 2. Пересилання медіа/фото/локації
         elif original_msg:
-            # Якщо це контакт
             if original_msg.contact:
-                sent_msg = await bot.send_contact(
-                    receiver_id, 
-                    phone_number=original_msg.contact.phone_number, 
-                    first_name=original_msg.contact.first_name,
-                    reply_markup=kb_reply(sender_id)
-                )
-                save_message_to_history(sender_id, receiver_id, "[Надіслав контакт]")
-            
-            # Якщо інше медіа
+                sent_msg = await bot.send_contact(receiver_id, original_msg.contact.phone_number, original_msg.contact.first_name, reply_markup=kb_reply(sender_id))
             else:
-                sent_msg = await original_msg.copy_to(
-                    chat_id=receiver_id,
-                    caption=f"👤 <b>{sender_name}</b> надіслав вкладення.",
-                    reply_markup=kb_reply(sender_id),
-                    parse_mode="HTML"
-                )
-                save_message_to_history(sender_id, receiver_id, "[Медіа-файл]")
-            
-            save_chat_msg(sender_id, original_msg.message_id)
+                sent_msg = await original_msg.copy_to(receiver_id, caption=f"👤 <b>{sender_name}</b> надіслав вкладення.", reply_markup=kb_reply(sender_id), parse_mode="HTML")
+        
+        # Зберігаємо ID повідомлення у партнера (для його очистки)
+        if sent_msg: save_chat_msg(receiver_id, sent_msg.message_id)
 
-        if sent_msg:
-            save_chat_msg(receiver_id, sent_msg.message_id)
+        # 🔥 Зберігаємо підтвердження у себе
+        ack_text = f"✅ Ви: {text}" if text else "✅ Ви надіслали файл."
+        ack = await bot.send_message(sender_id, ack_text)
+        save_chat_msg(sender_id, ack.message_id)
 
     except TelegramForbiddenError:
-        await bot.send_message(sender_id, "❌ <b>Помилка:</b> Користувач заблокував бота.", parse_mode="HTML")
+        await bot.send_message(sender_id, "❌ Користувач заблокував бота.")
         delete_active_chat(sender_id)
-    except Exception as e:
-        print(f"Chat Relay Error: {e}")
-
 
 @router.message(F.text & (F.text != EXIT_TEXT))
-@router.message(F.photo | F.voice | F.video | F.location | F.sticker | F.contact) 
+@router.message(F.photo | F.voice | F.location | F.contact) 
 async def chat_relay_handler(message: types.Message, bot: Bot):
-    user_id = message.from_user.id
-    partner_id = get_active_chat_partner(user_id)
-    
-    if not partner_id: 
-        return # Ігноруємо повідомлення не в чаті
-
-    if message.text:
-        await _relay_message(bot, user_id, partner_id, text=message.text, original_msg=None)
-    else:
-        await _relay_message(bot, user_id, partner_id, text=None, original_msg=message)
+    partner_id = get_active_chat_partner(message.from_user.id)
+    if partner_id:
+        if message.text: await _relay_message(bot, message.from_user.id, partner_id, text=message.text, original_msg=message)
+        else: await _relay_message(bot, message.from_user.id, partner_id, text=None, original_msg=message)
