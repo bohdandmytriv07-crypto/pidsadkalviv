@@ -1,0 +1,9 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+bot_database.db
+bot.log
+fix_db.py
+fix_cities.py
+set_db.py
