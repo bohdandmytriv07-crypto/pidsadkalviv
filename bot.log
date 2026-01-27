@@ -1,0 +1,11 @@
+2026-01-27 15:25:51,626 - __main__ - INFO - 🚀 Ініціалізація бази даних...
+2026-01-27 15:25:51,628 - __main__ - INFO - ✅ База даних готова!
+2026-01-27 15:25:52,142 - __main__ - INFO - 🤖 Bot started! Press Ctrl+C to stop.
+2026-01-27 15:25:52,143 - aiogram.dispatcher - INFO - Start polling
+2026-01-27 15:25:52,143 - __main__ - INFO - 🕒 Планувальник фонових задач запущено.
+2026-01-27 15:25:52,259 - aiogram.dispatcher - INFO - Run polling for bot @pidsadkalviv_bot id=8301191163 - 'Підсадка Львів'
+2026-01-27 15:25:53,806 - aiogram.event - INFO - Update id=892635163 is handled. Duration 395 ms by bot id=8301191163
+2026-01-27 15:25:59,515 - aiogram.event - INFO - Update id=892635164 is handled. Duration 228 ms by bot id=8301191163
+2026-01-27 15:26:02,592 - aiogram.event - INFO - Update id=892635165 is handled. Duration 105 ms by bot id=8301191163
+2026-01-27 15:26:03,741 - aiogram.event - INFO - Update id=892635166 is handled. Duration 187 ms by bot id=8301191163
+2026-01-27 15:26:06,720 - aiogram.event - INFO - Update id=892635167 is not handled. Duration 4 ms by bot id=8301191163

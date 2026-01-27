@@ -1,5 +1,5 @@
 ﻿import os
-import sqlite3
+import asyncio
 from contextlib import suppress
 from aiogram import Router, F, types, Bot
 from aiogram.filters import Command
@@ -8,12 +8,11 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
 from aiogram.exceptions import TelegramBadRequest
 
-# Імпорти з твого проекту
+# Імпорти з бази даних
 from database import (
-    get_connection, 
-    get_stats_general, 
-    get_top_routes, 
-    get_conversion_rate
+    get_connection, get_stats_extended, get_stats_general, 
+    get_top_routes, get_conversion_rate, get_financial_stats,
+    get_peak_hours, get_top_failed_searches, get_top_sources
 )
 from config import DB_FILE, ADMIN_IDS
 
@@ -23,59 +22,66 @@ class AdminStates(StatesGroup):
     broadcast = State()
     ban_user = State()
 
-
 # ==========================================
-# 🛠 ДОПОМІЖНА ФУНКЦІЯ (DASHBOARD)
+# 🏠 ГОЛОВНИЙ ДАШБОРД (SNAPSHOT)
 # ==========================================
 
 async def render_admin_dashboard(message: types.Message, edit: bool = False):
-    """
-    Малює головне меню адміна. 
-    edit=True -> редагує старе повідомлення.
-    edit=False -> надсилає нове.
-    """
-    stats = get_stats_general()
+    """Головна сторінка: стан системи на поточну хвилину."""
     
-    passengers_count = stats['total_users'] - stats['total_drivers']
+    # 1. Загальні цифри (База)
+    gen_stats = get_stats_general()
+    
+    # 2. Активність (Живі юзери)
+    ext_stats = get_stats_extended()
+    
+    # 3. Фінанси (Орієнтовні)
+    total_gmv = get_financial_stats()
 
-    stats_text = (
-        f"👮‍♂️ <b>Панель керування</b>\n\n"
-        f"👥 Всього юзерів: <b>{stats['total_users']}</b>\n"
-        f"🚖 Водіїв: <b>{stats['total_drivers']}</b> | 🚶 Пасажирів: <b>{passengers_count}</b>\n"
-        f"🚗 Активних поїздок: <b>{stats['active_trips']}</b>\n"
-        f"🏁 Завершених: <b>{stats['finished_trips']}</b>\n"
-        f"🎫 Всього бронювань: <b>{stats['total_bookings']}</b>"
+    # Формуємо красивий текст
+    text = (
+        f"👨‍💻 <b>ПАНЕЛЬ АДМІНІСТРАТОРА</b>\n"
+        f"<i>Стан проекту на зараз</i>\n"
+        f"➖➖➖➖➖➖➖➖➖➖\n"
+        f"👥 <b>Аудиторія:</b>\n"
+        f"• Всього в базі: <b>{ext_stats['total_users']}</b>\n"
+        f"• Нових за сьогодні: <b>+{ext_stats['new_today']}</b>\n"
+        f"• Живих сьогодні (DAU): <b>{ext_stats['dau']}</b>\n"
+        f"➖➖➖➖➖➖➖➖➖➖\n"
+        f"🚗 <b>Поїздки:</b>\n"
+        f"• Активних зараз: <b>{gen_stats['active_trips']}</b> 🟢\n"
+        f"• Завершених: <b>{gen_stats['finished_trips']}</b>\n"
+        f"• Бронювань місць: <b>{gen_stats['total_bookings']}</b>\n"
+        f"➖➖➖➖➖➖➖➖➖➖\n"
+        f"💰 <b>Обіг (GMV):</b> <code>{total_gmv} грн</code>"
     )
 
+    # Кнопки навігації
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📊 Розширена статистика", callback_data="admin_stats_full")],
-        [InlineKeyboardButton(text="📋 Активні поїздки (Топ-10)", callback_data="admin_active_trips")],
-        [InlineKeyboardButton(text="📢 Розсилка всім", callback_data="admin_broadcast")],
-        [InlineKeyboardButton(text="🚫 Бан/Розбан користувача", callback_data="admin_ban_menu")],
-        [InlineKeyboardButton(text="💾 Скачати БД (Backup)", callback_data="admin_export_db")]
+        [
+            InlineKeyboardButton(text="📈 Маркетинг та Люди", callback_data="admin_stats_users"),
+            InlineKeyboardButton(text="🛒 Продукт та Попит", callback_data="admin_stats_product")
+        ],
+        [InlineKeyboardButton(text="📋 Список активних поїздок", callback_data="admin_active_trips")],
+        [InlineKeyboardButton(text="📢 Зробити розсилку", callback_data="admin_broadcast")],
+        [
+            InlineKeyboardButton(text="🚫 Банхаммер", callback_data="admin_ban_menu"),
+            InlineKeyboardButton(text="💾 Скачати БД", callback_data="admin_export_db")
+        ],
+        [InlineKeyboardButton(text="🔄 Оновити дані", callback_data="admin_back_home")]
     ])
 
     if edit:
-        try:
-            await message.edit_text(stats_text, reply_markup=kb, parse_mode="HTML")
-        except TelegramBadRequest:
-            await message.delete()
-            await message.answer(stats_text, reply_markup=kb, parse_mode="HTML")
+        try: await message.edit_text(text, reply_markup=kb, parse_mode="HTML")
+        except: await message.delete(); await message.answer(text, reply_markup=kb, parse_mode="HTML")
     else:
-        await message.answer(stats_text, reply_markup=kb, parse_mode="HTML")
+        await message.answer(text, reply_markup=kb, parse_mode="HTML")
 
-
-# ==========================================
-# 🏠 ГОЛОВНЕ МЕНЮ
-# ==========================================
 
 @router.message(Command("admin"))
 async def admin_start_command(message: types.Message, state: FSMContext):
     if message.from_user.id not in ADMIN_IDS: return
-    
-    with suppress(TelegramBadRequest):
-        await message.delete()
-        
+    with suppress(TelegramBadRequest): await message.delete()
     await state.clear()
     await render_admin_dashboard(message, edit=False)
 
@@ -87,36 +93,93 @@ async def admin_back_home(call: types.CallbackQuery, state: FSMContext):
 
 
 # ==========================================
-# 📊 СТАТИСТИКА (НОВЕ!)
+# 📈 СТАТИСТИКА 1: МАРКЕТИНГ І ЛЮДИ
 # ==========================================
 
-@router.callback_query(F.data == "admin_stats_full")
-async def show_full_stats(call: types.CallbackQuery):
+@router.callback_query(F.data == "admin_stats_users")
+async def show_users_stats(call: types.CallbackQuery):
     if call.from_user.id not in ADMIN_IDS: return
 
-    # Отримуємо розширені дані
-    general = get_stats_general()
-    top_routes = get_top_routes(5)
-    conversion = get_conversion_rate()
+    stats = get_stats_extended()
+    
+    # Джерела трафіку
+    top_sources = get_top_sources()
+    sources_text = ""
+    if top_sources:
+        for src, count in top_sources:
+            sources_text += f"├ 🔗 {src}: <b>{count}</b>\n"
+    else:
+        sources_text = "├ (немає даних про рефералів)\n"
+
+    # Retention Rate
+    retention = 0
+    if stats['total_users'] > 0:
+        retention = round((stats['mau'] / stats['total_users']) * 100, 1)
 
     text = (
-        f"📊 <b>ДЕТАЛЬНА СТАТИСТИКА</b>\n"
-        f"➖➖➖➖➖➖➖➖\n\n"
-        f"📈 <b>Ефективність:</b>\n"
-        f"• Конверсія (Пошук -> Бронь): <b>{conversion}%</b>\n\n"
-        f"🔥 <b>ТОП-5 Маршрутів (Попит):</b>\n"
+        f"📈 <b>МАРКЕТИНГ ТА АУДИТОРІЯ</b>\n"
+        f"➖➖➖➖➖➖➖➖➖➖\n\n"
+        f"<b>📊 Залучення (Traffic Sources):</b>\n"
+        f"{sources_text}"
+        f"└ <i>Решта: прямий вхід / пошук</i>\n\n"
+        
+        f"<b>💀 Відтік (Churn):</b>\n"
+        f"• Заблокували бота: <b>{stats['blocked']}</b> людей\n"
+        f"• Це <b>{round((stats['blocked'] / stats['total_users'] * 100), 1)}%</b> від усіх юзерів\n\n"
+        
+        f"<b>❤️ Лояльність (Retention):</b>\n"
+        f"• MAU (Заходили за 30 днів): <b>{stats['mau']}</b>\n"
+        f"• Коефіцієнт утримання: <b>{retention}%</b>\n"
     )
 
-    if top_routes:
-        for i, row in enumerate(top_routes, 1):
-            text += f"{i}. {row['origin']} ➝ {row['destination']}: <b>{row['cnt']}</b> пошуків\n"
-    else:
-        text += "<i>Даних поки що недостатньо...</i>"
+    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Назад", callback_data="admin_back_home")]])
+    await call.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
 
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔙 Назад", callback_data="admin_back_home")]
-    ])
+
+# ==========================================
+# 🛒 СТАТИСТИКА 2: ПРОДУКТ І ПОПИТ
+# ==========================================
+
+@router.callback_query(F.data == "admin_stats_product")
+async def show_product_stats(call: types.CallbackQuery):
+    if call.from_user.id not in ADMIN_IDS: return
+
+    conversion = get_conversion_rate()
+    peaks = get_peak_hours()
+    failed_searches = get_top_failed_searches()
+    top_routes = get_top_routes(3)
+
+    text = (
+        f"🛒 <b>ПРОДУКТ ТА ПОПИТ</b>\n"
+        f"➖➖➖➖➖➖➖➖➖➖\n\n"
+        f"<b>🎯 Воронка продажів:</b>\n"
+        f"• Конверсія (Пошук ➝ Бронь): <b>{conversion}%</b>\n\n"
+        
+        f"<b>📉 Втрачений попит (Шукали, але пусто):</b>\n"
+    )
     
+    if failed_searches:
+        for row in failed_searches:
+            text += f"• {row['event_data']} — <b>{row['cnt']}</b> запитів\n"
+        text += f"<i>👉 Шукайте водіїв на ці напрямки!</i>\n\n"
+    else:
+        text += "✅ <i>Всі пошуки успішні.</i>\n\n"
+
+    text += "<b>🔥 Найпопулярніші маршрути:</b>\n"
+    if top_routes:
+        for row in top_routes:
+            text += f"• {row['origin']} ➝ {row['destination']} (<b>{row['cnt']}</b>)\n"
+    else:
+        text += "— Немає даних\n"
+        
+    text += "\n<b>⏰ Години пік (Топ активності):</b>\n"
+    if peaks:
+        times = [f"{row['hour']}:00" for row in peaks]
+        text += ", ".join(times)
+    else:
+        text += "— Немає даних"
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Назад", callback_data="admin_back_home")]])
     await call.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
 
 
@@ -129,36 +192,26 @@ async def show_active_trips_handler(call: types.CallbackQuery):
     if call.from_user.id not in ADMIN_IDS: return
     
     conn = get_connection()
-    cursor = conn.cursor()
-    query = """
-        SELECT t.origin, t.destination, t.date, t.time, t.price, t.seats_taken, t.seats_total,
-               u.name, u.phone
-        FROM trips t
-        JOIN users u ON t.user_id = u.user_id
-        WHERE t.status = 'active'
-        ORDER BY t.rowid DESC LIMIT 10
-    """
-    rows = cursor.execute(query).fetchall()
+    rows = conn.execute("SELECT t.origin, t.destination, t.date, t.time, t.price, t.seats_taken, t.seats_total, u.name, u.phone, u.username FROM trips t JOIN users u ON t.user_id = u.user_id WHERE t.status = 'active' ORDER BY t.rowid DESC LIMIT 10").fetchall()
     conn.close()
 
     if not rows:
         await call.answer("📭 Активних поїздок немає.", show_alert=True)
         return
 
-    text = "📋 <b>Активні поїздки (Топ-10):</b>\n\n"
+    text = "📋 <b>Останні 10 активних поїздок:</b>\n\n"
     for row in rows:
+        uname = f"@{row['username']}" if row['username'] else "без юзернейму"
         text += (
-            f"🚗 <b>{row['origin']} -> {row['destination']}</b>\n"
-            f"📅 {row['date']} {row['time']} | 💰 {row['price']} грн\n"
-            f"👤 {row['name']} (<code>{row['phone']}</code>)\n"
-            f"💺 {row['seats_taken']}/{row['seats_total']}\n"
+            f"🚗 <b>{row['origin']} ➝ {row['destination']}</b>\n"
+            f"📅 {row['date']} {row['time']} | 💰 <b>{row['price']} грн</b>\n"
+            f"👤 {row['name']} ({uname})\n"
+            f"📞 <code>{row['phone']}</code>\n"
+            f"💺 Зайнято: <b>{row['seats_taken']}/{row['seats_total']}</b>\n"
             f"➖➖➖➖➖➖\n"
         )
 
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔙 Назад", callback_data="admin_back_home")]
-    ])
-    
+    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Назад", callback_data="admin_back_home")]])
     await call.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
 
 
@@ -172,7 +225,8 @@ async def ban_menu_start(call: types.CallbackQuery, state: FSMContext):
 
     text = (
         "🚫 <b>Режим блокування</b>\n\n"
-        "Надішліть <b>ID користувача</b> (тільки цифри) або перешліть його повідомлення сюди."
+        "1. Надішліть <b>ID користувача</b> (тільки цифри)\n"
+        "2. Або перешліть сюди його повідомлення."
     )
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🔙 Скасувати", callback_data="admin_back_home")]
@@ -202,21 +256,19 @@ async def process_ban_user(message: types.Message, state: FSMContext):
     if not target_id:
         return
 
-    result_text = ""
     conn = get_connection()
-    cursor = conn.cursor()
-    
-    user_data = cursor.execute("SELECT name, is_banned FROM users WHERE user_id = ?", (target_id,)).fetchone()
+    user_data = conn.execute("SELECT name, is_banned, username FROM users WHERE user_id = ?", (target_id,)).fetchone()
 
     if not user_data:
         result_text = f"❌ Користувача <b>{target_id}</b> не знайдено в базі."
     else:
         new_status = 0 if user_data['is_banned'] else 1
-        cursor.execute("UPDATE users SET is_banned = ? WHERE user_id = ?", (new_status, target_id))
+        conn.execute("UPDATE users SET is_banned = ? WHERE user_id = ?", (new_status, target_id))
         conn.commit()
         
         status_str = "ЗАБАНЕНО 🔴" if new_status else "РОЗБАНЕНО 🟢"
-        result_text = f"✅ Користувача <b>{user_data['name']}</b> було {status_str}"
+        uname = f"(@{user_data['username']})" if user_data['username'] else ""
+        result_text = f"✅ Користувача <b>{user_data['name']}</b> {uname} було {status_str}"
 
         if new_status:
             with suppress(Exception):
@@ -267,21 +319,20 @@ async def perform_broadcast(message: types.Message, state: FSMContext):
     data = await state.get_data()
     menu_msg_id = data.get("menu_msg_id")
 
-    # Копіюємо повідомлення для розсилки, оригінал видаляємо (адміна)
     msg_to_send = message
     
-    # Статус
     if menu_msg_id:
         with suppress(Exception):
             await message.bot.edit_message_text(
                 chat_id=message.chat.id, 
                 message_id=menu_msg_id, 
-                text="⏳ <b>Розсилка запущена... Це може зайняти час.</b>", 
+                text="⏳ <b>Розсилка запущена...</b>", 
                 parse_mode="HTML"
             )
 
     conn = get_connection()
-    users = conn.execute("SELECT user_id FROM users").fetchall()
+    # Розсилаємо тільки тим, хто НЕ заблокував бота і НЕ забанений
+    users = conn.execute("SELECT user_id FROM users WHERE is_blocked_bot = 0 AND is_banned = 0").fetchall()
     conn.close()
 
     good, bad = 0, 0
@@ -289,13 +340,14 @@ async def perform_broadcast(message: types.Message, state: FSMContext):
         try:
             await msg_to_send.copy_to(chat_id=u['user_id'])
             good += 1
+            await asyncio.sleep(0.05) # Пауза щоб не зловити ліміт
         except:
             bad += 1
 
     report = (
         f"✅ <b>Розсилку завершено!</b>\n\n"
-        f"📨 Надіслано: {good}\n"
-        f"💀 Заблоковано/Помилки: {bad}"
+        f"📨 Успішно: {good}\n"
+        f"💀 Помилок/Блокувань: {bad}"
     )
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🔙 В головне меню", callback_data="admin_back_home")]

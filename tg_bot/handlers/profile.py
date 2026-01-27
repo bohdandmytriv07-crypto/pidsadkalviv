@@ -2,10 +2,7 @@
 from contextlib import suppress
 from aiogram import Router, F, types
 from aiogram.fsm.context import FSMContext
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove, InlineKeyboardMarkup, InlineKeyboardButton
-from aiogram.exceptions import TelegramBadRequest
-
-# Імпорти для роботи з базою та рейтингом
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 from database import get_user, save_user, get_user_rating, format_rating
 from states import ProfileStates
 from keyboards import kb_back, kb_menu, kb_car_type
@@ -13,457 +10,97 @@ from utils import clean_user_input, send_new_clean_msg, delete_prev_msg, update_
 
 router = Router()
 
-CMD_ERROR_TEXT = "⛔ <b>Команди недоступні під час реєстрації!</b>\nБудь ласка, просто дайте відповідь на питання:"
-
-def kb_error_retry(callback_data: str) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔄 Спробувати ще раз", callback_data=callback_data)]
-    ])
-
-async def _delete_message_safe(message: types.Message):
-    with suppress(TelegramBadRequest):
-        await message.delete()
-
-
-# ==========================================
-# 🔄 НАВІГАЦІЯ
-# ==========================================
-
-@router.callback_query(F.data == "back_to_menu")
-async def back_to_menu_handler(call: types.CallbackQuery, state: FSMContext):
-    await edit_profile_start(call, state)
-
-@router.callback_query(F.data == "back_to_name")
-async def back_to_name_handler(call: types.CallbackQuery, state: FSMContext):
-    await start_profile_registration(call, state)
-
-@router.callback_query(F.data == "back_to_phone")
-async def back_to_phone_handler(call: types.CallbackQuery, state: FSMContext):
-    await state.set_state(ProfileStates.phone)
-    await delete_prev_msg(state, call.bot, call.message.chat.id)
-    
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="📱 Надіслати номер", request_contact=True)],
-            [KeyboardButton(text="🚫 Не хочу вказувати")]
-        ], 
-        resize_keyboard=True, one_time_keyboard=True
-    )
-    await send_new_clean_msg(call.message, state, "📱 <b>Крок 2/5</b>\nНатисніть кнопку або введіть номер:", keyboard)
-    await call.answer()
-
-@router.callback_query(F.data == "back_to_model")
-async def back_to_model_handler(call: types.CallbackQuery, state: FSMContext):
-    await state.set_state(ProfileStates.model)
-    await update_or_send_msg(
-        call.bot, call.message.chat.id, state,
-        "🚘 <b>Крок 3/5</b>\nВведіть марку та модель авто:\n<i>(напр. BMW M5 F90)</i>",
-        kb_back()
-    )
-    await call.answer()
-
-@router.callback_query(F.data == "back_to_body")
-async def back_to_body_handler(call: types.CallbackQuery, state: FSMContext):
-    # Повертаємося до вибору типу кузова (КНОПКИ)
-    await state.set_state(ProfileStates.body)
-    await update_or_send_msg(
-        call.bot, call.message.chat.id, state,
-        "🚙 <b>Крок 4/5</b>\nОберіть тип авто:",
-        kb_car_type()
-    )
-    await call.answer()
-
-@router.callback_query(F.data == "back_to_color")
-async def back_to_color_handler(call: types.CallbackQuery, state: FSMContext):
-    await state.set_state(ProfileStates.color)
-    await update_or_send_msg(
-        call.bot, call.message.chat.id, state,
-        "🎨 <b>Крок 5/5</b>\nВведіть колір авто:\n<i>(напр. Чорний, Білий)</i>",
-        kb_back()
-    )
-    await call.answer()
-
-@router.callback_query(F.data == "back_to_number_choice")
-async def back_to_number_choice_handler(call: types.CallbackQuery, state: FSMContext):
-    await state.set_state(ProfileStates.number)
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🇺🇦 Держ. номер (AA1234BB)", callback_data="numtype_standard")],
-        [InlineKeyboardButton(text="😎 Іменний (до 12 симв.)", callback_data="numtype_named")]
-    ])
-    await update_or_send_msg(call.bot, call.message.chat.id, state, "🔢 <b>Фінал</b>\nОберіть тип номерного знаку:", keyboard)
-    await call.answer()
-
-@router.callback_query(F.data == "back_to_number_input")
-async def back_to_number_input_handler(call: types.CallbackQuery, state: FSMContext):
-    await state.set_state(ProfileStates.number)
-    data = await state.get_data()
-    num_type = data.get("number_type", "standard")
-    
-    if num_type == "standard":
-        text = "🔢 <b>Введіть держ. номер:</b>\nФормат: 2 букви, 4 цифри, 2 букви\n<i>(напр. AA1234BB)</i>"
-    else:
-        text = "😎 <b>Введіть ваш номер:</b>\nДо 12 символів (літери, цифри, смайли)"
-        
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Змінити тип", callback_data="back_to_number_choice")]])
-    await update_or_send_msg(call.bot, call.message.chat.id, state, text, keyboard)
-    await call.answer()
-
-
-# ==========================================
-# 👤 ПРОФІЛЬ ТА РЕЄСТРАЦІЯ
-# ==========================================
-
 @router.callback_query(F.data == "profile_edit")
-async def edit_profile_start(call: types.CallbackQuery, state: FSMContext):
-    """Показує поточний профіль користувача."""
+async def show_profile(call: types.CallbackQuery, state: FSMContext):
     user = get_user(call.from_user.id)
-    data = await state.get_data()
-    role = data.get("role", "passenger") 
-
-    if user:
-        # 🔥 Отримуємо рейтинг
-        avg, count = get_user_rating(call.from_user.id)
-        rating_str = format_rating(avg, count)
-
-        if role == "passenger":
-            profile_text = (
-                f"👤 <b>Ваш профіль:</b>\n\n"
-                f"📛 Ім'я: <b>{user['name']}</b>\n"
-                f"📱 Телефон: <code>{user['phone']}</code>\n"
-                f"{rating_str}\n" # Додано рейтинг
-            )
-        else:
-            profile_text = (
-                f"🚖 <b>Ваш профіль водія:</b>\n\n"
-                f"📛 Ім'я: {user['name']}\n"
-                f"📱 Телефон: {user['phone']}\n"
-                f"🚘 Авто: {user['model']} {user['color']}\n"
-                f"🔢 Номер: <code>{user['number']}</code>\n"
-                f"🚙 Тип: {user['body']}\n"
-                f"{rating_str}\n" # Додано рейтинг
-            )
-
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="✏️ Редагувати дані", callback_data="profile_new")],
-            [InlineKeyboardButton(text="🔙 Назад", callback_data="menu_home")]
-        ])
-        
-        try:
-            await call.message.edit_text(profile_text, reply_markup=keyboard, parse_mode="HTML")
-            await state.update_data(last_msg_id=call.message.message_id)
-        except:
-            await _delete_message_safe(call.message)
-            msg = await call.message.answer(profile_text, reply_markup=keyboard, parse_mode="HTML")
-            await state.update_data(last_msg_id=msg.message_id)
-    else:
-        await start_profile_registration(call, state)
-
-
-# --- КРОК 1: ІМ'Я ---
-
-@router.callback_query(F.data == "profile_new")
-async def start_profile_registration(call: types.CallbackQuery, state: FSMContext):
-    prev_id = call.message.message_id
     data = await state.get_data()
     role = data.get("role", "passenger")
     
-    await state.clear()
-    await state.update_data(role=role, last_msg_id=prev_id)
-    await state.set_state(ProfileStates.name)
-    
-    steps = "1/2" if role == "passenger" else "1/5"
-    text = f"📝 <b>Крок {steps}</b>\nВведіть ваше ім'я та прізвище:\n<i>(напр. Іван Петренко)</i>"
-    
-    await update_or_send_msg(call.bot, call.message.chat.id, state, text, kb_back())
+    if user and user['phone'] != "-":
+        avg, count = get_user_rating(call.from_user.id)
+        if role == "passenger":
+            txt = f"👤 <b>Ваш профіль:</b>\n\n📛 {user['name']}\n📱 {user['phone']}\n{format_rating(avg, count)}"
+        else:
+            txt = f"🚖 <b>Профіль водія:</b>\n\n📛 {user['name']}\n📱 {user['phone']}\n🚘 {user['model']} {user['color']}\n🔢 {user['number']}\n{format_rating(avg, count)}"
+            
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✏️ Редагувати", callback_data="profile_new")],
+            [InlineKeyboardButton(text="🔙 В меню", callback_data="menu_home")]
+        ])
+        await update_or_send_msg(call.bot, call.message.chat.id, state, txt, kb)
+    else:
+        await start_reg(call, state)
 
+@router.callback_query(F.data == "profile_new")
+async def start_reg(call: types.CallbackQuery, state: FSMContext):
+    await state.set_state(ProfileStates.name)
+    await update_or_send_msg(call.bot, call.message.chat.id, state, "📝 <b>Як вас звати?</b>\nВведіть ім'я та прізвище:", kb_back())
 
 @router.message(ProfileStates.name)
 async def process_name(message: types.Message, state: FSMContext):
-    await clean_user_input(message)
+    await clean_user_input(message) # 🔥 Видаляємо повідомлення юзера
+    if len(message.text) < 2: return # Ігноруємо надто короткі
     
-    if message.text and message.text.startswith("/"):
-        await update_or_send_msg(
-            message.bot, message.chat.id, state, 
-            CMD_ERROR_TEXT, kb_error_retry("back_to_name")
-        )
-        return
-
-    # Проста перевірка імені
-    if not message.text or len(message.text) < 2:
-        await update_or_send_msg(
-            message.bot, message.chat.id, state, 
-            "❌ <b>Занадто коротке ім'я.</b>\nСпробуйте ще раз:", 
-            kb_error_retry("back_to_name")
-        )
-        return
-
     await state.update_data(name=message.text)
     await state.set_state(ProfileStates.phone)
     
-    await delete_prev_msg(state, message.bot, message.chat.id)
-    
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="📱 Надіслати номер", request_contact=True)],
-            [KeyboardButton(text="🚫 Не хочу вказувати")]
-        ], 
-        resize_keyboard=True, one_time_keyboard=True
-    )
-    
-    data = await state.get_data()
-    steps = "2/2" if data.get("role") == "passenger" else "2/5"
-    
-    await send_new_clean_msg(
-        message, state, 
-        f"📱 <b>Крок {steps}</b>\nНатисніть кнопку або введіть номер:", 
-        keyboard
-    )
-
-
-# --- КРОК 2: ТЕЛЕФОН (ПОКРАЩЕНО) ---
+    # Тут треба спец. функція для reply-клавіатури
+    kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="📱 Надіслати номер", request_contact=True)]], resize_keyboard=True, one_time_keyboard=True)
+    await send_new_clean_msg(message, state, "📱 <b>Ваш номер телефону:</b>\nНатисніть кнопку знизу:", kb)
 
 @router.message(ProfileStates.phone)
 async def process_phone(message: types.Message, state: FSMContext):
-    with suppress(TelegramBadRequest): await message.delete()
+    # Тут не видаляємо clean_user_input, бо це може бути контакт, а він великий
+    with suppress(Exception): await message.delete() 
     
-    phone_to_save = None
-    raw_text = ""
+    phone = message.contact.phone_number if message.contact else message.text
+    # Проста очистка
+    phone = re.sub(r'\D', '', phone)
+    if not phone.startswith("380"): phone = f"380{phone[-9:]}"
+    phone = f"+{phone}"
 
-    if message.contact:
-        raw_text = message.contact.phone_number
-    elif message.text:
-        raw_text = message.text.strip()
-        
-        if raw_text.startswith("/"):
-            await update_or_send_msg(message.bot, message.chat.id, state, CMD_ERROR_TEXT, kb_error_retry("back_to_phone"))
-            return
-            
-        if "не хочу" in raw_text.lower():
-            phone_to_save = "Не вказано"
-    
-    if not phone_to_save:
-        # 🔥 РОЗУМНЕ ФОРМАТУВАННЯ
-        # Видаляємо все крім цифр
-        clean_digits = re.sub(r'\D', '', raw_text)
-        
-        if len(clean_digits) == 10 and clean_digits.startswith('0'):
-            # 097... -> +38097...
-            phone_to_save = f"+38{clean_digits}"
-        elif len(clean_digits) == 12 and clean_digits.startswith('380'):
-            # 380... -> +380...
-            phone_to_save = f"+{clean_digits}"
-        elif len(clean_digits) == 9:
-            # 97... -> +38097... (рідкісний випадок)
-            phone_to_save = f"+380{clean_digits}"
-        else:
-            await send_new_clean_msg(
-                message, state, 
-                "❌ <b>Некоректний номер.</b>\nВведіть у форматі: 097 123 45 67\nСпробуйте ще раз:", 
-                kb_error_retry("back_to_phone")
-            )
-            return
-
-    await state.update_data(phone=phone_to_save)
-    await delete_prev_msg(state, message.bot, message.chat.id)
-
+    await state.update_data(phone=phone)
     data = await state.get_data()
     
     if data.get("role") == "passenger":
-        save_user(message.from_user.id, data['name'], phone_to_save, "-", "-", "-", "-")
-        
-        msg = await message.answer("✅ <b>Профіль збережено!</b>", reply_markup=kb_menu("passenger"), parse_mode="HTML")
-        await state.update_data(last_interface_id=msg.message_id)
+        save_user(message.from_user.id, data['name'], phone)
         await state.clear()
         await state.update_data(role="passenger")
+        msg = await message.answer("✅ <b>Профіль збережено!</b>", reply_markup=kb_menu("passenger"), parse_mode="HTML")
+        await state.update_data(last_msg_id=msg.message_id)
     else:
         await state.set_state(ProfileStates.model)
-        await send_new_clean_msg(
-            message, state, 
-            "🚘 <b>Крок 3/5</b>\nВведіть марку та модель авто:\n<i>(напр. BMW X5)</i>", 
-            kb_back()
-        )
-
-
-# --- КРОК 3: МОДЕЛЬ (Водій) ---
+        await send_new_clean_msg(message, state, "🚘 <b>Марка та модель авто:</b>\nНаприклад: Skoda Octavia", kb_back())
 
 @router.message(ProfileStates.model)
 async def process_model(message: types.Message, state: FSMContext):
     await clean_user_input(message)
-    
-    if message.text and message.text.startswith("/"):
-        await update_or_send_msg(message.bot, message.chat.id, state, CMD_ERROR_TEXT, kb_error_retry("back_to_model"))
-        return
-
-    if not message.text or len(message.text) < 2 or message.text.isdigit():
-        await update_or_send_msg(
-            message.bot, message.chat.id, state, 
-            "❌ <b>Занадто коротко.</b>\nВведіть повну назву авто:", 
-            kb_error_retry("back_to_model")
-        )
-        return
-
     await state.update_data(model=message.text)
-    
-    # 🔥 ПЕРЕХІД ДО ТИПУ КУЗОВА (КНОПКИ)
     await state.set_state(ProfileStates.body)
-    await update_or_send_msg(
-        message.bot, message.chat.id, state,
-        "🚙 <b>Крок 4/5</b>\nОберіть тип авто:", 
-        kb_car_type() # 👈 Тут показуємо нові кнопки
-    )
+    await update_or_send_msg(message.bot, message.chat.id, state, "🚙 <b>Тип кузова:</b>", kb_car_type())
 
-
-# --- КРОК 4: КУЗОВ (Водій) - ОБРОБКА КНОПОК ---
-
-@router.callback_query(ProfileStates.body, F.data.startswith("body_"))
-async def process_body_buttons(call: types.CallbackQuery, state: FSMContext):
-    selected_type = "Легкова" if call.data == "body_car" else "Бус"
-    
-    await state.update_data(body=selected_type)
-    
-    # Перехід до кольору
+@router.callback_query(ProfileStates.body)
+async def process_body(call: types.CallbackQuery, state: FSMContext):
+    body = "Легкова" if call.data == "body_car" else "Бус"
+    await state.update_data(body=body)
     await state.set_state(ProfileStates.color)
-    await update_or_send_msg(
-        call.bot, call.message.chat.id, state,
-        f"✅ Тип: <b>{selected_type}</b>\n\n🎨 <b>Крок 5/5</b>\nВведіть колір авто:\n<i>(напр. Чорний, Білий)</i>",
-        kb_back() # Кнопка назад тепер поверне до вибору типу
-    )
-
-
-# --- КРОК 5: КОЛІР (Водій) ---
+    await update_or_send_msg(call.bot, call.message.chat.id, state, "🎨 <b>Колір авто:</b>", kb_back())
 
 @router.message(ProfileStates.color)
 async def process_color(message: types.Message, state: FSMContext):
     await clean_user_input(message)
-
-    if message.text and message.text.startswith("/"):
-        await update_or_send_msg(message.bot, message.chat.id, state, CMD_ERROR_TEXT, kb_error_retry("back_to_color"))
-        return
-    
-    if not message.text or len(message.text) < 3 or message.text.isdigit():
-        await update_or_send_msg(
-            message.bot, message.chat.id, state, 
-            "❌ <b>Вкажіть колір коректно.</b>\nНаприклад: 'Синій':", 
-            kb_error_retry("back_to_color")
-        )
-        return
-
     await state.update_data(color=message.text)
-    await state.set_state(ProfileStates.number) 
-    
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🇺🇦 Держ. номер (AA1234BB)", callback_data="numtype_standard")],
-        [InlineKeyboardButton(text="😎 Іменний (до 12 симв.)", callback_data="numtype_named")]
-    ])
-    
-    await update_or_send_msg(
-        message.bot, message.chat.id, state, 
-        "🔢 <b>Фінал</b>\nОберіть тип номерного знаку:", 
-        keyboard
-    )
-
-
-# --- КРОК 6: ТИП НОМЕРА ---
-
-@router.callback_query(F.data.startswith("numtype_"))
-async def process_number_type(call: types.CallbackQuery, state: FSMContext):
-    n_type = call.data.split("_")[1]
-    await state.update_data(number_type=n_type)
-    
-    if n_type == "standard":
-        text = "🔢 <b>Введіть держ. номер:</b>\nФормат: 2 букви, 4 цифри, 2 букви\n<i>(напр. AA1234BB)</i>"
-    else:
-        text = "😎 <b>Введіть ваш номер:</b>\nДо 12 символів (літери, цифри, смайли)"
-
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Змінити тип", callback_data="back_to_number_choice")]])
-    
-    await update_or_send_msg(call.bot, call.message.chat.id, state, text, keyboard)
-    await call.answer()
-
-
-# --- КРОК 7: ВВЕДЕННЯ НОМЕРА (Фінал) ---
+    await state.set_state(ProfileStates.number)
+    await update_or_send_msg(message.bot, message.chat.id, state, "🔢 <b>Держ. номер авто:</b>\nНаприклад: BC1234AA", kb_back())
 
 @router.message(ProfileStates.number)
 async def process_number(message: types.Message, state: FSMContext):
     await clean_user_input(message)
-    
-    if message.text and message.text.startswith("/"):
-        await update_or_send_msg(message.bot, message.chat.id, state, CMD_ERROR_TEXT, kb_error_retry("back_to_number_input"))
-        return
-
     data = await state.get_data()
-    n_type = data.get("number_type", "standard") 
+    save_user(message.from_user.id, data['name'], data['phone'], data['model'], data['body'], data['color'], message.text.upper())
     
-    raw_num = message.text.strip()
-    clean_num = raw_num.upper()
-    
-    is_valid = False
-    error_msg = ""
-
-    if n_type == "standard":
-        clean_num = clean_num.replace(" ", "").replace("-", "")
-        translation = str.maketrans("АВЕКМНОРСТУХІ", "ABEKMHOPCTYXI")
-        clean_num = clean_num.translate(translation)
-
-        if re.match(r"^[A-Z]{2}\d{4}[A-Z]{2}$", clean_num):
-            is_valid = True
-        else:
-            error_msg = "❌ <b>Невірний формат або мова.</b>\nВикористовуйте тільки латинські літери (English) та цифри.\nПриклад: AA1234BB"
-    else:
-        if 1 <= len(raw_num) <= 12:
-            is_valid = True
-            clean_num = raw_num 
-        else:
-            error_msg = "❌ <b>Занадто довгий номер.</b>\nМаксимум 12 символів."
-
-    if not is_valid:
-        await update_or_send_msg(
-            message.bot, message.chat.id, state, 
-            f"{error_msg}\nСпробуйте ще раз:", 
-            kb_error_retry("back_to_number_input")
-        )
-        return
-
-    # ЗБЕРЕЖЕННЯ ПРОФІЛЮ ВОДІЯ
-    await delete_prev_msg(state, message.bot, message.chat.id)
-
-    save_user(
-        message.from_user.id, 
-        data['name'], data['phone'], 
-        data['model'], data['body'], 
-        data['color'], clean_num
-    )
-    
-    msg = await message.answer("✅ <b>Водій готовий!</b>", reply_markup=kb_menu("driver"), parse_mode="HTML")
     await state.clear()
-    await state.update_data(role="driver", last_interface_id=msg.message_id)
-
-
-# ==========================================
-# 🚘 ДОДАВАННЯ АВТО (ШВИДКИЙ ВХІД)
-# ==========================================
-
-@router.callback_query(F.data == "profile_add_car")
-async def add_car_details_start(call: types.CallbackQuery, state: FSMContext):
-    prev_id = call.message.message_id
-    
-    user = get_user(call.from_user.id)
-    if not user:
-        await start_profile_registration(call, state)
-        return
-
-    await state.clear()
-    await state.update_data(
-        role="driver",        
-        name=user['name'],    
-        phone=user['phone'],
-        last_msg_id=prev_id 
-    )
-    
-    await state.set_state(ProfileStates.model)
-    
-    await update_or_send_msg(
-        call.bot, call.message.chat.id, state,
-        "🚘 <b>Додавання авто</b>\nВведіть марку та модель авто:\n<i>(напр. Skoda Octavia)</i>", 
-        kb_back()
-    )
+    await state.update_data(role="driver")
+    kb = kb_menu("driver")
+    msg = await message.answer("✅ <b>Водій готовий!</b>", reply_markup=kb, parse_mode="HTML")
+    await state.update_data(last_msg_id=msg.message_id)

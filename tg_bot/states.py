@@ -30,6 +30,7 @@ class TripStates(StatesGroup):
     time = State()          # Час
     seats = State()         # Кількість місць
     price = State()         # Ціна
+    description = State()
 
 
 # ==========================================
@@ -56,3 +57,5 @@ class ChatStates(StatesGroup):
     але цей клас можна залишити для сумісності).
     """
     chatting = State()
+class SupportStates(StatesGroup):
+    waiting_for_message = State()

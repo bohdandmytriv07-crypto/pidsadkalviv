@@ -21,7 +21,7 @@ def kb_main_role() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🚗 Я водій", callback_data="role_driver")],
         [InlineKeyboardButton(text="🚶 Я пасажир", callback_data="role_passenger")],
-        [InlineKeyboardButton(text="🆘 Підтримка / Баг", url=SUPPORT_URL)],
+        [InlineKeyboardButton(text="🆘 Підтримка / Баг", callback_data="support")],
     ])
 
 

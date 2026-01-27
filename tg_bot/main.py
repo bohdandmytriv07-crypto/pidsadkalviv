@@ -3,177 +3,191 @@ import logging
 import sys
 from datetime import datetime
 import pytz
+from logging.handlers import RotatingFileHandler
 
 from aiogram import Bot, Dispatcher, types
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
+from aiogram.filters import ChatMemberUpdatedFilter, KICKED, MEMBER
+from aiogram.types import ChatMemberUpdated
 
-# 🔥 Імпорт захисту від спаму
-from middlewares import AntiFloodMiddleware
+# 🔥 Імпорт Middleware
+from middlewares import AntiFloodMiddleware, ActivityMiddleware
 
-# Імпорти налаштувань
-from config import API_TOKEN
-from database import init_db, get_connection, get_trip_passengers
+# 👇 ВИПРАВЛЕНО: Використовуємо API_TOKEN, як у вашому config.py
+from config import API_TOKEN 
+from database import init_db, get_connection, get_trip_passengers, set_user_blocked_bot
 
 # Імпорти хендлерів
 from handlers import common, passenger, driver, admin, profile, chat, rating
-# Імпорт функції для запуску рейтингу
 from handlers.rating import ask_for_ratings 
 
-# Налаштування логування
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    stream=sys.stdout
-)
+# ==========================================
+# ⚙️ НАЛАШТУВАННЯ ЛОГУВАННЯ
+# ==========================================
+def setup_logging():
+    """Налаштовує логування в консоль та файл."""
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+    # 1. Консоль
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(formatter)
+
+    # 2. Файл (макс 5 МБ, зберігає 1 бекап)
+    file_handler = RotatingFileHandler("bot.log", maxBytes=5*1024*1024, backupCount=1, encoding="utf-8")
+    file_handler.setFormatter(formatter)
+
+    logging.basicConfig(
+        level=logging.INFO,
+        handlers=[console_handler, file_handler]
+    )
+
 logger = logging.getLogger(__name__)
 
-async def on_startup():
-    """Дії при запуску бота"""
-    logger.info("🚀 Ініціалізація бази даних...")
-    init_db()
-    logger.info("✅ База даних готова!")
-
+# ==========================================
+# 🕒 ФОНОВІ ЗАДАЧІ
+# ==========================================
 async def background_tasks(bot: Bot):
-    """
-    Фоновий процес, який працює вічно.
-    1. Архівує старі поїздки (active -> finished).
-    2. Запускає систему рейтингу для завершених поїздок.
-    3. Чистить історію чатів для безпеки.
-    """
     logger.info("🕒 Планувальник фонових задач запущено.")
     kyiv_tz = pytz.timezone('Europe/Kyiv')
     
     while True:
         try:
-            # Чекаємо 5 хвилин між перевірками
-            await asyncio.sleep(300) 
+            # Перевіряємо раз на годину (3600 сек), частіше для очистки не треба
+            # Але для архівації поїздок краще частіше. Давайте раз на 10 хвилин (600 сек).
+            await asyncio.sleep(600) 
             
             conn = get_connection()
             cursor = conn.cursor()
-            
             now = datetime.now(kyiv_tz)
-            current_time = now.time()
-            current_date = now.date()
             
-            # --- ЗАДАЧА 1: АРХІВАЦІЯ СТАРИХ ПОЇЗДОК ---
-            # 🔥 Додано user_id, щоб знати водія
+            # --- 1. АРХІВАЦІЯ АКТИВНИХ ПОЇЗДОК (Які щойно завершились) ---
             rows = cursor.execute("SELECT id, user_id, date, time FROM trips WHERE status='active'").fetchall()
             archived_count = 0
             
             for row in rows:
                 try:
-                    should_finish = False
-                    
-                    # Парсинг дати
-                    date_parts = row['date'].split('.')
-                    if len(date_parts) != 2: continue
-                        
-                    trip_year = now.year
-                    trip_day = int(date_parts[0])
-                    trip_month = int(date_parts[1])
-                    
-                    trip_dt = datetime(trip_year, trip_month, trip_day).date()
-                    
-                    # 1. Дата минула
-                    if trip_dt < current_date:
-                        should_finish = True
-                    # 2. Дата сьогодні, але час минув
-                    elif trip_dt == current_date:
-                        trip_time = datetime.strptime(row['time'], "%H:%M").time()
-                        if current_time > trip_time:
-                            should_finish = True
+                    trip_dt_str = f"{row['date']}.{now.year}"
+                    trip_full_dt = datetime.strptime(f"{trip_dt_str} {row['time']}", "%d.%m.%Y %H:%M")
+                    trip_full_dt = kyiv_tz.localize(trip_full_dt)
 
-                    if should_finish:
-                        trip_id = row['id']
-                        driver_id = row['user_id']
-                        
-                        # Отримуємо пасажирів ПЕРЕД закриттям
-                        passengers = get_trip_passengers(trip_id)
-                        
-                        # Закриваємо поїздку
+                    # Якщо час поїздки минув
+                    if trip_full_dt < now:
+                        trip_id, driver_id = row['id'], row['user_id']
                         cursor.execute("UPDATE trips SET status='finished' WHERE id=?", (trip_id,))
-                        conn.commit() # Зберігаємо одразу
                         
-                        archived_count += 1
-                        
-                        # 🔥 ЗАПУСКАЄМО РЕЙТИНГ (Асинхронно)
+                        passengers = get_trip_passengers(trip_id)
                         if passengers:
                             asyncio.create_task(ask_for_ratings(bot, trip_id, driver_id, passengers))
-
-                except ValueError:
-                    continue 
+                        
+                        archived_count += 1
+                except ValueError: continue 
             
             if archived_count > 0:
-                logger.info(f"🧹 Архівовано {archived_count} старих поїздок.")
+                conn.commit() # Важливо комітити відразу
+                logger.info(f"🏁 Завершено {archived_count} поїздок.")
 
-            # --- ЗАДАЧА 2: ОЧИЩЕННЯ БЕЗПЕКИ ---
-            
-            # Видаляємо історію чатів, старшу за 48 годин
-            cursor.execute("DELETE FROM chat_history WHERE timestamp < datetime('now', '-2 days')")
-            deleted_msgs = cursor.rowcount
-            
-            # Видаляємо старі поїздки з бази повністю через 30 днів
-            cursor.execute("DELETE FROM trips WHERE status='finished' AND date < date('now', '-30 days')")
-            deleted_trips = cursor.rowcount
 
-            if deleted_msgs > 0 or deleted_trips > 0:
+            # --- 2. ГЕНЕРАЛЬНЕ ПРИБИРАННЯ (CLEANUP) ---
+            
+            # 🧹 1. Чати: видаляємо все старше 7 днів
+            cursor.execute("DELETE FROM chat_history WHERE timestamp < datetime('now', '-7 days')")
+            del_msgs = cursor.rowcount
+            
+            # 🧹 2. Старі поїздки: видаляємо завершені/скасовані старше 60 днів
+            cursor.execute("DELETE FROM trips WHERE status IN ('finished', 'cancelled') AND date < date('now', '-60 days')")
+            del_trips = cursor.rowcount
+            
+            # 🧹 3. Історія пошуку: видаляємо старше 2 днів (вона не має цінності)
+            cursor.execute("DELETE FROM search_history WHERE timestamp < datetime('now', '-2 days')")
+            
+            # 🧹 4. Бронювання-"сироти" (де поїздки вже видалені)
+            cursor.execute("DELETE FROM bookings WHERE trip_id NOT IN (SELECT id FROM trips)")
+            
+            # 🧹 5. Старі підписки (актуальність втрачається після дати поїздки)
+            # Тут складніше, бо дата текстом '27.01'. Просто чистимо всі підписки, створені місяць тому (якщо б була колонка created_at).
+            # В поточній схемі можна просто очищати таблицю раз на місяць, або додати логіку парсингу дати.
+            # Поки лишимо як є, підписки займають мало місця.
+
+            if del_msgs > 0 or del_trips > 0:
                 conn.commit()
-                logger.info(f"🛡️ Безпека: Видалено {deleted_msgs} повідомлень та {deleted_trips} древніх поїздок.")
+                logger.info(f"♻️ Очищено сміття: {del_msgs} повідомлень чату, {del_trips} старих поїздок.")
             
             conn.close()
 
         except Exception as e:
-            logger.error(f"⚠️ Помилка у фоновій задачі: {e}")
+            logger.error(f"⚠️ Background Task Error: {e}")
             await asyncio.sleep(60)
 
-# Глобальний обробник помилок
+# ==========================================
+# 🚫 ОБРОБКА БЛОКУВАНЬ КОРИСТУВАЧАМИ
+# ==========================================
+async def on_user_block(event: ChatMemberUpdated):
+    """Спрацьовує, коли юзер блокує/розблоковує бота."""
+    user_id = event.from_user.id
+    if event.new_chat_member.status == KICKED:
+        logger.info(f"User {user_id} blocked bot.")
+        set_user_blocked_bot(user_id, True)
+    elif event.new_chat_member.status == MEMBER:
+        logger.info(f"User {user_id} unblocked bot.")
+        set_user_blocked_bot(user_id, False)
+
 async def global_error_handler(event: types.ErrorEvent):
-    logger.exception(f"🔥 Критична помилка обробки: {event.exception}")
+    logger.exception(f"🔥 Critical Update Error: {event.exception}")
     return True
 
+# ==========================================
+# 🚀 MAIN FUNCTION
+# ==========================================
 async def main():
-    # Пауза для стабілізації мережі (якщо були помилки DNS)
-    await asyncio.sleep(1)
+    setup_logging()
+    
+    logger.info("🚀 Ініціалізація бази даних...")
+    init_db()
+    logger.info("✅ База даних готова!")
 
+    # 👇 ВИПРАВЛЕНО: API_TOKEN
     bot = Bot(token=API_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dp = Dispatcher(storage=MemoryStorage())
 
-    # 🔥 Middleware (Захист від спаму)
+    # --- Middleware ---
+    dp.message.middleware(ActivityMiddleware())
+    dp.callback_query.middleware(ActivityMiddleware())
     dp.message.middleware(AntiFloodMiddleware(limit=0.7))
     dp.callback_query.middleware(AntiFloodMiddleware(limit=0.5))
 
-    # Реєстрація роутерів
-    dp.include_router(admin.router)
-    dp.include_router(common.router)
-    dp.include_router(profile.router)
-    dp.include_router(driver.router)
-    dp.include_router(passenger.router)
-    dp.include_router(chat.router)
-    dp.include_router(rating.router) # ⭐ Рейтинг
-
+    # --- Реєстрація подій ---
+    dp.my_chat_member.register(on_user_block, ChatMemberUpdatedFilter(member_status_changed=KICKED | MEMBER))
     dp.errors.register(global_error_handler)
 
-    await on_startup()
+    # --- Роутери (Порядок важливий!) ---
+    dp.include_router(admin.router)     # Адмінка
+    dp.include_router(common.router)    # Старт, меню, підтримка
+    dp.include_router(profile.router)   # Профіль
+    dp.include_router(driver.router)    # Водій
+    dp.include_router(passenger.router) # Пасажир
+    dp.include_router(chat.router)      # Чат
+    dp.include_router(rating.router)    # Рейтинг
+
+    # --- Запуск ---
     await bot.delete_webhook(drop_pending_updates=True)
-    
-    # Запуск фону
     asyncio.create_task(background_tasks(bot))
 
-    logger.info("🤖 Бот запущено! Натисни Ctrl+C для зупинки.")
+    logger.info("🤖 Bot started! Press Ctrl+C to stop.")
     try:
         await dp.start_polling(bot)
     except Exception as e:
-        logger.error(f"💀 Критична помилка Polling: {e}")
+        logger.critical(f"💀 Polling Error: {e}")
     finally:
         await bot.session.close()
-        logger.info("Бот зупинений.")
+        logger.info("🛑 Bot stopped.")
 
 if __name__ == "__main__":
     try:
+        # Фікс для Windows
         if sys.platform == "win32":
             asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
-        logger.info("🛑 Бот зупинений користувачем.")
+        logger.info("👋 Stopped manually.")
