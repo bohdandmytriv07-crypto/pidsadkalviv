@@ -1167,3 +1167,330 @@ NameError: name 'ReplyKeyboardRemove' is not defined. Did you mean: 'ReplyKeyboa
 2026-01-27 20:02:31,009 - aiogram.event - INFO - Update id=892635413 is handled. Duration 201 ms by bot id=8301191163
 2026-01-27 20:02:47,213 - aiogram.event - INFO - Update id=892635414 is handled. Duration 258 ms by bot id=8301191163
 2026-01-27 20:03:03,209 - aiogram.event - INFO - Update id=892635415 is handled. Duration 97 ms by bot id=8301191163
+2026-01-27 22:49:56,415 - __main__ - INFO - 🚀 Ініціалізація бази даних...
+2026-01-27 22:49:56,423 - __main__ - INFO - ✅ База даних готова!
+2026-01-27 22:50:12,759 - __main__ - INFO - 🚀 Ініціалізація бази даних...
+2026-01-27 22:50:12,762 - __main__ - INFO - ✅ База даних готова!
+2026-01-27 22:50:44,307 - __main__ - INFO - 🚀 Ініціалізація бази даних...
+2026-01-27 22:50:44,309 - __main__ - INFO - ✅ База даних готова!
+2026-01-27 22:50:44,829 - __main__ - INFO - 🤖 Bot started! Press Ctrl+C to stop.
+2026-01-27 22:50:44,829 - aiogram.dispatcher - INFO - Start polling
+2026-01-27 22:50:44,829 - __main__ - INFO - 🕒 Планувальник фонових задач запущено.
+2026-01-27 22:50:46,679 - aiogram.dispatcher - INFO - Run polling for bot @pidsadkalviv_bot id=8301191163 - 'Підсадка Львів'
+2026-01-27 22:50:52,878 - aiogram.event - INFO - Update id=892635416 is handled. Duration 12 ms by bot id=8301191163
+2026-01-27 22:50:58,963 - aiogram.event - INFO - Update id=892635417 is handled. Duration 454 ms by bot id=8301191163
+2026-01-27 22:51:08,937 - aiogram.event - INFO - Update id=892635418 is handled. Duration 105 ms by bot id=8301191163
+2026-01-27 22:51:11,637 - aiogram.event - INFO - Update id=892635419 is handled. Duration 143 ms by bot id=8301191163
+2026-01-27 22:51:12,721 - aiogram.event - INFO - Update id=892635420 is handled. Duration 94 ms by bot id=8301191163
+2026-01-27 22:51:13,867 - aiogram.event - INFO - Update id=892635421 is handled. Duration 139 ms by bot id=8301191163
+2026-01-27 22:51:16,746 - aiogram.event - INFO - Update id=892635422 is handled. Duration 145 ms by bot id=8301191163
+2026-01-27 22:51:27,109 - aiogram.event - INFO - Update id=892635423 is handled. Duration 164 ms by bot id=8301191163
+2026-01-27 22:51:29,562 - aiogram.event - INFO - Update id=892635424 is handled. Duration 142 ms by bot id=8301191163
+2026-01-27 22:51:31,445 - aiogram.event - INFO - Update id=892635425 is handled. Duration 149 ms by bot id=8301191163
+2026-01-27 22:51:33,339 - aiogram.event - INFO - Update id=892635426 is handled. Duration 340 ms by bot id=8301191163
+2026-01-27 22:51:52,634 - aiogram.event - INFO - Update id=892635427 is handled. Duration 331 ms by bot id=8301191163
+2026-01-27 22:51:54,518 - aiogram.event - INFO - Update id=892635428 is handled. Duration 487 ms by bot id=8301191163
+2026-01-27 22:52:46,629 - __main__ - INFO - 🏁 Архівовано 1 старих поїздок.
+2026-01-27 22:53:25,681 - aiogram.event - INFO - Update id=892635429 is handled. Duration 11 ms by bot id=8301191163
+2026-01-27 22:53:42,671 - __main__ - INFO - 🚀 Ініціалізація бази даних...
+2026-01-27 22:53:42,673 - __main__ - INFO - ✅ База даних готова!
+2026-01-27 22:53:43,181 - __main__ - INFO - 🤖 Bot started! Press Ctrl+C to stop.
+2026-01-27 22:53:43,181 - aiogram.dispatcher - INFO - Start polling
+2026-01-27 22:53:43,182 - __main__ - INFO - 🕒 Планувальник фонових задач запущено.
+2026-01-27 22:53:43,297 - aiogram.dispatcher - INFO - Run polling for bot @pidsadkalviv_bot id=8301191163 - 'Підсадка Львів'
+2026-01-27 22:53:44,168 - aiogram.event - INFO - Update id=892635430 is handled. Duration 10 ms by bot id=8301191163
+2026-01-27 22:53:48,893 - aiogram.event - INFO - Update id=892635431 is handled. Duration 10 ms by bot id=8301191163
+2026-01-27 22:54:05,658 - aiogram.event - INFO - Update id=892635432 is handled. Duration 11 ms by bot id=8301191163
+2026-01-27 22:54:28,293 - aiogram.event - INFO - Update id=892635433 is handled. Duration 11 ms by bot id=8301191163
+2026-01-27 22:54:33,236 - aiogram.event - INFO - Update id=892635434 is handled. Duration 10 ms by bot id=8301191163
+2026-01-27 22:54:43,459 - __main__ - INFO - 🚀 Ініціалізація бази даних...
+2026-01-27 22:54:43,462 - __main__ - INFO - ✅ База даних готова!
+2026-01-27 22:54:43,964 - __main__ - INFO - 🤖 Bot started! Press Ctrl+C to stop.
+2026-01-27 22:54:43,964 - aiogram.dispatcher - INFO - Start polling
+2026-01-27 22:54:43,964 - __main__ - INFO - 🕒 Планувальник фонових задач запущено.
+2026-01-27 22:54:44,086 - aiogram.dispatcher - INFO - Run polling for bot @pidsadkalviv_bot id=8301191163 - 'Підсадка Львів'
+2026-01-27 22:54:46,054 - aiogram.event - INFO - Update id=892635435 is handled. Duration 11 ms by bot id=8301191163
+2026-01-27 22:57:52,203 - __main__ - INFO - 🚀 Ініціалізація бази даних...
+2026-01-27 22:57:52,206 - __main__ - INFO - ✅ База даних готова!
+2026-01-27 22:57:52,721 - __main__ - INFO - 🤖 Bot started! Press Ctrl+C to stop.
+2026-01-27 22:57:52,722 - aiogram.dispatcher - INFO - Start polling
+2026-01-27 22:57:52,722 - __main__ - INFO - 🕒 Планувальник фонових задач запущено.
+2026-01-27 22:57:52,840 - aiogram.dispatcher - INFO - Run polling for bot @pidsadkalviv_bot id=8301191163 - 'Підсадка Львів'
+2026-01-27 22:57:56,298 - aiogram.event - INFO - Update id=892635436 is handled. Duration 11 ms by bot id=8301191163
+2026-01-27 22:57:59,678 - aiogram.event - INFO - Update id=892635437 is handled. Duration 10 ms by bot id=8301191163
+2026-01-27 22:58:05,083 - aiogram.event - INFO - Update id=892635438 is handled. Duration 340 ms by bot id=8301191163
+2026-01-27 22:58:12,236 - aiogram.event - INFO - Update id=892635439 is handled. Duration 10 ms by bot id=8301191163
+2026-01-27 22:58:14,850 - aiogram.event - INFO - Update id=892635440 is handled. Duration 11 ms by bot id=8301191163
+2026-01-27 22:58:18,230 - aiogram.event - INFO - Update id=892635441 is handled. Duration 10 ms by bot id=8301191163
+2026-01-27 22:58:23,497 - aiogram.event - INFO - Update id=892635442 is handled. Duration 10 ms by bot id=8301191163
+2026-01-27 22:59:40,922 - __main__ - INFO - 🚀 Ініціалізація бази даних...
+2026-01-27 22:59:40,924 - __main__ - INFO - ✅ База даних готова!
+2026-01-27 22:59:41,446 - __main__ - INFO - 🤖 Bot started! Press Ctrl+C to stop.
+2026-01-27 22:59:41,446 - aiogram.dispatcher - INFO - Start polling
+2026-01-27 22:59:41,447 - __main__ - INFO - 🕒 Планувальник фонових задач запущено.
+2026-01-27 22:59:41,566 - aiogram.dispatcher - INFO - Run polling for bot @pidsadkalviv_bot id=8301191163 - 'Підсадка Львів'
+2026-01-27 22:59:48,282 - aiogram.event - INFO - Update id=892635443 is handled. Duration 10 ms by bot id=8301191163
+2026-01-27 22:59:58,741 - aiogram.event - INFO - Update id=892635444 is handled. Duration 506 ms by bot id=8301191163
+2026-01-27 23:00:26,446 - __main__ - INFO - 🚀 Ініціалізація бази даних...
+2026-01-27 23:00:26,449 - __main__ - INFO - ✅ База даних готова!
+2026-01-27 23:00:26,949 - __main__ - INFO - 🤖 Bot started! Press Ctrl+C to stop.
+2026-01-27 23:00:26,949 - aiogram.dispatcher - INFO - Start polling
+2026-01-27 23:00:26,949 - __main__ - INFO - 🕒 Планувальник фонових задач запущено.
+2026-01-27 23:00:27,073 - aiogram.dispatcher - INFO - Run polling for bot @pidsadkalviv_bot id=8301191163 - 'Підсадка Львів'
+2026-01-27 23:00:30,342 - aiogram.event - INFO - Update id=892635445 is handled. Duration 11 ms by bot id=8301191163
+2026-01-27 23:00:36,625 - aiogram.event - INFO - Update id=892635446 is handled. Duration 11 ms by bot id=8301191163
+2026-01-27 23:00:39,599 - aiogram.event - INFO - Update id=892635447 is handled. Duration 10 ms by bot id=8301191163
+2026-01-27 23:01:26,722 - __main__ - INFO - 🚀 Ініціалізація бази даних...
+2026-01-27 23:01:26,724 - __main__ - INFO - ✅ База даних готова!
+2026-01-27 23:01:27,229 - __main__ - INFO - 🤖 Bot started! Press Ctrl+C to stop.
+2026-01-27 23:01:27,230 - aiogram.dispatcher - INFO - Start polling
+2026-01-27 23:01:27,230 - __main__ - INFO - 🕒 Планувальник фонових задач запущено.
+2026-01-27 23:01:27,345 - aiogram.dispatcher - INFO - Run polling for bot @pidsadkalviv_bot id=8301191163 - 'Підсадка Львів'
+2026-01-27 23:01:41,348 - aiogram.event - INFO - Update id=892635448 is handled. Duration 11 ms by bot id=8301191163
+2026-01-27 23:01:43,521 - aiogram.event - INFO - Update id=892635449 is handled. Duration 11 ms by bot id=8301191163
+2026-01-27 23:01:46,800 - aiogram.event - INFO - Update id=892635450 is handled. Duration 11 ms by bot id=8301191163
+2026-01-27 23:06:57,583 - __main__ - INFO - 🚀 Ініціалізація бази даних...
+2026-01-27 23:06:57,586 - __main__ - INFO - ✅ База даних готова!
+2026-01-27 23:06:58,040 - __main__ - INFO - 🤖 Bot started! Press Ctrl+C to stop.
+2026-01-27 23:06:58,041 - aiogram.dispatcher - INFO - Start polling
+2026-01-27 23:06:58,041 - __main__ - INFO - 🕒 Планувальник фонових задач запущено.
+2026-01-27 23:06:58,163 - aiogram.dispatcher - INFO - Run polling for bot @pidsadkalviv_bot id=8301191163 - 'Підсадка Львів'
+2026-01-27 23:07:08,496 - aiogram.event - INFO - Update id=892635451 is handled. Duration 11 ms by bot id=8301191163
+2026-01-27 23:07:12,542 - aiogram.event - INFO - Update id=892635452 is handled. Duration 10 ms by bot id=8301191163
+2026-01-27 23:07:13,514 - aiogram.event - INFO - Update id=892635453 is handled. Duration 10 ms by bot id=8301191163
+2026-01-27 23:07:14,359 - aiogram.event - INFO - Update id=892635454 is handled. Duration 12 ms by bot id=8301191163
+2026-01-27 23:07:15,085 - aiogram.event - INFO - Update id=892635455 is handled. Duration 11 ms by bot id=8301191163
+2026-01-27 23:07:15,934 - aiogram.event - INFO - Update id=892635456 is handled. Duration 5 ms by bot id=8301191163
+2026-01-27 23:08:08,812 - __main__ - INFO - 🚀 Ініціалізація бази даних...
+2026-01-27 23:08:08,815 - __main__ - INFO - ✅ База даних готова!
+2026-01-27 23:08:09,328 - __main__ - INFO - 🤖 Bot started! Press Ctrl+C to stop.
+2026-01-27 23:08:09,328 - aiogram.dispatcher - INFO - Start polling
+2026-01-27 23:08:09,328 - __main__ - INFO - 🕒 Планувальник фонових задач запущено.
+2026-01-27 23:08:09,446 - aiogram.dispatcher - INFO - Run polling for bot @pidsadkalviv_bot id=8301191163 - 'Підсадка Львів'
+2026-01-27 23:08:12,515 - aiogram.event - INFO - Update id=892635457 is handled. Duration 11 ms by bot id=8301191163
+2026-01-27 23:08:14,202 - aiogram.event - INFO - Update id=892635458 is handled. Duration 10 ms by bot id=8301191163
+2026-01-27 23:08:21,320 - aiogram.event - INFO - Update id=892635459 is handled. Duration 9 ms by bot id=8301191163
+2026-01-27 23:08:22,315 - aiogram.event - INFO - Update id=892635460 is handled. Duration 10 ms by bot id=8301191163
+2026-01-27 23:08:23,153 - aiogram.event - INFO - Update id=892635461 is handled. Duration 12 ms by bot id=8301191163
+2026-01-27 23:08:23,832 - aiogram.event - INFO - Update id=892635462 is handled. Duration 3 ms by bot id=8301191163
+2026-01-27 23:08:24,430 - aiogram.event - INFO - Update id=892635463 is handled. Duration 10 ms by bot id=8301191163
+2026-01-27 23:09:43,467 - __main__ - INFO - 🚀 Ініціалізація бази даних...
+2026-01-27 23:09:43,469 - __main__ - INFO - ✅ База даних готова!
+2026-01-27 23:09:43,987 - __main__ - INFO - 🤖 Bot started! Press Ctrl+C to stop.
+2026-01-27 23:09:43,987 - aiogram.dispatcher - INFO - Start polling
+2026-01-27 23:09:43,987 - __main__ - INFO - 🕒 Планувальник фонових задач запущено.
+2026-01-27 23:09:44,117 - aiogram.dispatcher - INFO - Run polling for bot @pidsadkalviv_bot id=8301191163 - 'Підсадка Львів'
+2026-01-27 23:09:44,941 - aiogram.event - INFO - Update id=892635464 is handled. Duration 10 ms by bot id=8301191163
+2026-01-27 23:09:48,621 - aiogram.event - INFO - Update id=892635465 is handled. Duration 10 ms by bot id=8301191163
+2026-01-27 23:12:31,961 - __main__ - INFO - 🚀 Ініціалізація бази даних...
+2026-01-27 23:12:31,963 - __main__ - INFO - ✅ База даних готова!
+2026-01-27 23:12:32,490 - __main__ - INFO - 🤖 Bot started! Press Ctrl+C to stop.
+2026-01-27 23:12:32,490 - aiogram.dispatcher - INFO - Start polling
+2026-01-27 23:12:32,490 - __main__ - INFO - 🕒 Планувальник фонових задач запущено.
+2026-01-27 23:12:32,610 - aiogram.dispatcher - INFO - Run polling for bot @pidsadkalviv_bot id=8301191163 - 'Підсадка Львів'
+2026-01-27 23:12:36,038 - aiogram.event - INFO - Update id=892635466 is handled. Duration 10 ms by bot id=8301191163
+2026-01-27 23:15:39,250 - __main__ - INFO - 🚀 Ініціалізація бази даних...
+2026-01-27 23:15:39,252 - __main__ - INFO - ✅ База даних готова!
+2026-01-27 23:15:39,760 - __main__ - INFO - 🤖 Bot started! Press Ctrl+C to stop.
+2026-01-27 23:15:39,760 - aiogram.dispatcher - INFO - Start polling
+2026-01-27 23:15:39,760 - __main__ - INFO - 🕒 Планувальник фонових задач запущено.
+2026-01-27 23:15:39,879 - aiogram.dispatcher - INFO - Run polling for bot @pidsadkalviv_bot id=8301191163 - 'Підсадка Львів'
+2026-01-27 23:15:42,888 - __main__ - ERROR - 🔥 Critical Update Error: save_user() got an unexpected keyword argument 'ref_source'
+Traceback (most recent call last):
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\middlewares\error.py", line 27, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\middlewares\user_context.py", line 58, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\fsm\middleware.py", line 43, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\event\telegram.py", line 126, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\dispatcher.py", line 283, in _listen_update
+    return await self.propagate_event(update_type=update_type, event=event, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 161, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 153, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 189, in _propagate_event
+    response = await router.propagate_event(update_type=update_type, event=event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 161, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 153, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 181, in _propagate_event
+    response = await observer.trigger(event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\event\telegram.py", line 126, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\source\repos\bohdandmytriv07-crypto\pidsadkalviv\tg_bot\middlewares.py", line 30, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\source\repos\bohdandmytriv07-crypto\pidsadkalviv\tg_bot\middlewares.py", line 58, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\source\repos\bohdandmytriv07-crypto\pidsadkalviv\tg_bot\handlers\common.py", line 45, in cmd_start
+    save_user(user_id, message.from_user.full_name, username, ref_source=ref_source)
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: save_user() got an unexpected keyword argument 'ref_source'
+2026-01-27 23:15:42,971 - aiogram.event - INFO - Update id=892635467 is handled. Duration 483 ms by bot id=8301191163
+2026-01-27 23:16:40,454 - __main__ - INFO - 🚀 Ініціалізація бази даних...
+2026-01-27 23:16:40,457 - __main__ - INFO - ✅ База даних готова!
+2026-01-27 23:16:40,959 - __main__ - INFO - 🤖 Bot started! Press Ctrl+C to stop.
+2026-01-27 23:16:40,960 - aiogram.dispatcher - INFO - Start polling
+2026-01-27 23:16:40,960 - __main__ - INFO - 🕒 Планувальник фонових задач запущено.
+2026-01-27 23:16:41,080 - aiogram.dispatcher - INFO - Run polling for bot @pidsadkalviv_bot id=8301191163 - 'Підсадка Львів'
+2026-01-27 23:16:41,148 - aiogram.dispatcher - ERROR - Failed to fetch updates - TelegramConflictError: Telegram server says - Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+2026-01-27 23:16:41,148 - aiogram.dispatcher - WARNING - Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 8301191163)
+2026-01-27 23:16:44,470 - aiogram.dispatcher - INFO - Connection established (tryings = 1, bot id = 8301191163)
+2026-01-27 23:16:44,644 - __main__ - ERROR - 🔥 Critical Update Error: save_user() got an unexpected keyword argument 'ref_source'
+Traceback (most recent call last):
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\middlewares\error.py", line 27, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\middlewares\user_context.py", line 58, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\fsm\middleware.py", line 43, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\event\telegram.py", line 126, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\dispatcher.py", line 283, in _listen_update
+    return await self.propagate_event(update_type=update_type, event=event, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 161, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 153, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 189, in _propagate_event
+    response = await router.propagate_event(update_type=update_type, event=event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 161, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 153, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 181, in _propagate_event
+    response = await observer.trigger(event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\event\telegram.py", line 126, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\source\repos\bohdandmytriv07-crypto\pidsadkalviv\tg_bot\middlewares.py", line 30, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\source\repos\bohdandmytriv07-crypto\pidsadkalviv\tg_bot\middlewares.py", line 58, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\source\repos\bohdandmytriv07-crypto\pidsadkalviv\tg_bot\handlers\common.py", line 45, in cmd_start
+    save_user(user_id, message.from_user.full_name, username, ref_source=ref_source)
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: save_user() got an unexpected keyword argument 'ref_source'
+2026-01-27 23:16:44,646 - aiogram.event - INFO - Update id=892635468 is handled. Duration 175 ms by bot id=8301191163
+2026-01-27 23:16:45,225 - aiogram.dispatcher - ERROR - Failed to fetch updates - TelegramConflictError: Telegram server says - Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+2026-01-27 23:16:45,226 - aiogram.dispatcher - WARNING - Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 8301191163)
+2026-01-27 23:16:46,294 - aiogram.dispatcher - ERROR - Failed to fetch updates - TelegramConflictError: Telegram server says - Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+2026-01-27 23:16:46,294 - aiogram.dispatcher - WARNING - Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 8301191163)
+2026-01-27 23:16:50,362 - aiogram.dispatcher - ERROR - Failed to fetch updates - TelegramConflictError: Telegram server says - Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+2026-01-27 23:16:50,363 - aiogram.dispatcher - WARNING - Sleep for 1.412375 seconds and try again... (tryings = 1, bot id = 8301191163)
+2026-01-27 23:16:51,844 - aiogram.dispatcher - ERROR - Failed to fetch updates - TelegramConflictError: Telegram server says - Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+2026-01-27 23:16:51,844 - aiogram.dispatcher - WARNING - Sleep for 1.198787 seconds and try again... (tryings = 1, bot id = 8301191163)
+2026-01-27 23:17:01,100 - __main__ - INFO - 🚀 Ініціалізація бази даних...
+2026-01-27 23:17:01,104 - __main__ - INFO - ✅ База даних готова!
+2026-01-27 23:17:01,616 - __main__ - INFO - 🤖 Bot started! Press Ctrl+C to stop.
+2026-01-27 23:17:01,617 - aiogram.dispatcher - INFO - Start polling
+2026-01-27 23:17:01,617 - __main__ - INFO - 🕒 Планувальник фонових задач запущено.
+2026-01-27 23:17:01,744 - aiogram.dispatcher - INFO - Run polling for bot @pidsadkalviv_bot id=8301191163 - 'Підсадка Львів'
+2026-01-27 23:17:14,751 - aiogram.event - INFO - Update id=892635469 is handled. Duration 670 ms by bot id=8301191163
+2026-01-27 23:17:21,128 - aiogram.event - INFO - Update id=892635470 is handled. Duration 99 ms by bot id=8301191163
+2026-01-27 23:17:22,080 - aiogram.event - INFO - Update id=892635471 is handled. Duration 100 ms by bot id=8301191163
+2026-01-27 23:17:24,359 - aiogram.event - INFO - Update id=892635472 is handled. Duration 237 ms by bot id=8301191163
+2026-01-27 23:17:46,864 - aiogram.event - INFO - Update id=892635473 is handled. Duration 290 ms by bot id=8301191163
+2026-01-27 23:17:50,229 - aiogram.event - INFO - Update id=892635474 is handled. Duration 244 ms by bot id=8301191163
+2026-01-27 23:33:15,161 - __main__ - INFO - 🚀 Ініціалізація бази даних...
+2026-01-27 23:33:15,163 - __main__ - INFO - ✅ База даних готова (WAL mode on)!
+2026-01-27 23:33:15,672 - __main__ - INFO - 🤖 Bot started! Press Ctrl+C to stop.
+2026-01-27 23:33:15,673 - aiogram.dispatcher - INFO - Start polling
+2026-01-27 23:33:15,673 - __main__ - INFO - 🕒 Планувальник фонових задач запущено.
+2026-01-27 23:33:15,796 - aiogram.dispatcher - INFO - Run polling for bot @pidsadkalviv_bot id=8301191163 - 'Підсадка Львів'
+2026-01-27 23:33:26,410 - aiogram.event - INFO - Update id=892635475 is handled. Duration 308 ms by bot id=8301191163
+2026-01-27 23:33:32,484 - aiogram.event - INFO - Update id=892635476 is handled. Duration 261 ms by bot id=8301191163
+2026-01-27 23:33:35,004 - aiogram.event - INFO - Update id=892635477 is handled. Duration 130 ms by bot id=8301191163
+2026-01-27 23:33:37,397 - aiogram.event - INFO - Update id=892635478 is handled. Duration 230 ms by bot id=8301191163
+2026-01-27 23:33:40,874 - aiogram.event - INFO - Update id=892635479 is handled. Duration 256 ms by bot id=8301191163
+2026-01-27 23:33:43,923 - aiogram.event - INFO - Update id=892635480 is handled. Duration 87 ms by bot id=8301191163
+2026-01-27 23:33:45,346 - aiogram.event - INFO - Update id=892635481 is handled. Duration 175 ms by bot id=8301191163
+2026-01-27 23:34:32,440 - aiogram.event - INFO - Update id=892635482 is handled. Duration 216 ms by bot id=8301191163
+2026-01-27 23:34:36,928 - aiogram.event - INFO - Update id=892635483 is handled. Duration 87 ms by bot id=8301191163
+2026-01-27 23:34:52,610 - aiogram.event - INFO - Update id=892635484 is handled. Duration 141 ms by bot id=8301191163
+2026-01-27 23:34:53,793 - aiogram.event - INFO - Update id=892635485 is handled. Duration 81 ms by bot id=8301191163
+2026-01-27 23:34:55,397 - aiogram.event - INFO - Update id=892635486 is handled. Duration 136 ms by bot id=8301191163
+2026-01-27 23:34:56,742 - aiogram.event - INFO - Update id=892635487 is handled. Duration 84 ms by bot id=8301191163
+2026-01-27 23:34:59,947 - aiogram.event - INFO - Update id=892635488 is handled. Duration 220 ms by bot id=8301191163
+2026-01-27 23:35:01,125 - aiogram.event - INFO - Update id=892635489 is handled. Duration 129 ms by bot id=8301191163
+2026-01-27 23:35:04,973 - aiogram.event - INFO - Update id=892635490 is handled. Duration 147 ms by bot id=8301191163
+2026-01-27 23:35:07,358 - aiogram.event - INFO - Update id=892635491 is handled. Duration 372 ms by bot id=8301191163
+2026-01-27 23:35:11,288 - aiogram.event - INFO - Update id=892635492 is handled. Duration 83 ms by bot id=8301191163
+2026-01-27 23:35:26,819 - aiogram.event - INFO - Update id=892635493 is handled. Duration 160 ms by bot id=8301191163
+2026-01-27 23:35:28,857 - aiogram.event - INFO - Update id=892635494 is handled. Duration 161 ms by bot id=8301191163
+2026-01-27 23:35:30,769 - aiogram.event - INFO - Update id=892635495 is handled. Duration 90 ms by bot id=8301191163
+2026-01-27 23:35:34,611 - aiogram.event - INFO - Update id=892635496 is handled. Duration 132 ms by bot id=8301191163
+2026-01-27 23:36:16,802 - aiogram.event - INFO - Update id=892635497 is handled. Duration 130 ms by bot id=8301191163
+2026-01-27 23:41:20,874 - __main__ - INFO - 🚀 Ініціалізація бази даних...
+2026-01-27 23:41:20,877 - __main__ - INFO - ✅ База даних готова (WAL mode on)!
+2026-01-27 23:41:21,388 - __main__ - INFO - 🤖 Bot started! Press Ctrl+C to stop.
+2026-01-27 23:41:21,388 - aiogram.dispatcher - INFO - Start polling
+2026-01-27 23:41:21,389 - __main__ - INFO - 🕒 Планувальник фонових задач запущено.
+2026-01-27 23:41:21,505 - aiogram.dispatcher - INFO - Run polling for bot @pidsadkalviv_bot id=8301191163 - 'Підсадка Львів'
+2026-01-27 23:41:26,179 - aiogram.event - INFO - Update id=892635498 is handled. Duration 311 ms by bot id=8301191163
+2026-01-27 23:41:27,743 - aiogram.event - INFO - Update id=892635499 is handled. Duration 381 ms by bot id=8301191163
+2026-01-27 23:41:41,180 - aiogram.event - INFO - Update id=892635500 is handled. Duration 261 ms by bot id=8301191163
+2026-01-27 23:41:44,568 - aiogram.event - INFO - Update id=892635501 is handled. Duration 178 ms by bot id=8301191163
+2026-01-27 23:41:50,219 - aiogram.event - INFO - Update id=892635502 is handled. Duration 94 ms by bot id=8301191163
+2026-01-27 23:41:51,771 - aiogram.event - INFO - Update id=892635503 is handled. Duration 85 ms by bot id=8301191163
+2026-01-27 23:41:53,182 - aiogram.event - INFO - Update id=892635504 is handled. Duration 145 ms by bot id=8301191163
+2026-01-27 23:41:54,307 - aiogram.event - INFO - Update id=892635505 is handled. Duration 125 ms by bot id=8301191163
+2026-01-27 23:41:55,514 - aiogram.event - INFO - Update id=892635506 is handled. Duration 131 ms by bot id=8301191163
+2026-01-27 23:41:56,421 - aiogram.event - INFO - Update id=892635507 is handled. Duration 105 ms by bot id=8301191163
+2026-01-27 23:41:58,032 - aiogram.event - INFO - Update id=892635508 is handled. Duration 149 ms by bot id=8301191163
+2026-01-27 23:41:59,214 - aiogram.event - INFO - Update id=892635509 is handled. Duration 97 ms by bot id=8301191163
+2026-01-27 23:42:03,411 - aiogram.event - INFO - Update id=892635510 is handled. Duration 161 ms by bot id=8301191163

@@ -1,4 +1,5 @@
 ﻿import uuid
+import asyncio
 from contextlib import suppress
 from aiogram import Router, F, types, Bot
 from aiogram.fsm.context import FSMContext
@@ -12,9 +13,9 @@ from utils import (
 
 from states import SearchStates
 
-# 🔥 ВИПРАВЛЕНІ ІМПОРТИ (get_passenger_history тут)
+# 🔥 ОНОВЛЕНИЙ ІМПОРТ: search_trips_page
 from database import (
-    search_trips, add_booking, get_user, get_user_bookings, 
+    search_trips, search_trips_page, add_booking, get_user, get_user_bookings, 
     get_trip_details, delete_booking, get_recent_searches, save_search_history,
     add_subscription, get_user_rating, format_rating, log_event,
     add_or_update_city, get_passenger_history
@@ -28,7 +29,6 @@ PAGE_SIZE = 3
 # 🔥 ПРЕВ'Ю ПОЇЗДКИ (Deep Link)
 # ==========================================
 async def show_trip_preview(message: types.Message, state: FSMContext, trip_id: str):
-    """Показує картку конкретної поїздки, якщо юзер перейшов за посиланням."""
     trip = get_trip_details(trip_id)
     
     if not trip or trip['status'] != 'active':
@@ -140,8 +140,18 @@ async def execute_search(call: types.CallbackQuery, state: FSMContext):
     
     with suppress(TelegramBadRequest): await call.message.delete()
     
+    # Зберігаємо історію
     save_search_history(call.from_user.id, data['origin'], data['dest'])
-    trips = search_trips(data['origin'], data['dest'], date_val, call.from_user.id)
+    
+    # 🔥 Встановлюємо сторінку 0 (перша сторінка)
+    await state.update_data(date=date_val, current_page=0, search_msg_ids=[])
+    
+    # Перевіряємо, чи є взагалі поїздки (швидкий чек першої сторінки)
+    # Викликаємо пагінацію в потоці
+    trips, count = await asyncio.to_thread(
+        search_trips_page, 
+        data['origin'], data['dest'], date_val, call.from_user.id, PAGE_SIZE, 0
+    )
     
     if not trips:
         kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -154,32 +164,34 @@ async def execute_search(call: types.CallbackQuery, state: FSMContext):
         log_event(call.from_user.id, "search_empty", f"{data['origin']}->{data['dest']}")
         return
 
-    trips_list = [dict(row) for row in trips]
-    await state.update_data(all_trips=trips_list, current_page=0, search_msg_ids=[])
-    log_event(call.from_user.id, "search_success", f"{data['origin']}->{data['dest']} ({len(trips)})")
+    log_event(call.from_user.id, "search_success", f"{data['origin']}->{data['dest']} ({count})")
     await _render_trips_page(call.message, state)
 
 # ==========================================
-# 📄 ПАГІНАЦІЯ
+# 📄 ПАГІНАЦІЯ (SQL)
 # ==========================================
 
 async def _render_trips_page(message: types.Message, state: FSMContext):
     await delete_messages_list(state, message.bot, message.chat.id, "search_msg_ids")
 
     data = await state.get_data()
-    trips = data.get('all_trips', [])
     page = data.get('current_page', 0)
     
-    start, end = page * PAGE_SIZE, (page + 1) * PAGE_SIZE
-    current_slice = trips[start:end]
-    total_pages = (len(trips) - 1) // PAGE_SIZE + 1
+    # 🔥 SQL ПАГІНАЦІЯ: Дістаємо тільки потрібний шматок з бази
+    trips, total_count = await asyncio.to_thread(
+        search_trips_page, 
+        data['origin'], data['dest'], data['date'], 
+        message.chat.id, PAGE_SIZE, page * PAGE_SIZE
+    )
+    
+    total_pages = (total_count - 1) // PAGE_SIZE + 1
     
     msg_ids = []
     
-    h = await message.answer(f"🔎 <b>Знайдено {len(trips)} варіантів (Стор. {page+1}/{total_pages})</b>", parse_mode="HTML")
+    h = await message.answer(f"🔎 <b>Знайдено {total_count} варіантів (Стор. {page+1}/{total_pages})</b>", parse_mode="HTML")
     msg_ids.append(h.message_id)
     
-    for trip in current_slice:
+    for trip in trips:
         avg, count = get_user_rating(trip['user_id'], role="driver")
         desc_line = f"\n💬 <i>{trip['description']}</i>" if trip.get('description') else ""
 
@@ -197,8 +209,12 @@ async def _render_trips_page(message: types.Message, state: FSMContext):
         msg_ids.append(m.message_id)
         
     nav_btns = []
-    if page > 0: nav_btns.append(InlineKeyboardButton(text="⬅️", callback_data="page_prev"))
-    if end < len(trips): nav_btns.append(InlineKeyboardButton(text="➡️", callback_data="page_next"))
+    if page > 0: 
+        nav_btns.append(InlineKeyboardButton(text="⬅️", callback_data="page_prev"))
+    
+    # Перевірка: якщо (поточна сторінка + 1) * розмір < загальної кількості, то є наступна
+    if (page + 1) * PAGE_SIZE < total_count: 
+        nav_btns.append(InlineKeyboardButton(text="➡️", callback_data="page_next"))
     
     kb_nav = InlineKeyboardMarkup(inline_keyboard=[
         nav_btns,

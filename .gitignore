@@ -1,14 +1,37 @@
-п»ї################################################################################
-# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
-################################################################################
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
 
-/.vs/pidsadkalviv/FileContentIndex/8bab7ea8-a957-479f-8c1b-b13c1f0217a7.vsidx
-/.vs/pidsadkalviv/FileContentIndex/9c34cfbc-e324-4136-bef6-578bef3d4158.vsidx
-/.vs/pidsadkalviv/FileContentIndex/f5d6c5fc-0ee8-4550-9446-0eecfc79a68d.vsidx
-/.vs/pidsadkalviv/FileContentIndex/d8240d9f-54d1-4784-b416-1ec91065eadf.vsidx
-*.vsidx
-/.vs/pidsadkalviv/v17/.wsuo
-/.vs/pidsadkalviv/v17/DocumentLayout.backup.json
-/.vs/pidsadkalviv/v17/DocumentLayout.json
-/.vs/slnx.sqlite
-/.vs/VSWorkspaceState.json
+# --- Віртуальне оточення (Virtual Env) ---
+venv/
+.venv/
+env/
+
+# --- База даних (КРИТИЧНО: НЕ ЗАЛИВАТИ!) ---
+*.db
+*.sqlite
+*.sqlite3
+bot_database.db
+
+
+# --- Налаштування та секрети ---
+.env
+.env.local
+
+# --- Логи ---
+*.log
+
+# --- IDE та Редактори (Visual Studio, VS Code, PyCharm) ---
+.vs/
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# --- Операційні системи ---
+.DS_Store
+Thumbs.db

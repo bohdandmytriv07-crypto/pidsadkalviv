@@ -1,4 +1,5 @@
 ﻿import time
+import asyncio
 from typing import Callable, Dict, Any, Awaitable
 from aiogram import BaseMiddleware
 from aiogram.types import Message, CallbackQuery
@@ -6,9 +7,14 @@ from aiogram.types import Message, CallbackQuery
 # 👇 Імпорт функції з бази
 from database import update_user_activity
 
+# ⚡ Кеш для збереження активності (User ID -> Timestamp)
+# Щоб не дьоргати базу кожну секунду
+last_activity_cache = {}
+
 class ActivityMiddleware(BaseMiddleware):
     """
-    Оновлює час останньої активності користувача при кожній дії.
+    Оновлює час останньої активності користувача.
+    Пише в базу не частіше, ніж раз на 5 хвилин для кожного юзера.
     """
     async def __call__(
         self,
@@ -20,12 +26,19 @@ class ActivityMiddleware(BaseMiddleware):
         user = data.get("event_from_user")
         
         if user:
-            # Отримуємо username (якщо є, інакше None)
-            username = f"@{user.username}" if user.username else None
-            full_name = user.full_name
+            current_time = time.time()
+            last_update = last_activity_cache.get(user.id, 0)
             
-            # 🔥 Оновлюємо базу даних (це дуже швидко у WAL режимі)
-            update_user_activity(user.id, username, full_name)
+            # 🔥 Оптимізація: Оновлюємо базу тільки якщо пройшло > 5 хв (300 сек)
+            if current_time - last_update > 300:
+                username = f"@{user.username}" if user.username else None
+                full_name = user.full_name
+                
+                # Запускаємо в окремому потоці, щоб не блокувати Event Loop
+                await asyncio.to_thread(update_user_activity, user.id, username, full_name)
+                
+                # Оновлюємо кеш
+                last_activity_cache[user.id] = current_time
 
         return await handler(event, data)
 

@@ -1,4 +1,5 @@
 ﻿import sqlite3
+import asyncio
 from datetime import datetime
 from config import DB_FILE
 
@@ -9,6 +10,10 @@ def get_connection():
 
 def init_db():
     conn = get_connection()
+    # 🔥 Вмикаємо WAL режим для швидкості та конкурентності
+    conn.execute("PRAGMA journal_mode=WAL;") 
+    conn.execute("PRAGMA synchronous=NORMAL;")
+    
     cursor = conn.cursor()
     
     # 1. Користувачі
@@ -33,16 +38,6 @@ def init_db():
         )
     ''')
     
-    # Міграції (для сумісності)
-    try: cursor.execute("ALTER TABLE users ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP")
-    except: pass
-    try: cursor.execute("ALTER TABLE users ADD COLUMN last_active DATETIME DEFAULT CURRENT_TIMESTAMP")
-    except: pass
-    try: cursor.execute("ALTER TABLE users ADD COLUMN rating_driver REAL DEFAULT 5.0")
-    except: pass
-    try: cursor.execute("ALTER TABLE users ADD COLUMN rating_pass REAL DEFAULT 5.0")
-    except: pass
-
     # 2. Поїздки
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS trips (
@@ -59,8 +54,6 @@ def init_db():
             description TEXT DEFAULT '' 
         )
     ''')
-    try: cursor.execute("ALTER TABLE trips ADD COLUMN description TEXT DEFAULT ''")
-    except: pass
 
     # 3. Бронювання
     cursor.execute('''
@@ -72,8 +65,6 @@ def init_db():
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    try: cursor.execute("ALTER TABLE bookings ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP")
-    except: pass
 
     # 4. Історія повідомлень
     cursor.execute('''
@@ -86,8 +77,6 @@ def init_db():
             is_read INTEGER DEFAULT 0
         )
     ''')
-    try: cursor.execute("ALTER TABLE chat_history ADD COLUMN message TEXT")
-    except: pass
 
     # 5. Активні сесії чатів
     cursor.execute('''
@@ -115,7 +104,7 @@ def init_db():
     conn.close()
 
 # ==========================================
-# 📊 АНАЛІТИКА
+# 📊 АНАЛІТИКА (РОЗШИРЕНА)
 # ==========================================
 
 def get_stats_general():
@@ -132,6 +121,10 @@ def get_stats_extended():
     blocked = conn.execute("SELECT COUNT(*) FROM users WHERE is_blocked_bot=1").fetchone()[0]
     new_today = conn.execute("SELECT COUNT(*) FROM users WHERE date(created_at) = date('now')").fetchone()[0]
     
+    # Розподіл ролей
+    drivers = conn.execute("SELECT COUNT(*) FROM users WHERE model != '-'").fetchone()[0]
+    passengers = total - drivers
+
     dau = conn.execute('''
         SELECT COUNT(DISTINCT user_id) FROM (
             SELECT user_id FROM search_history WHERE timestamp > datetime('now', '-1 day')
@@ -150,13 +143,37 @@ def get_stats_extended():
     if mau == 0: mau = 1 
 
     conn.close()
-    return {'total_users': total, 'blocked': blocked, 'new_today': new_today, 'dau': dau, 'mau': mau}
+    return {
+        'total_users': total, 'blocked': blocked, 'new_today': new_today, 
+        'dau': dau, 'mau': mau, 
+        'drivers': drivers, 'passengers': passengers
+    }
 
 def get_financial_stats():
     conn = get_connection()
     gmv = conn.execute("SELECT SUM(price * seats_taken) FROM trips WHERE status='finished'").fetchone()[0]
     conn.close()
     return gmv if gmv else 0
+
+def get_efficiency_stats():
+    """Середній чек та заповнюваність."""
+    conn = get_connection()
+    
+    # Середня ціна активних поїздок
+    avg_price = conn.execute("SELECT AVG(price) FROM trips WHERE status='active'").fetchone()[0]
+    
+    # Заповнюваність (Зайнято / Всього місць)
+    occupancy_data = conn.execute("SELECT SUM(seats_taken), SUM(seats_total) FROM trips WHERE status IN ('active', 'finished')").fetchone()
+    
+    conn.close()
+    
+    taken = occupancy_data[0] if occupancy_data and occupancy_data[0] else 0
+    total = occupancy_data[1] if occupancy_data and occupancy_data[1] else 1
+    
+    occupancy_rate = round((taken / total) * 100, 1) if total > 0 else 0
+    avg_price = round(avg_price, 0) if avg_price else 0
+    
+    return {'avg_price': avg_price, 'occupancy': occupancy_rate}
 
 def get_top_sources():
     conn = get_connection()
@@ -200,9 +217,10 @@ def get_user(user_id):
     conn.close()
     return user
 
-def save_user(user_id, name, username, phone=None, model='-', body='-', color='-', number='-'):
+def save_user(user_id, name, username, phone=None, model='-', body='-', color='-', number='-', ref_source=None):
     conn = get_connection()
     if get_user(user_id):
+        # Оновлення існуючого користувача
         updates = []
         params = []
         if name: updates.append("name=?"); params.append(name)
@@ -211,16 +229,23 @@ def save_user(user_id, name, username, phone=None, model='-', body='-', color='-
         if model != '-': updates.append("model=?"); params.append(model)
         if number != '-': updates.append("number=?"); params.append(number)
         if color != '-': updates.append("color=?"); params.append(color)
+        
+        # Оновлюємо реферала тільки якщо він ще не встановлений
+        if ref_source:
+            updates.append("ref_source = COALESCE(ref_source, ?)")
+            params.append(ref_source)
+            
         updates.append("last_active=CURRENT_TIMESTAMP")
         
         sql = f"UPDATE users SET {', '.join(updates)} WHERE user_id=?"
         params.append(user_id)
         conn.execute(sql, params)
     else:
+        # Створення нового користувача
         conn.execute('''
-            INSERT INTO users (user_id, username, name, phone, created_at, last_active) 
-            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-        ''', (user_id, username, name, phone if phone else '-'))
+            INSERT INTO users (user_id, username, name, phone, ref_source, created_at, last_active) 
+            VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        ''', (user_id, username, name, phone if phone else '-', ref_source))
     conn.commit()
     conn.close()
 
@@ -302,7 +327,6 @@ def get_and_clear_chat_msgs(user_id):
 
 def get_chat_history_text(user1, user2):
     conn = get_connection()
-    # 🔥 ВИПРАВЛЕНО: тепер точно message
     rows = conn.execute('''
         SELECT sender_id, message, timestamp FROM chat_history 
         WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)
@@ -318,10 +342,6 @@ def get_chat_history_text(user1, user2):
         sender = "Ви" if r['sender_id'] == user1 else "Співрозмовник"
         text += f"▫️ <b>{sender}:</b> {r['message']}\n"
     return text + "\n➖➖➖➖➖➖\n"
-
-# Заглушки для сумісності
-def save_chat_message(sender_id, receiver_id, text):
-    save_message_to_history(sender_id, receiver_id, text)
 
 # ==========================================
 # 🏙 МІСТА
@@ -348,7 +368,7 @@ def log_event(user_id, event, details):
         update_user_activity(user_id, None, None)
 
 # ==========================================
-# 🚗 ПОЇЗДКИ
+# 🚗 ПОЇЗДКИ (ДІЇ)
 # ==========================================
 
 def create_trip(trip_id, user_id, origin, destination, date, time, seats, price, description=""):
@@ -383,20 +403,26 @@ def finish_trip(trip_id):
 
 def cancel_trip_full(trip_id, driver_id):
     conn = get_connection()
-    trip = conn.execute("SELECT origin, destination FROM trips WHERE id = ?", (trip_id,)).fetchone()
+    # Якщо викликає адмін (driver_id=0 або не збігається), то просто ігноруємо перевірку власника
+    # Але для повідомлень нам все одно треба дізнатись, хто справжній водій
+    trip = conn.execute("SELECT origin, destination, user_id FROM trips WHERE id = ?", (trip_id,)).fetchone()
+    
     passengers = conn.execute("SELECT passenger_id FROM bookings WHERE trip_id = ?", (trip_id,)).fetchall()
     conn.execute("UPDATE trips SET status = 'cancelled' WHERE id = ?", (trip_id,))
     conn.execute("DELETE FROM bookings WHERE trip_id = ?", (trip_id,))
     conn.commit()
     conn.close()
+    
+    # Повертаємо ID пасажирів для розсилки
     passenger_ids = [p['passenger_id'] for p in passengers]
     return dict(trip), passenger_ids
 
 # ==========================================
-# 🔍 ПОШУК
+# 🔍 ПОШУК ТА ПАГІНАЦІЯ
 # ==========================================
 
 def search_trips(origin, destination, date, viewer_id):
+    # Залишаємо для сумісності, але краще юзати search_trips_page
     conn = get_connection()
     rows = conn.execute('''
         SELECT t.*, u.name as driver_name, u.rating_driver, u.model, u.color, u.user_id
@@ -408,6 +434,30 @@ def search_trips(origin, destination, date, viewer_id):
     conn.close()
     return rows
 
+def search_trips_page(origin, destination, date, viewer_id, limit, offset):
+    """Шукає поїздки з пагінацією (LIMIT/OFFSET)."""
+    conn = get_connection()
+    
+    rows = conn.execute('''
+        SELECT t.*, u.name as driver_name, u.rating_driver, u.model, u.color, u.user_id
+        FROM trips t
+        JOIN users u ON t.user_id = u.user_id
+        WHERE t.origin = ? AND t.destination = ? AND t.date = ? AND t.status = 'active'
+          AND t.seats_taken < t.seats_total AND t.user_id != ?
+        ORDER BY t.time ASC
+        LIMIT ? OFFSET ?
+    ''', (origin, destination, date, viewer_id, limit, offset)).fetchall()
+    
+    count = conn.execute('''
+        SELECT COUNT(*)
+        FROM trips t
+        WHERE t.origin = ? AND t.destination = ? AND t.date = ? AND t.status = 'active'
+          AND t.seats_taken < t.seats_total AND t.user_id != ?
+    ''', (origin, destination, date, viewer_id)).fetchone()[0]
+    
+    conn.close()
+    return [dict(row) for row in rows], count
+
 def get_trip_details(trip_id):
     conn = get_connection()
     row = conn.execute('''
@@ -417,26 +467,23 @@ def get_trip_details(trip_id):
     conn.close()
     return dict(row) if row else None
 
-def save_search_history(user_id, origin, destination):
+def get_all_active_trips_paginated(limit, offset):
+    """🔥 Для Адмінки: Отримує активні поїздки з повною інфою."""
     conn = get_connection()
-    conn.execute("DELETE FROM search_history WHERE user_id = ? AND origin = ? AND destination = ?", (user_id, origin, destination))
-    conn.execute("INSERT INTO search_history (user_id, origin, destination) VALUES (?, ?, ?)", (user_id, origin, destination))
-    conn.execute("DELETE FROM search_history WHERE rowid NOT IN (SELECT rowid FROM search_history WHERE user_id = ? ORDER BY rowid DESC LIMIT 5) AND user_id = ?", (user_id, user_id))
-    conn.commit()
-    conn.close()
-
-def get_recent_searches(user_id):
-    conn = get_connection()
+    
     rows = conn.execute('''
-        SELECT origin, destination 
-        FROM search_history 
-        WHERE user_id = ? 
-        GROUP BY origin, destination 
-        ORDER BY MAX(timestamp) DESC 
-        LIMIT 5
-    ''', (user_id,)).fetchall()
+        SELECT t.*, u.name, u.phone, u.username, u.model, u.color, u.rating_driver
+        FROM trips t 
+        JOIN users u ON t.user_id = u.user_id 
+        WHERE t.status = 'active' 
+        ORDER BY t.rowid DESC 
+        LIMIT ? OFFSET ?
+    ''', (limit, offset)).fetchall()
+    
+    count = conn.execute("SELECT COUNT(*) FROM trips WHERE status='active'").fetchone()[0]
     conn.close()
-    return [(row['origin'], row['destination']) for row in rows]
+    
+    return [dict(row) for row in rows], count
 
 # ==========================================
 # 🎫 БРОНЮВАННЯ & ІСТОРІЯ ПАСАЖИРА
@@ -457,7 +504,6 @@ def add_booking(trip_id, passenger_id):
 
 def get_user_bookings(user_id):
     conn = get_connection()
-    # 🔥 ВИПРАВЛЕНО: Тільки активні поїздки
     rows = conn.execute('''
         SELECT b.id, b.trip_id, t.origin, t.destination, t.date, t.time, 
                u.name as driver_name, u.phone as driver_phone, t.user_id as driver_id
@@ -471,7 +517,6 @@ def get_user_bookings(user_id):
     return [dict(row) for row in rows]
 
 def get_passenger_history(user_id):
-    """Повертає історію завершених поїздок пасажира."""
     conn = get_connection()
     rows = conn.execute('''
         SELECT t.origin, t.destination, t.date, t.time, t.price,
@@ -513,6 +558,27 @@ def kick_passenger(booking_id, driver_id):
     conn.commit(); conn.close()
     return dict(booking)
 
+def save_search_history(user_id, origin, destination):
+    conn = get_connection()
+    conn.execute("DELETE FROM search_history WHERE user_id = ? AND origin = ? AND destination = ?", (user_id, origin, destination))
+    conn.execute("INSERT INTO search_history (user_id, origin, destination) VALUES (?, ?, ?)", (user_id, origin, destination))
+    conn.execute("DELETE FROM search_history WHERE rowid NOT IN (SELECT rowid FROM search_history WHERE user_id = ? ORDER BY rowid DESC LIMIT 5) AND user_id = ?", (user_id, user_id))
+    conn.commit()
+    conn.close()
+
+def get_recent_searches(user_id):
+    conn = get_connection()
+    rows = conn.execute('''
+        SELECT origin, destination 
+        FROM search_history 
+        WHERE user_id = ? 
+        GROUP BY origin, destination 
+        ORDER BY MAX(timestamp) DESC 
+        LIMIT 5
+    ''', (user_id,)).fetchall()
+    conn.close()
+    return [(row['origin'], row['destination']) for row in rows]
+
 # ==========================================
 # ⭐ РЕЙТИНГ & ПІДПИСКИ
 # ==========================================
@@ -545,3 +611,28 @@ def get_subscribers_for_trip(origin, dest, date):
     conn.execute("DELETE FROM subscriptions WHERE origin = ? AND destination = ? AND date = ?", (origin, dest, date))
     conn.commit(); conn.close()
     return [row['user_id'] for row in rows]
+
+# ==========================================
+# 🧹 ФОНОВІ ЗАДАЧІ (DB CLEANUP)
+# ==========================================
+
+def archive_old_trips_db():
+    conn = get_connection()
+    rows = conn.execute("SELECT id, user_id, date, time FROM trips WHERE status='active'").fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+def mark_trip_finished(trip_id):
+    conn = get_connection()
+    conn.execute("UPDATE trips SET status='finished' WHERE id=?", (trip_id,))
+    conn.commit()
+    conn.close()
+
+def perform_db_cleanup():
+    conn = get_connection()
+    conn.execute("DELETE FROM chat_history WHERE timestamp < datetime('now', '-7 days')")
+    conn.execute("DELETE FROM trips WHERE status IN ('finished', 'cancelled') AND date < date('now', '-60 days')")
+    conn.execute("DELETE FROM search_history WHERE timestamp < datetime('now', '-2 days')")
+    conn.execute("DELETE FROM bookings WHERE trip_id NOT IN (SELECT id FROM trips)")
+    conn.commit()
+    conn.close()
