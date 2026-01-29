@@ -35,6 +35,9 @@ router = Router()
 
 @router.callback_query(F.data == "drv_create")
 async def start_create_trip_handler(call: types.CallbackQuery, state: FSMContext, bot: Bot):
+    # 🔥 ЧИСТКА: Якщо у водія був відкритий список поїздок - видаляємо його
+    await delete_messages_list(state, bot, call.message.chat.id, "trip_msg_ids")
+    
     await state.update_data(last_msg_id=call.message.message_id, role="driver")
     
     user = get_user(call.from_user.id)

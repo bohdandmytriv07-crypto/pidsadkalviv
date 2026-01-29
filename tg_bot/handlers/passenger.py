@@ -86,7 +86,10 @@ async def passenger_menu_handler(call: types.CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == "pass_find")
 async def search_start_handler(call: types.CallbackQuery, state: FSMContext):
+    # 🔥 ЧИСТКА: Видаляємо і старий пошук, і список бронювань (щоб не заважав)
     await delete_messages_list(state, call.bot, call.message.chat.id, "search_msg_ids")
+    await delete_messages_list(state, call.bot, call.message.chat.id, "booking_msg_ids")
+    
     await state.set_state(SearchStates.origin)
     history = get_recent_searches(call.from_user.id)
     
@@ -98,7 +101,6 @@ async def search_start_handler(call: types.CallbackQuery, state: FSMContext):
     
     msg_text = "📜 <b>Оберіть зі списку або напишіть місто:</b>" if history else "📍 <b>Звідки виїжджаємо?</b>\nВведіть місто:"
     await update_or_send_msg(call.bot, call.message.chat.id, state, msg_text, InlineKeyboardMarkup(inline_keyboard=kb_rows))
-
 @router.callback_query(F.data.startswith("hist_"))
 async def history_search_select(call: types.CallbackQuery, state: FSMContext):
     parts = call.data.split("_")
@@ -279,7 +281,10 @@ async def book_trip(call: types.CallbackQuery, state: FSMContext):
 @router.callback_query(F.data == "pass_my_books")
 async def show_bookings(call: types.CallbackQuery, state: FSMContext):
     await call.answer()
+    # 🔥 ЧИСТКА: Видаляємо бронювання і результати пошуку
     await delete_messages_list(state, call.bot, call.message.chat.id, "booking_msg_ids")
+    await delete_messages_list(state, call.bot, call.message.chat.id, "search_msg_ids")
+    
     with suppress(TelegramBadRequest): await call.message.delete()
     
     try:
