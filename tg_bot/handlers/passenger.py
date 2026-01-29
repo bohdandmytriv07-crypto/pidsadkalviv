@@ -111,7 +111,14 @@ async def history_search_select(call: types.CallbackQuery, state: FSMContext):
 @router.message(SearchStates.origin)
 async def process_search_origin(message: types.Message, state: FSMContext, bot: Bot):
     await clean_user_input(message)
-    clean_city = get_city_suggestion(message.text.strip()) or await validate_city_real(message.text.strip())
+    text = message.text.strip()
+
+   
+    if text.startswith("/") or len(text) > 50 or len(text) < 2:
+        await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Введіть коректну назву міста (без команд).</b>", kb_back())
+        return
+
+    clean_city = get_city_suggestion(text) or await validate_city_real(text)
     
     if clean_city:
         add_or_update_city(clean_city)
@@ -124,7 +131,14 @@ async def process_search_origin(message: types.Message, state: FSMContext, bot: 
 @router.message(SearchStates.dest)
 async def process_search_dest(message: types.Message, state: FSMContext, bot: Bot):
     await clean_user_input(message)
-    clean_city = get_city_suggestion(message.text.strip()) or await validate_city_real(message.text.strip())
+    text = message.text.strip()
+
+    # 🔥 ЗАХИСТ
+    if text.startswith("/") or len(text) > 50 or len(text) < 2:
+        await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Введіть коректну назву міста.</b>", kb_back())
+        return
+
+    clean_city = get_city_suggestion(text) or await validate_city_real(text)
     
     if clean_city:
         add_or_update_city(clean_city)
