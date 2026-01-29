@@ -211,11 +211,13 @@ def get_top_routes(limit=3):
 # 👤 КОРИСТУВАЧІ
 # ==========================================
 
+# У файлі database.py
+
 def get_user(user_id):
     conn = get_connection()
     user = conn.execute("SELECT * FROM users WHERE user_id = ?", (user_id,)).fetchone()
     conn.close()
-    return user
+    return dict(user) if user else None
 
 def save_user(user_id, name, username, phone=None, model='-', body='-', color='-', number='-', ref_source=None):
     conn = get_connection()
