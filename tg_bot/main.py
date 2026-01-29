@@ -1,10 +1,13 @@
 ﻿import asyncio
 import logging
 import sys
+import os
 from datetime import datetime
 import pytz
 from logging.handlers import RotatingFileHandler
 
+# Імпорт для налаштування проксі (для PythonAnywhere)
+from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram import Bot, Dispatcher, types
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.enums import ParseMode
@@ -33,6 +36,7 @@ def setup_logging():
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(formatter)
+    # Створюємо файл логів (максимум 5 МБ)
     file_handler = RotatingFileHandler("bot.log", maxBytes=5*1024*1024, backupCount=1, encoding="utf-8")
     file_handler.setFormatter(formatter)
     logging.basicConfig(level=logging.INFO, handlers=[console_handler, file_handler])
@@ -48,11 +52,10 @@ async def background_tasks(bot: Bot):
     
     while True:
         try:
-            # Чекаємо 10 хвилин
+            # Чекаємо 10 хвилин (600 секунд)
             await asyncio.sleep(600) 
             
             # 1. АРХІВАЦІЯ (В окремому потоці, щоб не блокувати)
-            # Отримуємо кандидатів на архівацію
             active_trips = await asyncio.to_thread(archive_old_trips_db)
             
             now = datetime.now(kyiv_tz)
@@ -80,7 +83,7 @@ async def background_tasks(bot: Bot):
                 except ValueError: continue 
             
             if archived_count > 0:
-                logger.info(f"🏁 Завершено {archived_count} поїздок.")
+                logger.info(f"🏁 Завершено автоматично {archived_count} поїздок.")
 
             # 2. ГЕНЕРАЛЬНЕ ПРИБИРАННЯ (Thread Safe)
             await asyncio.to_thread(perform_db_cleanup)
@@ -91,7 +94,7 @@ async def background_tasks(bot: Bot):
             await asyncio.sleep(60)
 
 # ==========================================
-# 🚫 ОБРОБКА БЛОКУВАНЬ
+# 🚫 ОБРОБКА БЛОКУВАНЬ КОРИСТУВАЧАМИ
 # ==========================================
 async def on_user_block(event: ChatMemberUpdated):
     user_id = event.from_user.id
@@ -113,11 +116,21 @@ async def main():
     setup_logging()
     
     logger.info("🚀 Ініціалізація бази даних...")
-    # Init DB можна запускати синхронно на старті
+    # Ініціалізація бази даних
     init_db()
     logger.info("✅ База даних готова (WAL mode on)!")
 
-    bot = Bot(token=API_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    # --- 🔥 НАЛАШТУВАННЯ ПРОКСІ ДЛЯ СЕРВЕРА 🔥 ---
+    # Перевіряємо, чи ми на PythonAnywhere (вони мають цю змінну середовища)
+    if os.getenv("PYTHONANYWHERE_DOMAIN"):
+        logger.info("🌐 Запуск на сервері PythonAnywhere (використовуємо Proxy)")
+        session = AiohttpSession(proxy="http://proxy.server:3128")
+        bot = Bot(token=API_TOKEN, session=session, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    else:
+        logger.info("💻 Запуск локально (пряме з'єднання)")
+        bot = Bot(token=API_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    # ---------------------------------------------
+
     dp = Dispatcher(storage=MemoryStorage())
 
     # Middleware
@@ -126,10 +139,11 @@ async def main():
     dp.message.middleware(AntiFloodMiddleware(limit=0.7))
     dp.callback_query.middleware(AntiFloodMiddleware(limit=0.5))
 
+    # Реєстрація хендлерів блокування
     dp.my_chat_member.register(on_user_block, ChatMemberUpdatedFilter(member_status_changed=KICKED | MEMBER))
     dp.errors.register(global_error_handler)
 
-    # Routers
+    # Підключення роутерів (хендлерів)
     dp.include_router(admin.router)
     dp.include_router(common.router)
     dp.include_router(profile.router)
@@ -138,6 +152,7 @@ async def main():
     dp.include_router(chat.router)
     dp.include_router(rating.router)
 
+    # Видаляємо вебхуки і запускаємо фонові задачі
     await bot.delete_webhook(drop_pending_updates=True)
     asyncio.create_task(background_tasks(bot))
 
@@ -152,6 +167,7 @@ async def main():
 
 if __name__ == "__main__":
     try:
+        # Спеціальний фікс для Windows (щоб не було помилок при закритті локально)
         if sys.platform == "win32":
             asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
         asyncio.run(main())
