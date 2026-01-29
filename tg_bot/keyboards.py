@@ -88,3 +88,8 @@ def kb_chat_bottom():
         [KeyboardButton(text="❌ Завершити діалог")],
         [KeyboardButton(text="📍 Надіслати геопозицію", request_location=True), KeyboardButton(text="📞 Надіслати мій номер", request_contact=True)]
     ], resize_keyboard=True)
+def kb_plate_type():
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🇺🇦 Держ. номер (AA1234AA)", callback_data="plate_type_std")],
+        [InlineKeyboardButton(text="😎 Іменний / Інший", callback_data="plate_type_custom")]
+    ])
