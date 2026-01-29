@@ -600,7 +600,9 @@ def get_user_rating(user_id, role="driver"):
     return (row['avg'] if row['avg'] else 5.0, row['cnt'])
 
 def format_rating(avg, count):
-    return "Новачок" if count == 0 else f"⭐ {avg:.1f} ({count})"
+    if count == 0 or avg is None:
+        return "🆕 Новачок"
+    return f"⭐️ {avg:.1f} ({count})"
 
 def add_subscription(user_id, origin, dest, date):
     conn = get_connection()
