@@ -238,14 +238,20 @@ async def process_price(message: types.Message, state: FSMContext, bot: Bot):
 async def skip_description(call: types.CallbackQuery, state: FSMContext, bot: Bot):
     await finalize_trip_creation(call.message, state, bot, desc_text="")
 
-
 @router.message(TripStates.description)
 async def process_description(message: types.Message, state: FSMContext, bot: Bot):
     await clean_user_input(message)
     text = message.text.strip()
+    
+  
     if len(text) > 200:
         await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Занадто довгий текст!</b> Скоротіть до 200 символів.", kb_back())
         return
+        
+    if "<" in text or ">" in text:
+        await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Приберіть символи < та >.</b>\nВони заборонені.", kb_back())
+        return
+
     await finalize_trip_creation(message, state, bot, desc_text=text)
 
 
