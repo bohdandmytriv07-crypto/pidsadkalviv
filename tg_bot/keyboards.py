@@ -1,4 +1,5 @@
 ﻿from datetime import datetime, timedelta
+import pytz # 🔥 1. Додали імпорт
 from typing import List, Tuple
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 
@@ -40,7 +41,11 @@ def kb_back(callback_data: str = "menu_home") -> InlineKeyboardMarkup:
 
 def kb_dates(prefix: str = "date") -> InlineKeyboardMarkup:
     buttons = []
-    now = datetime.now()
+    
+    # 🔥 2. ВИПРАВЛЕННЯ: Беремо час Києва, а не сервера
+    kyiv_tz = pytz.timezone('Europe/Kyiv')
+    now = datetime.now(kyiv_tz)
+    
     for i in range(4):
         date_obj = now + timedelta(days=i)
         date_str = date_obj.strftime("%d.%m")
@@ -55,6 +60,12 @@ def kb_car_type():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🚗 Легкова", callback_data="body_car")],
         [InlineKeyboardButton(text="🚐 Бус / Мінівен", callback_data="body_bus")]
+    ])
+    
+def kb_plate_type():
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🇺🇦 Держ. номер (AA1234AA)", callback_data="plate_type_std")],
+        [InlineKeyboardButton(text="😎 Іменний / Інший", callback_data="plate_type_custom")]
     ])
 
 # ==========================================
@@ -75,7 +86,6 @@ def kb_chat_actions(partner_username=None):
     buttons.append([InlineKeyboardButton(text="❌ Завершити діалог", callback_data="chat_leave")])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
-# 🔥 ОСЬ ЦЯ ФУНКЦІЯ, ЯКОЇ НЕ ВИСТАЧАЛО
 def kb_reply(user_id):
     """Кнопка 'Відповісти' під повідомленням."""
     return InlineKeyboardMarkup(inline_keyboard=[
@@ -88,8 +98,3 @@ def kb_chat_bottom():
         [KeyboardButton(text="❌ Завершити діалог")],
         [KeyboardButton(text="📍 Надіслати геопозицію", request_location=True), KeyboardButton(text="📞 Надіслати мій номер", request_contact=True)]
     ], resize_keyboard=True)
-def kb_plate_type():
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🇺🇦 Держ. номер (AA1234AA)", callback_data="plate_type_std")],
-        [InlineKeyboardButton(text="😎 Іменний / Інший", callback_data="plate_type_custom")]
-    ])
