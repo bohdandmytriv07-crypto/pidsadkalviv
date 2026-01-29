@@ -72,13 +72,39 @@ async def start_edit_car(call: types.CallbackQuery, state: FSMContext):
 # 👤 ОСОБИСТІ ДАНІ
 # ==========================================
 
+# У файлі handlers/profile.py
+
 @router.message(ProfileStates.name)
 async def process_name(message: types.Message, state: FSMContext):
     await clean_user_input(message)
-    if len(message.text) < 2: return 
-    await delete_prev_msg(state, message.bot, message.chat.id)
     
-    await state.update_data(name=message.text)
+    name = message.text.strip()
+    
+
+    if len(name) < 2 or len(name) > 50:
+  
+        await delete_prev_msg(state, message.bot, message.chat.id)
+        
+        msg = await message.answer(
+            "⚠️ <b>Ім'я занадто довге або коротке!</b>\nВведіть коректне ім'я (до 50 символів):", 
+            reply_markup=kb_back()
+        )
+        await state.update_data(last_msg_id=msg.message_id)
+        return
+    
+  
+    if "<" in name or ">" in name or "/" in name:
+        await delete_prev_msg(state, message.bot, message.chat.id)
+        msg = await message.answer(
+            "⚠️ <b>Ім'я містить заборонені символи.</b>\nВведіть звичайне ім'я:", 
+            reply_markup=kb_back()
+        )
+        await state.update_data(last_msg_id=msg.message_id)
+        return
+
+    
+    await delete_prev_msg(state, message.bot, message.chat.id)
+    await state.update_data(name=name)
     await state.set_state(ProfileStates.phone)
     
     kb = ReplyKeyboardMarkup(
