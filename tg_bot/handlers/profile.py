@@ -6,7 +6,6 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMar
 from database import get_user, save_user, get_user_rating, format_rating
 from states import ProfileStates
 from keyboards import kb_back, kb_menu, kb_car_type, kb_plate_type
-# 🔥 ДОДАНО: delete_prev_msg для очистки
 from utils import clean_user_input, send_new_clean_msg, update_or_send_msg, delete_prev_msg
 
 router = Router()
@@ -15,34 +14,68 @@ router = Router()
 async def show_profile(call: types.CallbackQuery, state: FSMContext):
     user = get_user(call.from_user.id)
     data = await state.get_data()
-    role = data.get("role", "passenger")
+    # Якщо роль не задана в стані, беремо з бази (якщо є авто -> водій)
+    role = data.get("role")
+    if not role:
+        role = "driver" if user and user['model'] != "-" else "passenger"
+        await state.update_data(role=role)
     
     if user and user['phone'] != "-":
         avg, count = get_user_rating(call.from_user.id)
+        
+        # 🔥 РОЗДІЛЕНІ КНОПКИ РЕДАГУВАННЯ
         if role == "passenger":
             txt = f"👤 <b>Ваш профіль:</b>\n\n📛 {user['name']}\n📱 {user['phone']}\n{format_rating(avg, count)}"
+            kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="✏️ Змінити ім'я та телефон", callback_data="edit_personal")],
+                [InlineKeyboardButton(text="🔙 В меню", callback_data="menu_home")]
+            ])
         else:
             txt = f"🚖 <b>Профіль водія:</b>\n\n📛 {user['name']}\n📱 {user['phone']}\n🚘 {user['model']} {user['color']}\n🔢 {user['number']}\n{format_rating(avg, count)}"
+            kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="✏️ Змінити ім'я/телефон", callback_data="edit_personal")],
+                [InlineKeyboardButton(text="🚘 Змінити авто", callback_data="edit_car")],
+                [InlineKeyboardButton(text="🔙 В меню", callback_data="menu_home")]
+            ])
             
-        kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="✏️ Редагувати", callback_data="profile_new")],
-            [InlineKeyboardButton(text="🔙 В меню", callback_data="menu_home")]
-        ])
         await update_or_send_msg(call.bot, call.message.chat.id, state, txt, kb)
     else:
-        await start_reg(call, state)
+        # Якщо профілю немає - повна реєстрація
+        await start_full_reg(call, state)
+
+# ==========================================
+# 🏁 ТОЧКИ ВХОДУ (Старт редагування)
+# ==========================================
 
 @router.callback_query(F.data == "profile_new")
-async def start_reg(call: types.CallbackQuery, state: FSMContext):
+async def start_full_reg(call: types.CallbackQuery, state: FSMContext):
+    """Повна реєстрація з нуля"""
+    await state.update_data(edit_mode="full") # Помічаємо, що це повний цикл
     await state.set_state(ProfileStates.name)
     await update_or_send_msg(call.bot, call.message.chat.id, state, "📝 <b>Як вас звати?</b>\nВведіть ім'я та прізвище:", kb_back())
+
+@router.callback_query(F.data == "edit_personal")
+async def start_edit_personal(call: types.CallbackQuery, state: FSMContext):
+    """Тільки особисті дані"""
+    await state.update_data(edit_mode="personal") # Тільки ім'я/тел
+    await state.set_state(ProfileStates.name)
+    await update_or_send_msg(call.bot, call.message.chat.id, state, "📝 <b>Введіть нове ім'я:</b>", kb_back())
+
+@router.callback_query(F.data == "edit_car")
+async def start_edit_car(call: types.CallbackQuery, state: FSMContext):
+    """Тільки авто"""
+    await state.update_data(edit_mode="car") # Тільки машина
+    await state.set_state(ProfileStates.model)
+    await update_or_send_msg(call.bot, call.message.chat.id, state, "🚘 <b>Введіть нову марку та модель:</b>", kb_back())
+
+# ==========================================
+# 👤 ОСОБИСТІ ДАНІ
+# ==========================================
 
 @router.message(ProfileStates.name)
 async def process_name(message: types.Message, state: FSMContext):
     await clean_user_input(message)
     if len(message.text) < 2: return 
-    
-    # 🔥 Видаляємо питання "Як вас звати?"
     await delete_prev_msg(state, message.bot, message.chat.id)
     
     await state.update_data(name=message.text)
@@ -50,82 +83,84 @@ async def process_name(message: types.Message, state: FSMContext):
     
     kb = ReplyKeyboardMarkup(
         keyboard=[[KeyboardButton(text="📱 Надіслати номер", request_contact=True)]], 
-        resize_keyboard=True, 
-        one_time_keyboard=True
+        resize_keyboard=True, one_time_keyboard=True
     )
-    # Зберігаємо ID цього повідомлення, щоб видалити його потім
-    msg = await message.answer("📱 <b>Ваш номер телефону:</b>\nНатисніть кнопку або введіть (можна з дужками/пробілами):", reply_markup=kb, parse_mode="HTML")
+    msg = await message.answer("📱 <b>Ваш номер телефону:</b>\nНатисніть кнопку або введіть:", reply_markup=kb, parse_mode="HTML")
     await state.update_data(last_msg_id=msg.message_id)
 
 @router.message(ProfileStates.phone)
 async def process_phone(message: types.Message, state: FSMContext):
-    # Очищаємо інтерфейс ("Зберігаю..." і клавіатуру)
-    rm_msg = await message.answer("⏳ Перевіряю...", reply_markup=ReplyKeyboardRemove())
+    rm_msg = await message.answer("⏳ Зберігаю...", reply_markup=ReplyKeyboardRemove())
     with suppress(Exception): await message.delete()
     
     raw_phone = message.contact.phone_number if message.contact else message.text
     clean_digits = re.sub(r'\D', '', raw_phone) 
     
-    if len(clean_digits) == 10 and clean_digits.startswith('0'):
-        clean_digits = '38' + clean_digits
-    elif len(clean_digits) == 11 and clean_digits.startswith('80'):
-        clean_digits = '3' + clean_digits
+    if len(clean_digits) == 10 and clean_digits.startswith('0'): clean_digits = '38' + clean_digits
+    elif len(clean_digits) == 11 and clean_digits.startswith('80'): clean_digits = '3' + clean_digits
     
     if len(clean_digits) != 12 or not clean_digits.startswith('380'):
         with suppress(Exception): await rm_msg.delete()
         kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="📱 Надіслати номер", request_contact=True)]], resize_keyboard=True, one_time_keyboard=True)
-        # Оновлюємо ID повідомлення, якщо помилка
-        msg = await message.answer("❌ <b>Невірний формат номера!</b>\nПотрібен український мобільний (напр. 066 123 45 67).", reply_markup=kb, parse_mode="HTML")
+        msg = await message.answer("❌ <b>Невірний формат!</b>\nПотрібен: +380...", reply_markup=kb, parse_mode="HTML")
         await state.update_data(last_msg_id=msg.message_id)
         return
 
     final_phone = f"+{clean_digits}"
     await state.update_data(phone=final_phone)
-    data = await state.get_data()
-    
     with suppress(Exception): await rm_msg.delete()
-    # 🔥 Видаляємо старе питання "Введіть номер"
     await delete_prev_msg(state, message.bot, message.chat.id)
 
-    if data.get("role") == "passenger":
+    # 🔥 ЛОГІКА РОЗГАЛУЖЕННЯ
+    data = await state.get_data()
+    edit_mode = data.get("edit_mode")
+    role = data.get("role", "passenger")
+
+    # Якщо ми редагуємо ТІЛЬКИ особисті дані АБО це пасажир -> зберігаємо і виходимо
+    if edit_mode == "personal" or role == "passenger":
         uname = f"@{message.from_user.username}" if message.from_user.username else None
+        # Зберігаємо (поля авто не чіпаємо, бо вони дефолтні '-' і база їх проігнорує при update)
         save_user(message.from_user.id, data['name'], uname, final_phone)
+        
         await state.clear()
-        await state.update_data(role="passenger")
-        msg = await message.answer("✅ <b>Профіль збережено!</b>", reply_markup=kb_menu("passenger"), parse_mode="HTML")
+        # Відновлюємо роль
+        await state.update_data(role=role)
+        
+        kb = kb_menu(role)
+        msg = await message.answer("✅ <b>Особисті дані оновлено!</b>", reply_markup=kb, parse_mode="HTML")
         await state.update_data(last_msg_id=msg.message_id)
     else:
+        # Якщо це повна реєстрація водія -> йдемо далі до машини
         await state.set_state(ProfileStates.model)
-        await send_new_clean_msg(message, state, "🚘 <b>Марка та модель авто:</b>\nНаприклад: Skoda Octavia", kb_back())
+        await send_new_clean_msg(message, state, "🚘 <b>Марка та модель авто:</b>", kb_back())
+
+# ==========================================
+# 🚘 ДАНІ АВТОМОБІЛЯ
+# ==========================================
 
 @router.message(ProfileStates.model)
 async def process_model(message: types.Message, state: FSMContext):
     await clean_user_input(message)
     if len(message.text) < 2 or len(message.text) > 30:
-        await update_or_send_msg(message.bot, message.chat.id, state, "⚠️ Назва авто має бути від 2 до 30 символів.", kb_back())
+        await update_or_send_msg(message.bot, message.chat.id, state, "⚠️ Назва від 2 до 30 символів.", kb_back())
         return
     
-    # 🔥 Видаляємо питання про модель
     await delete_prev_msg(state, message.bot, message.chat.id)
-        
     await state.update_data(model=message.text)
     await state.set_state(ProfileStates.body)
     await update_or_send_msg(message.bot, message.chat.id, state, "🚙 <b>Тип кузова:</b>", kb_car_type())
 
 @router.callback_query(ProfileStates.body)
 async def process_body(call: types.CallbackQuery, state: FSMContext):
-    # Тут update_or_send_msg сам замінить попереднє повідомлення, бо це Callback
     body = "Легкова" if call.data == "body_car" else "Бус"
     await state.update_data(body=body)
     await state.set_state(ProfileStates.color)
-    await update_or_send_msg(call.bot, call.message.chat.id, state, "🎨 <b>Колір авто:</b>\n(Напр. Чорний, Білий, Червоний)", kb_back())
+    await update_or_send_msg(call.bot, call.message.chat.id, state, "🎨 <b>Колір авто:</b>", kb_back())
 
 @router.message(ProfileStates.color)
 async def process_color(message: types.Message, state: FSMContext):
     await clean_user_input(message)
-    # 🔥 Видаляємо питання про колір
     await delete_prev_msg(state, message.bot, message.chat.id)
-    
     await state.update_data(color=message.text)
     await update_or_send_msg(message.bot, message.chat.id, state, "🔢 <b>Який у вас номерний знак?</b>", kb_plate_type())
 
@@ -136,51 +171,57 @@ async def process_plate_type(call: types.CallbackQuery, state: FSMContext):
     await state.set_state(ProfileStates.number)
     
     if p_type == "std":
-        text = "🔢 <b>Введіть держ. номер:</b>\nФормат: <code>AA1234AA</code> (Можна вводити з пробілами, маленькими літерами — я виправлю)"
+        text = "🔢 <b>Введіть держ. номер:</b>\nФормат: <code>AA1234AA</code>"
     else:
-        text = "😎 <b>Введіть іменний номер:</b>\nВід 3 до 8 символів (тільки літери та цифри)."
-        
+        text = "😎 <b>Введіть іменний номер:</b>\nТільки літери/цифри (3-8 симв)."
     await update_or_send_msg(call.bot, call.message.chat.id, state, text, kb_back())
 
 @router.message(ProfileStates.number)
 async def process_number(message: types.Message, state: FSMContext, bot: Bot):
     await clean_user_input(message)
     data = await state.get_data()
-    plate_type = data.get("plate_type", "std")
     
     raw_num = message.text.strip().upper().replace(" ", "").replace("-", "")
     translation = str.maketrans("АВЕКМНОРСТІХ", "ABEKMHOPCTIX") 
     clean_num = raw_num.translate(translation)
 
     error_msg = None
-    if plate_type == "std":
+    if data.get("plate_type") == "std":
         if not re.match(r'^[A-ZА-ЯІ]{2}\d{4}[A-ZА-ЯІ]{2}$', clean_num):
-            error_msg = "❌ <b>Невірний формат!</b>\nПотрібно: 2 букви, 4 цифри, 2 букви.\nПриклад: <code>BC1234AI</code>"
+            error_msg = "❌ <b>Невірний формат!</b> Приклад: BC1234AI"
     else:
-        if len(clean_num) < 3 or len(clean_num) > 8:
-            error_msg = "❌ <b>Невірна довжина!</b>\nІменний номер має бути від 3 до 8 символів."
-        elif not re.match(r'^[A-ZА-ЯІ0-9]+$', clean_num):
-            error_msg = "❌ <b>Тільки літери та цифри!</b>\nБез спецсимволів."
+        if len(clean_num) < 3 or len(clean_num) > 8 or not re.match(r'^[A-ZА-ЯІ0-9]+$', clean_num):
+            error_msg = "❌ <b>Помилка!</b> Тільки літери/цифри, 3-8 символів."
 
     if error_msg:
         await update_or_send_msg(bot, message.chat.id, state, error_msg, kb_back())
         return
 
-    # 🔥 Видаляємо питання про номер
     await delete_prev_msg(state, bot, message.chat.id)
 
+    # Якщо ми в режимі редагування авто, нам треба взяти старе ім'я з бази, 
+    # але функція save_user досить розумна: якщо ми передамо Name=None, вона його не затре.
+    # Але для надійності, якщо ми редагуємо тільки авто, ми передаємо тільки авто.
+    
     uname = f"@{message.from_user.username}" if message.from_user.username else None
     
+    # Тут ми просто оновлюємо все, що назбирали.
+    # Якщо це edit_mode="car", то поля name/phone у `data` можуть бути пусті, 
+    # тому ми передаємо те, що є, а database.py ігнорує None.
+    
     save_user(
-        message.from_user.id, data['name'], uname, 
-        data['phone'], data['model'], data['body'], 
-        data['color'], clean_num
+        message.from_user.id, 
+        data.get('name'), # Буде None, якщо редагуємо тільки авто -> база не змінить ім'я
+        uname, 
+        data.get('phone'), # Буде None -> база не змінить телефон
+        data['model'], 
+        data['body'], 
+        data['color'], 
+        clean_num
     )
     
     await state.clear()
     await state.update_data(role="driver")
     
-    kb = kb_menu("driver")
-    # Відправляємо фінальне повідомлення
-    msg = await message.answer(f"✅ <b>Водій готовий!</b>\nНомер: <code>{clean_num}</code>", reply_markup=kb, parse_mode="HTML")
+    msg = await message.answer(f"✅ <b>Дані авто оновлено!</b>\nНомер: <code>{clean_num}</code>", reply_markup=kb_menu("driver"), parse_mode="HTML")
     await state.update_data(last_msg_id=msg.message_id)
