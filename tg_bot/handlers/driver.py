@@ -92,6 +92,11 @@ async def _start_new_trip_questions(chat_id, state: FSMContext, bot: Bot):
 @router.message(TripStates.origin)
 async def process_origin(message: types.Message, state: FSMContext, bot: Bot):
     await clean_user_input(message)
+    
+    if message.text.startswith("/"):
+        await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Це схоже на команду.</b>\nБудь ласка, введіть назву міста:", kb_back())
+        return
+
     raw_text = message.text.strip()
     
     clean_city = get_city_suggestion(raw_text)
@@ -110,6 +115,11 @@ async def process_origin(message: types.Message, state: FSMContext, bot: Bot):
 @router.message(TripStates.destination)
 async def process_destination(message: types.Message, state: FSMContext, bot: Bot):
     await clean_user_input(message)
+    
+    if message.text.startswith("/"):
+        await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Введіть назву міста, а не команду.</b>", kb_back())
+        return
+
     raw_text = message.text.strip()
     
     clean_city = get_city_suggestion(raw_text)
@@ -199,7 +209,11 @@ async def process_price(message: types.Message, state: FSMContext, bot: Bot):
     await clean_user_input(message)
     try:
         price = int(message.text)
-        if price < 0: raise ValueError
+        if price <= 0: raise ValueError
+        if price > 5000:
+            await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Занадто висока ціна!</b>\nВкажіть реальну суму до 5000 грн.", kb_back())
+            return
+            
     except ValueError:
         await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Ціна має бути числом > 0!</b>", kb_back())
         return

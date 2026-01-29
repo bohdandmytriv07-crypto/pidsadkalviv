@@ -179,7 +179,7 @@ async def _render_trips_page(message: types.Message, state: FSMContext):
     data = await state.get_data()
     page = data.get('current_page', 0)
     
-    # 🔥 SQL ПАГІНАЦІЯ: Дістаємо тільки потрібний шматок з бази
+    
     trips, total_count = await asyncio.to_thread(
         search_trips_page, 
         data['origin'], data['dest'], data['date'], 
