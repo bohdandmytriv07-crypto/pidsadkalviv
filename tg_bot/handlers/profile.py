@@ -1,6 +1,6 @@
 ﻿import re
 from contextlib import suppress
-from aiogram import Router, F, types
+from aiogram import Router, F, types, Bot
 from aiogram.fsm.context import FSMContext
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardRemove
 from database import get_user, save_user, get_user_rating, format_rating
