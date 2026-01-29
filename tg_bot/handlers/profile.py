@@ -52,7 +52,7 @@ async def start_full_reg(call: types.CallbackQuery, state: FSMContext):
     """Повна реєстрація з нуля"""
     await state.update_data(edit_mode="full") # Помічаємо, що це повний цикл
     await state.set_state(ProfileStates.name)
-    await update_or_send_msg(call.bot, call.message.chat.id, state, "📝 <b>Як вас звати?</b>\nВведіть ім'я та прізвище:", kb_back())
+    await update_or_send_msg(call.bot, call.message.chat.id, state, "📝 <b>Як до вас звертатися?</b>\n(Наприклад: <i>Андрій</i> або <i>Андрій Петренко</i>)", kb_back())
 
 @router.callback_query(F.data == "edit_personal")
 async def start_edit_personal(call: types.CallbackQuery, state: FSMContext):
@@ -72,7 +72,7 @@ async def start_edit_car(call: types.CallbackQuery, state: FSMContext):
 # 👤 ОСОБИСТІ ДАНІ
 # ==========================================
 
-# У файлі handlers/profile.py
+
 
 @router.message(ProfileStates.name)
 async def process_name(message: types.Message, state: FSMContext):
