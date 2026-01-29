@@ -5,6 +5,9 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemo
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from aiogram.fsm.context import FSMContext
 
+# 🔥 ДОДАНО: Імпорт функції для очистки списків повідомлень
+from utils import delete_messages_list
+
 from database import (
     set_active_chat, get_active_chat_partner, delete_active_chat, get_user,
     save_chat_msg, get_and_clear_chat_msgs, 
@@ -57,8 +60,16 @@ async def start_chat_handler(call: types.CallbackQuery, bot: Bot, state: FSMCont
         await call.answer("Користувача не знайдено.", show_alert=True)
         return
 
-    set_active_chat(my_id, target_user_id)
+    # 🔥 ЧИСТКА: Видаляємо всі попередні меню (списки поїздок, бронювань, результати пошуку)
+    chat_id = call.message.chat.id
+    await delete_messages_list(state, bot, chat_id, "trip_msg_ids")     # Меню водія
+    await delete_messages_list(state, bot, chat_id, "booking_msg_ids")  # Бронювання пасажира
+    await delete_messages_list(state, bot, chat_id, "search_msg_ids")   # Пошук
+
+    # Видаляємо саме повідомлення з кнопкою (якщо воно раптом не в списку)
     with suppress(TelegramBadRequest): await call.message.delete()
+
+    set_active_chat(my_id, target_user_id)
 
     # 1. Історія
     history = get_chat_history_text(my_id, target_user_id)
