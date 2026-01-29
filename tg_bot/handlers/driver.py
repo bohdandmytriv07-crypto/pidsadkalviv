@@ -7,7 +7,7 @@ from aiogram import Router, F, types, Bot
 from aiogram.fsm.context import FSMContext
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.exceptions import TelegramBadRequest
-
+import pytz
 # Імпорти з бази даних
 from database import (
     get_user, save_user, create_trip, get_driver_active_trips, 
@@ -145,19 +145,27 @@ async def process_time(message: types.Message, state: FSMContext, bot: Bot):
     time_str = message.text     # Наприклад "14:00"
     
     try:
-        now = datetime.now()
-        # Спробуємо поточний рік
-        trip_dt = datetime.strptime(f"{date_str}.{now.year} {time_str}", "%d.%m.%Y %H:%M")
+        # 🔥 МАГІЯ ЧАСУ: Визначаємо Київську зону
+        kyiv_tz = pytz.timezone('Europe/Kyiv')
         
-        # 🔥 ФІКС НОВОГО РОКУ:
-        # Якщо дата вийшла в минулому (наприклад, 02.01.2025, а зараз 28.12.2025),
-        # то, ймовірно, користувач мав на увазі наступний рік (02.01.2026).
-        # Додаємо перевірку: якщо різниця більше 30 днів назад, то це точно наступний рік.
-        if (now - trip_dt).days > 30:
-             trip_dt = trip_dt.replace(year=now.year + 1)
+        # Отримуємо ТОЧНИЙ час у Києві прямо зараз
+        now_kyiv = datetime.now(kyiv_tz)
         
-        # Фінальна перевірка: чи дата все ще в минулому?
-        if trip_dt < now:
+        # Створюємо дату поїздки (поки без часового поясу)
+        # Припускаємо поточний рік
+        trip_dt_naive = datetime.strptime(f"{date_str}.{now_kyiv.year} {time_str}", "%d.%m.%Y %H:%M")
+        
+        # Робимо цю дату "Київською"
+        trip_dt = kyiv_tz.localize(trip_dt_naive)
+        
+        # Логіка Нового Року (якщо зараз грудень, а поїздка на січень)
+        # Якщо дата поїздки була більше ніж 30 днів тому -> значить це наступний рік
+        if (now_kyiv - trip_dt).days > 30:
+             # Додаємо рік
+             trip_dt = trip_dt.replace(year=now_kyiv.year + 1)
+        
+        # Порівнюємо: "Дата поїздки" < "Зараз у Києві"
+        if trip_dt < now_kyiv:
              await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Цей час вже минув!</b>\nВведіть коректний час виїзду:", kb_back())
              return
 
