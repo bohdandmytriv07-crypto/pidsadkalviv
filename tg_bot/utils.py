@@ -22,8 +22,10 @@ geolocator = Nominatim(
 
 async def clean_user_input(message: types.Message):
     """Видаляє повідомлення, яке написав користувач."""
-    with suppress(TelegramBadRequest):
+    try:
         await message.delete()
+    except Exception:
+        pass
 
 async def delete_prev_msg(state: FSMContext, bot: Bot, chat_id: int):
     """Примусово видаляє останнє повідомлення бота."""

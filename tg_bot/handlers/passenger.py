@@ -186,7 +186,10 @@ async def _render_trips_page(message: types.Message, state: FSMContext):
         message.chat.id, PAGE_SIZE, page * PAGE_SIZE
     )
     
-    total_pages = (total_count - 1) // PAGE_SIZE + 1
+    if total_count == 0:
+        total_pages = 1
+    else:
+        total_pages = (total_count - 1) // PAGE_SIZE + 1
     
     msg_ids = []
     

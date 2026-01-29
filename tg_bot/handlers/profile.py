@@ -90,6 +90,9 @@ async def process_name(message: types.Message, state: FSMContext):
 
 @router.message(ProfileStates.phone)
 async def process_phone(message: types.Message, state: FSMContext):
+    if message.contact and message.contact.user_id != message.from_user.id:
+        await message.answer("⛔ <b>Це не ваш контакт!</b>\nНатисніть кнопку внизу або введіть номер вручну.")
+        return
     rm_msg = await message.answer("⏳ Зберігаю...", reply_markup=ReplyKeyboardRemove())
     with suppress(Exception): await message.delete()
     
