@@ -98,7 +98,6 @@ async def _clean_chat_interface(user_id: int, state: FSMContext, bot: Bot, chat_
     await delete_messages_list(state, bot, chat_id, "trip_msg_ids")
     await delete_messages_list(state, bot, chat_id, "booking_msg_ids")
     await delete_messages_list(state, bot, chat_id, "search_msg_ids")
-    await delete_messages_list(state, bot, chat_id, "support_sent_msgs") # Чистимо повідомлення сапорту
     
     data = await state.get_data()
     if data.get("last_msg_id"):
@@ -127,7 +126,6 @@ async def set_role_handler(call: types.CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == "menu_home")
 async def back_to_menu_handler(call: types.CallbackQuery, state: FSMContext, bot: Bot):
-    # Очистка
     await delete_messages_list(state, bot, call.message.chat.id, "trip_msg_ids")
     await delete_messages_list(state, bot, call.message.chat.id, "booking_msg_ids")
     await delete_messages_list(state, bot, call.message.chat.id, "search_msg_ids")
@@ -143,7 +141,7 @@ async def back_to_menu_handler(call: types.CallbackQuery, state: FSMContext, bot
     await update_or_send_msg(bot, call.message.chat.id, state, f"Меню {menu_title}:", kb_menu(role))
 
 # ==========================================
-# 🆘 ПІДТРИМКА
+# 🆘 ПІДТРИМКА (Оновлено)
 # ==========================================
 
 @router.message(Command("support"))
@@ -158,9 +156,6 @@ async def cb_support(call: types.CallbackQuery, state: FSMContext, bot: Bot):
 async def _start_support(chat_id, state, bot):
     await delete_messages_list(state, bot, chat_id, "trip_msg_ids")
     
-    # Створюємо список для збереження ID повідомлень користувача, щоб потім видалити
-    await state.update_data(support_sent_msgs=[])
-    
     kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Скасувати", callback_data="back_start")]])
     await state.set_state(SupportStates.waiting_for_message)
     
@@ -168,36 +163,28 @@ async def _start_support(chat_id, state, bot):
         "🆘 <b>Підтримка</b>\n\n"
         "Опишіть проблему або надішліть фото/відео.\n"
         "📸 <b>Можна надсилати багато фото одразу!</b>\n"
-        "Коли закінчите — натисніть кнопку внизу."
+        "Вони будуть зникати тут, але з'являться у адміністратора."
     )
     await update_or_send_msg(bot, chat_id, state, text, kb)
 
 @router.callback_query(F.data == "support_finish")
 async def support_finish(call: types.CallbackQuery, state: FSMContext, bot: Bot):
     await call.answer("Запит надіслано!", show_alert=True)
-    
-    # 🔥 1. Видаляємо всі повідомлення, які користувач надсилав у підтримку
-    await delete_messages_list(state, bot, call.message.chat.id, "support_sent_msgs")
-    
-    # 🔥 2. Замість меню (back_to_menu), кидаємо на вибір ролі (back_to_start)
+    # 🔥 Повертаємо на вибір ролі
     await back_to_start_handler(call, state)
 
 @router.message(SupportStates.waiting_for_message)
 async def process_support(message: types.Message, state: FSMContext, bot: Bot):
     user = message.from_user
     text = message.text or message.caption or ""
-    
-    # 🔥 Зберігаємо ID повідомлення користувача в список, щоб потім видалити
-    data = await state.get_data()
-    sent_msgs = data.get("support_sent_msgs", [])
-    sent_msgs.append(message.message_id)
-    await state.update_data(support_sent_msgs=sent_msgs)
 
+    # Ліміт тексту
     if len(text) > 1000:
-        # Попередження видаляємо через 5 сек, щоб не смітити
-        warn = await message.answer("⚠️ Текст занадто довгий (макс 1000).")
+        w = await message.answer("⚠️ Текст занадто довгий (макс 1000).")
         await asyncio.sleep(5)
-        with suppress(Exception): await warn.delete()
+        with suppress(Exception): await w.delete()
+        # Видаляємо довге повідомлення юзера
+        with suppress(Exception): await message.delete()
         return
 
     # Заголовок
@@ -206,22 +193,20 @@ async def process_support(message: types.Message, state: FSMContext, bot: Bot):
     else: header += "\n"
 
     try:
-        # 🔥 Надсилаємо ВСЕ (фото, альбоми, відео)
-        # Навіть якщо це альбом, ми просто пересилаємо кожну частину.
-        # Адмін отримає їх як потік повідомлень, але отримає ВСІ.
-        
+        # 1. Спочатку пересилаємо адміну
         if message.photo:
             await bot.send_photo(SUPPORT_CHANNEL_ID, message.photo[-1].file_id, caption=header + text, parse_mode="HTML")
         elif message.video:
             await bot.send_video(SUPPORT_CHANNEL_ID, message.video.file_id, caption=header + text, parse_mode="HTML")
         elif message.text:
             await bot.send_message(SUPPORT_CHANNEL_ID, header + text, parse_mode="HTML")
-        else:
-             # Інші типи файлів ігноруємо або пишемо, що не можна
-             pass
+        
+        # 2. 🔥 ОДРАЗУ видаляємо повідомлення користувача з чату
+        # Це вирішує проблему з альбомами, бо кожне повідомлення альбому видалиться окремо
+        with suppress(Exception):
+            await message.delete()
 
-        # Інтерфейс (Оновлюємо повідомлення внизу)
-        # Видаляємо старий інтерфейс
+        # 3. Оновлюємо інтерфейс бота (щоб кнопка була знизу)
         await delete_prev_msg(state, bot, message.chat.id)
         
         kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -229,7 +214,7 @@ async def process_support(message: types.Message, state: FSMContext, bot: Bot):
         ])
         
         msg = await message.answer(
-            "✅ <b>Отримано!</b>\nМожете надіслати ще або завершити:", 
+            "✅ <b>Отримано!</b>\nНадсилайте ще або завершіть:", 
             reply_markup=kb, 
             parse_mode="HTML"
         )
