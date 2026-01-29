@@ -25,18 +25,16 @@ router = Router()
 
 @router.message(CommandStart())
 async def cmd_start(message: types.Message, state: FSMContext, bot: Bot):
-    print(f"DEBUG: Старт від {message.from_user.id}") # Для перевірки в консолі
     await state.clear() 
     
-    # Видаляємо стару клавіатуру
-    try:
+    # Видаляємо стару клавіатуру (якщо була)
+    with suppress(TelegramBadRequest):
         temp_msg = await message.answer("🔄 Завантаження...", reply_markup=ReplyKeyboardRemove())
         await temp_msg.delete()
-    except: pass
 
     user_id = message.from_user.id
     
-    # 1. Реєстрація
+    # 1. Реєстрація в базі
     args = message.text.split(maxsplit=1)
     argument = args[1] if len(args) > 1 else None
     ref_source = argument if argument and not argument.startswith("book_") else None
@@ -44,39 +42,45 @@ async def cmd_start(message: types.Message, state: FSMContext, bot: Bot):
     username = f"@{message.from_user.username}" if message.from_user.username else None
     save_user(user_id, message.from_user.full_name, username, ref_source=ref_source)
     
-    # 2. Бан
+    # 2. Перевірка бану
     if is_user_banned(user_id):
         await message.answer("⛔ <b>Ви заблоковані адміністратором.</b>", parse_mode="HTML")
         return
 
-    # 3. Чистка
+    # 3. Чистка інтерфейсу
     await _clean_chat_interface(user_id, state, bot, message.chat.id)
 
-    # 4. Deep Link
+    # 4. Обробка Deep Link (якщо перейшли по посиланню на поїздку)
     target_trip_id = None
     if argument and argument.startswith("book_"):
         target_trip_id = argument.replace("book_", "")
 
-    # 5. Угода
+    # 5. Перевірка угоди (Terms)
     if check_terms_status(user_id):
         if target_trip_id:
-            # 🔥 Локальний імпорт
+            # Якщо вже прийняв угоду і перейшов по лінку -> показуємо поїздку
             from handlers.passenger import show_trip_preview
             await show_trip_preview(message, state, target_trip_id)
         else:
+            # Просто меню
             await _show_role_menu(message, state)
     else:
+        # Якщо є лінк, запам'ятовуємо його на майбутнє
         if target_trip_id:
             await state.update_data(pending_trip_id=target_trip_id)
 
+        # 🔥 ОНОВЛЕНИЙ ЮРИДИЧНИЙ ТЕКСТ
         terms_text = (
-            f"👋 <b>Вітаємо у спільноті!</b>\n\n"
-            f"📋 <b>Угода користувача:</b>\n"
-            f"1. Ми надаємо інформаційні послуги.\n"
-            f"2. Перевіряйте попутників самостійно.\n\n"
-            f"<i>Натисніть кнопку, щоб продовжити.</i>"
+            f"📜 <b>УГОДА КОРИСТУВАЧА ТА ВІДМОВА ВІД ВІДПОВІДАЛЬНОСТІ</b>\n\n"
+            f"❗️ <b>Прочитайте уважно перед використанням:</b>\n\n"
+            f"1️⃣ <b>Інформаційна платформа:</b> Цей бот є виключно майданчиком для обміну інформацією. Адміністрація не є перевізником, службою таксі або роботодавцем водіїв.\n\n"
+            f"2️⃣ <b>Безпека:</b> Ви здійснюєте поїздки на власний ризик. Ми не несемо відповідальності за технічний стан авто, водійські навички, скасування поїздок або поведінку користувачів.\n\n"
+            f"3️⃣ <b>Фінанси:</b> Бот не бере участі у розрахунках. Ми наполегливо рекомендуємо <b>НЕ надсилати передоплату</b> на картки незнайомим людям. Шахраї можуть вимагати завдаток — будьте пильні!\n\n"
+            f"4️⃣ <b>Дані:</b> Ви погоджуєтесь на обробку ваших контактних даних (ім'я, телефон) для з'єднання з водієм/пасажиром.\n\n"
+            f"<i>Натискаючи кнопку нижче, ви підтверджуєте, що розумієте ці ризики та знімаєте будь-яку відповідальність з розробників бота.</i>"
         )
-        kb_terms = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="✅ Я погоджуюсь", callback_data="terms_ok")]])
+        
+        kb_terms = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="✅ Я погоджуюсь та приймаю умови", callback_data="terms_ok")]])
         msg = await message.answer(terms_text, reply_markup=kb_terms, parse_mode="HTML")
         await state.update_data(last_msg_id=msg.message_id)
 
