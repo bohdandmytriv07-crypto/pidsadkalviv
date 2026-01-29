@@ -278,11 +278,23 @@ async def process_find_user(message: types.Message, state: FSMContext, bot: Bot)
     q = message.text.strip()
     conn = get_connection()
     
-    # Спрощена логіка пошуку
-    if q.isdigit(): u = conn.execute("SELECT * FROM users WHERE user_id=? OR phone LIKE ?", (int(q), f"%{q}%")).fetchone()
-    elif q.startswith("@"): u = conn.execute("SELECT * FROM users WHERE username=?", (q.lstrip("@"),)).fetchone()
-    else: u = conn.execute("SELECT * FROM users WHERE phone LIKE ?", (f"%{q}%",)).fetchone()
-    conn.close()
+    
+    if q.isdigit(): 
+       
+        u = conn.execute("SELECT * FROM users WHERE user_id=?", (int(q),)).fetchone()
+        if not u:
+            u = conn.execute("SELECT * FROM users WHERE phone LIKE ?", (f"%{q}%",)).fetchone()
+            
+    elif q.startswith("@"): 
+       
+        u = conn.execute("SELECT * FROM users WHERE username=?", (q,)).fetchone()
+        
+    else: 
+        
+        if q.startswith("+"):
+             u = conn.execute("SELECT * FROM users WHERE phone LIKE ?", (f"%{q}%",)).fetchone()
+        else:
+             u = conn.execute("SELECT * FROM users WHERE username=?", (f"@{q}",)).fetchone()
 
     data = await state.get_data()
     mid = data.get("menu_msg_id")
