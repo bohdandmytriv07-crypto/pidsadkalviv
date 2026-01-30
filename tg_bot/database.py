@@ -552,3 +552,13 @@ def mark_trip_finished(trip_id):
     conn.execute("UPDATE trips SET status='finished' WHERE id=?", (trip_id,))
     conn.commit()
     conn.close()
+# ==========================================
+# 🏙 МІСТА (ДЛЯ UTILS.PY)
+# ==========================================
+
+def get_all_cities_names():
+    """Повертає список всіх міст для автодоповнення."""
+    conn = get_connection()
+    rows = conn.execute("SELECT name FROM cities ORDER BY search_count DESC").fetchall()
+    conn.close()
+    return [row['name'] for row in rows]
