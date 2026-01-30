@@ -29,7 +29,7 @@ from utils import (
 )
 
 router = Router()
-
+kb_ok = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="✅ Зрозуміло", callback_data="hide_msg")]])
 # ==========================================
 # 🚗 СТВОРЕННЯ ПОЇЗДКИ
 # ==========================================
@@ -375,7 +375,7 @@ async def show_driver_trips(call: types.CallbackQuery, state: FSMContext):
                 
                 kb_rows.append([
                     InlineKeyboardButton(text=f"💬 Чат з {p['name']}", callback_data=f"chat_start_{p['user_id']}"),
-                    InlineKeyboardButton(text="🚫 Висадити", callback_data=f"kick_{p['booking_id']}")
+                    InlineKeyboardButton(text="🚫 Висадити", callback_data=f"kick_ask_{p['booking_id']}")
                 ])
         
         # 🔥 FIX: Правильне кодування посилання в списку
@@ -385,9 +385,8 @@ async def show_driver_trips(call: types.CallbackQuery, state: FSMContext):
         share_url = f"https://t.me/share/url?url={deep_link}&text={share_text_encoded}"
 
         kb_rows.append([InlineKeyboardButton(text="📢 Поділитися поїздкою", url=share_url)])
-        kb_rows.append([InlineKeyboardButton(text="🏁 Завершити", callback_data=f"drv_finish_{trip['id']}")])
-        kb_rows.append([InlineKeyboardButton(text="❌ Скасувати", callback_data=f"drv_ask_cancel_{trip['id']}")])
-        
+        InlineKeyboardButton(text="🏁 Завершити", callback_data=f"drv_ask_finish_{trip['id']}")
+        InlineKeyboardButton(text="❌ Скасувати", callback_data=f"drv_ask_cancel_{trip['id']}")
         card = await call.message.answer(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=kb_rows), parse_mode="HTML")
         new_msg_ids.append(card.message_id)
 
@@ -431,43 +430,67 @@ async def show_driver_history(call: types.CallbackQuery, state: FSMContext):
         msg_ids.append(f.message_id)
         
     await state.update_data(trip_msg_ids=msg_ids)
+# ==========================================
+# 🔥 ЛОГІКА ПІДТВЕРДЖЕНЬ (CONFIRMATION)
+# ==========================================
 
+# 1. ЗАВЕРШЕННЯ
+@router.callback_query(F.data.startswith("drv_ask_finish_"))
+async def ask_finish_trip(call: types.CallbackQuery):
+    tid = call.data.split("_")[3]
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✅ ТАК, завершити", callback_data=f"drv_conf_finish_{tid}")],
+        [InlineKeyboardButton(text="🔙 НІ", callback_data="drv_my_trips")]
+    ])
+    await call.message.edit_text("🏁 <b>Ви точно хочете завершити цю поїздку?</b>", reply_markup=kb, parse_mode="HTML")
 
-@router.callback_query(F.data.startswith("drv_finish_"))
-async def driver_finish_trip_handler(call: types.CallbackQuery, state: FSMContext):
-    trip_id = call.data.split("_")[2]
+@router.callback_query(F.data.startswith("drv_conf_finish_"))
+async def confirm_finish_trip(call: types.CallbackQuery, state: FSMContext):
+    trip_id = call.data.split("_")[3]
     passengers = get_trip_passengers(trip_id)
     finish_trip(trip_id)
     await call.answer("Поїздку завершено!", show_alert=True)
     await show_driver_trips(call, state)
     if passengers: await ask_for_ratings(call.bot, trip_id, call.from_user.id, passengers)
 
-@router.callback_query(F.data.startswith("kick_"))
-async def kick_passenger_handler(call: types.CallbackQuery, state: FSMContext):
-    info = kick_passenger(int(call.data.split("_")[1]), call.from_user.id)
-    if info:
-        await call.answer("Пасажира висаджено.")
-        with suppress(Exception): 
-            msg = await call.bot.send_message(info['passenger_id'], "🚫 Водій скасував ваше бронювання.")
-            save_chat_msg(info['passenger_id'], msg.message_id)
-            
-        await show_driver_trips(call, state)
-
+# 2. СКАСУВАННЯ ПОЇЗДКИ
 @router.callback_query(F.data.startswith("drv_ask_cancel_"))
-async def ask_cancel(call: types.CallbackQuery):
+async def ask_cancel_trip(call: types.CallbackQuery):
     tid = call.data.split("_")[3]
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="✅ Так, скасувати", callback_data=f"drv_do_cancel_{tid}")],
-        [InlineKeyboardButton(text="🔙 Ні", callback_data="drv_my_trips")]
+        [InlineKeyboardButton(text="✅ ТАК, скасувати", callback_data=f"drv_conf_cancel_{tid}")],
+        [InlineKeyboardButton(text="🔙 НІ", callback_data="drv_my_trips")]
     ])
-    await call.message.edit_text("⚠️ <b>Скасувати поїздку?</b>\nПасажири отримають сповіщення.", reply_markup=kb, parse_mode="HTML")
+    await call.message.edit_text("⚠️ <b>Скасувати поїздку?</b>\nВсі пасажири отримають сповіщення.", reply_markup=kb, parse_mode="HTML")
 
-@router.callback_query(F.data.startswith("drv_do_cancel_"))
-async def do_cancel(call: types.CallbackQuery, state: FSMContext):
+@router.callback_query(F.data.startswith("drv_conf_cancel_"))
+async def confirm_cancel_trip(call: types.CallbackQuery, state: FSMContext):
     trip_info, passengers = cancel_trip_full(call.data.split("_")[3], call.from_user.id)
     await call.answer("Поїздку скасовано.")
     for pid in passengers:
+        # 🔥 Сповіщення з кнопкою "Зрозуміло"
         with suppress(Exception): 
-            msg = await call.bot.send_message(pid, f"⚠️ Водій скасував поїздку {trip_info['origin']} - {trip_info['destination']}.")
-            save_chat_msg(pid, msg.message_id)
+            await call.bot.send_message(pid, f"🚫 <b>УВАГА!</b>\nВодій скасував поїздку {trip_info['origin']} - {trip_info['destination']}.", parse_mode="HTML", reply_markup=kb_ok)
     await show_driver_trips(call, state)
+
+# 3. ВИСАДКА ПАСАЖИРА
+@router.callback_query(F.data.startswith("kick_ask_"))
+async def ask_kick_passenger(call: types.CallbackQuery):
+    bid = call.data.split("_")[2]
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✅ ТАК, висадити", callback_data=f"kick_conf_{bid}")],
+        [InlineKeyboardButton(text="🔙 НІ", callback_data="drv_my_trips")]
+    ])
+    await call.message.edit_text("🚫 <b>Ви точно хочете висадити цього пасажира?</b>", reply_markup=kb, parse_mode="HTML")
+
+@router.callback_query(F.data.startswith("kick_conf_"))
+async def confirm_kick_passenger(call: types.CallbackQuery, state: FSMContext):
+    info = kick_passenger(int(call.data.split("_")[2]), call.from_user.id)
+    if info:
+        await call.answer("Пасажира висаджено.")
+        # 🔥 Сповіщення з кнопкою "Зрозуміло"
+        with suppress(Exception): 
+            await call.bot.send_message(info['passenger_id'], "🚫 <b>Водій скасував ваше бронювання.</b>", parse_mode="HTML", reply_markup=kb_ok)
+        await show_driver_trips(call, state)
+
+
