@@ -148,18 +148,29 @@ async def process_phone(message: types.Message, state: FSMContext):
     # Якщо ми редагуємо ТІЛЬКИ особисті дані АБО це пасажир -> зберігаємо і виходимо
     if edit_mode == "personal" or role == "passenger":
         uname = f"@{message.from_user.username}" if message.from_user.username else None
-        # Зберігаємо (поля авто не чіпаємо, бо вони дефолтні '-' і база їх проігнорує при update)
         save_user(message.from_user.id, data['name'], uname, final_phone)
         
-        await state.clear()
-        # Відновлюємо роль
-        await state.update_data(role=role)
+      
+        pending_trip_id = data.get("pending_booking_id")
         
-        kb = kb_menu(role)
-        msg = await message.answer("✅ <b>Особисті дані оновлено!</b>", reply_markup=kb, parse_mode="HTML")
-        await state.update_data(last_msg_id=msg.message_id)
+        if pending_trip_id:
+          
+            await state.clear() 
+            await message.answer("✅ <b>Профіль готовий!</b>\nПовертаємось до вашої поїздки...", reply_markup=ReplyKeyboardRemove(), parse_mode="HTML")
+            from handlers.passenger import show_trip_preview
+            await show_trip_preview(message, state, pending_trip_id)
+            
+        else:
+        
+            await state.clear()
+            await state.update_data(role=role)
+            
+            kb = kb_menu(role)
+            msg = await message.answer("✅ <b>Особисті дані оновлено!</b>", reply_markup=kb, parse_mode="HTML")
+            await state.update_data(last_msg_id=msg.message_id)
+
     else:
-        # Якщо це повна реєстрація водія -> йдемо далі до машини
+        # ... (логіка для водія залишається без змін: перехід до авто) ...
         await state.set_state(ProfileStates.model)
         await send_new_clean_msg(message, state, "🚘 <b>Марка та модель авто:</b>", kb_back())
 

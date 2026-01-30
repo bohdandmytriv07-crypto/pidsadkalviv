@@ -276,6 +276,8 @@ async def book_trip(call: types.CallbackQuery, state: FSMContext):
     with suppress(TelegramBadRequest): await call.message.delete()
 
     if not user or user['phone'] == "-":
+        trip_id = call.data.split("_")[1]
+        await state.update_data(pending_booking_id=trip_id)
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="👤 Заповнити профіль", callback_data="profile_edit")],
             [InlineKeyboardButton(text="🔙 Назад", callback_data="menu_home")]
