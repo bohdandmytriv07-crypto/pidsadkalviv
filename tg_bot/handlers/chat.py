@@ -119,21 +119,26 @@ async def quick_reply_handler(call: types.CallbackQuery, bot: Bot):
 async def _stop_chat_logic(user_id: int, bot: Bot, state: FSMContext, trigger_msg: types.Message = None):
     delete_active_chat(user_id)
     
-    # Видаляємо нижню клавіатуру
+    # Видаляємо нижню клавіатуру (Reply)
     rm_msg = await bot.send_message(user_id, "🔄 Завершення...", reply_markup=ReplyKeyboardRemove())
     
-    # 🔥 ЗБИРАЄМО ВСІ ID ДЛЯ ВИДАЛЕННЯ
+    # Отримуємо ID повідомлень чату для видалення
     msg_ids = get_and_clear_chat_msgs(user_id)
     msg_ids.append(rm_msg.message_id)
     if trigger_msg: msg_ids.append(trigger_msg.message_id)
 
-    # Видаляємо пачкою
+    # 🔥 FIX: Також видаляємо старе меню, яке було ДО чату
+    data = await state.get_data()
+    if data.get("last_msg_id"):
+        msg_ids.append(data["last_msg_id"])
+
+    # Видаляємо все пачкою
     for mid in msg_ids:
         with suppress(TelegramBadRequest):
             await bot.delete_message(chat_id=user_id, message_id=mid)
+            await asyncio.sleep(0.05) # Пауза від бану
 
-    # Повертаємо меню
-    data = await state.get_data()
+    # Повертаємо нове чисте меню
     role = data.get("role", "passenger")
     new_menu = await bot.send_message(user_id, f"✅ <b>Діалог завершено.</b>", reply_markup=kb_menu(role), parse_mode="HTML")
     await state.update_data(last_msg_id=new_menu.message_id)
@@ -152,9 +157,15 @@ async def leave_chat_text(message: types.Message, state: FSMContext, bot: Bot):
 
 async def _relay_message(bot: Bot, sender_id: int, receiver_id: int, text=None, original_msg: types.Message=None):
     sender = get_user(sender_id)
-    sender_name = sender['name'] if sender else "Співрозмовник"
     
-    # 🔥 Зберігаємо ID вхідного повідомлення користувача (щоб потім видалити)
+    # 🔥 FIX: Якщо імені немає в базі, пишемо "Користувач" або беремо з Telegram
+    if sender and sender['name']:
+        sender_name = sender['name']
+    elif original_msg and original_msg.from_user.full_name:
+        sender_name = original_msg.from_user.full_name
+    else:
+        sender_name = "Пасажир"
+    
     if original_msg:
         save_chat_msg(sender_id, original_msg.message_id)
 
@@ -169,10 +180,8 @@ async def _relay_message(bot: Bot, sender_id: int, receiver_id: int, text=None, 
             else:
                 sent_msg = await original_msg.copy_to(receiver_id, caption=f"👤 <b>{sender_name}</b> надіслав вкладення.", reply_markup=kb_reply(sender_id), parse_mode="HTML")
         
-        # Зберігаємо ID повідомлення у партнера (для його очистки)
         if sent_msg: save_chat_msg(receiver_id, sent_msg.message_id)
 
-        # 🔥 Зберігаємо підтвердження у себе
         ack_text = f"✅ Ви: {text}" if text else "✅ Ви надіслали файл."
         ack = await bot.send_message(sender_id, ack_text)
         save_chat_msg(sender_id, ack.message_id)
