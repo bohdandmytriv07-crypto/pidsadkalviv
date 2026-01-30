@@ -18,7 +18,7 @@ from database import (
     get_trip_details, delete_booking, get_recent_searches, save_search_history,
     add_subscription, get_user_rating, format_rating, log_event,
     add_or_update_city, get_passenger_history, 
-    get_user_active_bookings_count 
+    get_user_active_bookings_count,save_chat_msg 
 )
 from keyboards import kb_dates, kb_menu, kb_back
 
@@ -309,7 +309,14 @@ async def book_trip(call: types.CallbackQuery, state: FSMContext):
         await state.update_data(last_msg_id=msg.message_id)
         
         with suppress(Exception):
-            await call.bot.send_message(trip['user_id'], f"🆕 <b>Новий пасажир!</b>\nНа ваш рейс додався {call.from_user.full_name}.", parse_mode="HTML")
+            notify_msg = await call.bot.send_message(
+                trip['user_id'], 
+                f"🆕 <b>Новий пасажир!</b>\nНа ваш рейс додався {call.from_user.full_name}.", 
+                parse_mode="HTML"
+            )
+            # Записуємо це повідомлення в список "на видалення" для водія
+            save_chat_msg(trip['user_id'], notify_msg.message_id)
+            
     else:
         await call.answer(msg_text, show_alert=True)
         # Якщо помилка (наприклад, місця закінчились), повертаємо в меню

@@ -11,7 +11,7 @@ from utils import delete_messages_list
 from database import (
     set_active_chat, get_active_chat_partner, delete_active_chat, get_user,
     save_chat_msg, get_and_clear_chat_msgs, 
-    save_message_to_history, get_chat_history_text
+    save_message_to_history, get_chat_history_text,
 )
 from keyboards import kb_menu
 
