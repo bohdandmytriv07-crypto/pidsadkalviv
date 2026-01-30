@@ -37,7 +37,7 @@ async def delete_prev_msg(state: FSMContext, bot: Bot, chat_id: int):
         await state.update_data(last_msg_id=None)
 
 async def delete_messages_list(state: FSMContext, bot: Bot, chat_id: int, key: str):
-    """Видаляє список повідомлень (наприклад, результати пошуку)."""
+    """Видаляє список повідомлень з безпечною затримкою."""
     data = await state.get_data()
     msg_ids = data.get(key, [])
     
@@ -45,6 +45,7 @@ async def delete_messages_list(state: FSMContext, bot: Bot, chat_id: int, key: s
         for mid in msg_ids:
             with suppress(TelegramBadRequest):
                 await bot.delete_message(chat_id=chat_id, message_id=mid)
+                await asyncio.sleep(0.05) 
         await state.update_data({key: []})
 
 async def update_or_send_msg(bot: Bot, chat_id: int, state: FSMContext, text: str, kb=None):
