@@ -277,7 +277,7 @@ async def finalize_trip_creation(message: types.Message, state: FSMContext, bot:
     final_price = int(price_override) if price_override else data.get('price')
     description = desc_text if desc_text is not None else ""
     
-    trip_id = str(uuid.uuid4())[:8]
+    trip_id = str(uuid.uuid4())[:12] 
     create_trip(
         trip_id, message.chat.id, 
         data['origin'], data['destination'], 

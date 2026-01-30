@@ -336,10 +336,16 @@ async def do_broadcast(message: types.Message, state: FSMContext, bot: Bot):
     users = get_connection().execute("SELECT user_id FROM users WHERE is_blocked_bot=0 AND is_banned=0").fetchall()
     async def worker():
         good = 0
+        bad = 0
         for u in users:
-            try: await message.copy_to(u['user_id']); good+=1; await asyncio.sleep(0.05)
-            except: pass
-        await bot.send_message(message.chat.id, f"✅ Розсилка: {good} успішно.")
+            try: 
+                await message.copy_to(u['user_id'])
+                good += 1           
+                await asyncio.sleep(0.1) 
+            except Exception: 
+                bad += 1
+                
+        await bot.send_message(message.chat.id, f"✅ Розсилка завершена:\nУспішно: {good}\nНе доставлено: {bad}")
     asyncio.create_task(worker())
     await message.answer("🚀 Почали.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🏠", callback_data="admin_back_home")]]))
     await state.clear()
