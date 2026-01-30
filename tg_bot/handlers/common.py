@@ -60,13 +60,14 @@ async def cmd_start(message: types.Message, state: FSMContext, bot: Bot):
             await state.update_data(pending_trip_id=target_trip_id)
 
         terms_text = (
-            f"👋 <b>Вітаємо у спільноті!</b>\n\n"
-            f"📋 <b>Угода користувача:</b>\n"
-            f"1. Ми надаємо інформаційні послуги.\n"
-            f"2. Перевіряйте попутників самостійно.\n\n"
-            f"<i>Натисніть кнопку, щоб продовжити.</i>"
+            f"👋 <b>Вітаємо в боті «Підсадка Львів»!</b> 🚗\n\n"
+            f"Тут водії знаходять попутників, щоб економити на пальному, "
+            f"а пасажири — комфортно подорожують містом та областю.\n\n"
+            f"⚠️ Перед початком користування, будь ласка, ознайомтесь з "
+            f"<a href='https://t.me/pidsadkalvivinfo'>правилами спільноти</a>.\n\n"
+            f"Готові їхати? Тисніть кнопку нижче! 👇"
         )
-        kb_terms = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="✅ Я погоджуюсь", callback_data="terms_ok")]])
+        kb_terms = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🚀 Поїхали!", callback_data="terms_ok")]])
         msg = await message.answer(terms_text, reply_markup=kb_terms, parse_mode="HTML")
         await state.update_data(last_msg_id=msg.message_id)
 
