@@ -42,7 +42,6 @@ def init_db():
     ''')
     
     # 2. Поїздки
-    # Змінив id на INTEGER PRIMARY KEY AUTOINCREMENT для сумісності з handlers
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS trips (
             id TEXT PRIMARY KEY, 
@@ -99,15 +98,14 @@ def init_db():
         )
     ''')
 
-    # 7. Інші таблиці
-    cursor.execute('CREATE TABLE IF NOT EXISTS chat_history (id INTEGER PRIMARY KEY AUTOINCREMENT, sender_id INTEGER, receiver_id INTEGER, message TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, is_read INTEGER DEFAULT 0)')
-    cursor.execute('CREATE TABLE IF NOT EXISTS active_chats (user_id INTEGER PRIMARY KEY, partner_id INTEGER)')
-    cursor.execute('CREATE TABLE IF NOT EXISTS interface_cleanup (user_id INTEGER, message_id INTEGER)')
+    # 7. Інші таблиці (Міста, Історія пошуку, Підписки, Рейтинги)
     cursor.execute('CREATE TABLE IF NOT EXISTS cities (name TEXT PRIMARY KEY, search_count INTEGER DEFAULT 1)')
     cursor.execute('CREATE TABLE IF NOT EXISTS search_history (user_id INTEGER, origin TEXT, destination TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)')
     cursor.execute('CREATE TABLE IF NOT EXISTS subscriptions (user_id INTEGER, origin TEXT, destination TEXT, date TEXT)')
     cursor.execute('CREATE TABLE IF NOT EXISTS ratings (id INTEGER PRIMARY KEY AUTOINCREMENT, from_user_id INTEGER, to_user_id INTEGER, trip_id TEXT, role TEXT, score INTEGER, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)')
 
+
+    
     conn.commit()
     conn.close()
 
