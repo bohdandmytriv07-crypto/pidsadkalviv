@@ -49,48 +49,54 @@ logger = logging.getLogger(__name__)
 async def background_tasks(bot: Bot):
     logger.info("🕒 Планувальник фонових задач запущено.")
     
-   
     kyiv_tz = pytz.timezone('Europe/Kyiv')
     
     while True:
         try:
-            await asyncio.sleep(600) 
+            await asyncio.sleep(600)  # Перевірка раз на 10 хв
             
+            # Отримуємо старі поїздки з бази
             active_trips = await asyncio.to_thread(archive_old_trips_db)
-            
             
             now = datetime.now(kyiv_tz)
             archived_count = 0
             
             for row in active_trips:
                 try:
+                    # Формуємо дату, підставляючи ПОТОЧНИЙ рік
                     trip_dt_str = f"{row['date']}.{now.year}"
                     trip_full_dt = datetime.strptime(f"{trip_dt_str} {row['time']}", "%d.%m.%Y %H:%M")
                     
-                    
+                    # Локалізуємо час (додаємо часовий пояс Києва)
                     trip_full_dt = kyiv_tz.localize(trip_full_dt)
 
-                    
-                    if (now - trip_full_dt).days > 300:
-                        trip_full_dt = trip_full_dt.replace(year=now.year + 1)
+                    # 🔥 ФІКС НОВОГО РОКУ:
+                    # Якщо сформована дата (наприклад, грудень 2026) випереджає поточну (січень 2026)
+                    # більше ніж на 180 днів — значить, це насправді поїздка з МИНУЛОГО року (грудень 2025).
+                    if (trip_full_dt - now).days > 180:
+                        trip_full_dt = trip_full_dt.replace(year=now.year - 1)
 
-                    # Якщо час поїздки вже минув (за Києвом)
+                    # Якщо розрахований час поїздки вже минув
                     if trip_full_dt < now:
                         trip_id = row['id']
                         driver_id = row['user_id']
                         
+                        # Позначаємо як завершену
                         await asyncio.to_thread(mark_trip_finished, trip_id)
                         
+                        # Отримуємо пасажирів і просимо рейтинг
                         passengers = await asyncio.to_thread(get_trip_passengers, trip_id)
                         if passengers:
                             asyncio.create_task(ask_for_ratings(bot, trip_id, driver_id, passengers))
                         
                         archived_count += 1
-                except ValueError: continue 
+                except ValueError: 
+                    continue 
             
             if archived_count > 0:
                 logger.info(f"🏁 Завершено автоматично {archived_count} поїздок.")
 
+            # Очистка старих записів з бази
             await asyncio.to_thread(perform_db_cleanup)
             logger.info("♻️ Очистка бази виконана.")
 
