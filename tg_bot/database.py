@@ -299,6 +299,12 @@ def cancel_trip_full(trip_id, driver_id):
     trip = conn.execute("SELECT * FROM trips WHERE id = ?", (trip_id,)).fetchone()
     conn.close()
     return dict(trip) if trip else {}, p_ids
+def get_driver_history(user_id):
+    """Повертає історію завершених/скасованих поїздок водія."""
+    conn = get_connection()
+    rows = conn.execute("SELECT origin, destination, date, time, price, seats_total, seats_taken, status FROM trips WHERE user_id = ? AND status IN ('finished', 'cancelled') ORDER BY id DESC LIMIT 10", (user_id,)).fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
 
 # ==========================================
 # 🔍 ПОШУК ТА ПАГІНАЦІЯ
