@@ -143,6 +143,9 @@ async def process_date(call: types.CallbackQuery, state: FSMContext):
     await update_or_send_msg(call.bot, call.message.chat.id, state, f"📅 Дата: <b>{date_val}</b>\n\n🕒 <b>Введіть час виїзду:</b>\nФормат ГГ:ХХ (напр. 18:30)", kb_back())
 
 
+# Не забудь додати імпорт нової функції з бази зверху файлу:
+from database import save_trip, get_last_driver_trip, get_active_driver_trips  # <--- ДОДАЙ get_active_driver_trips
+
 @router.message(TripStates.time)
 async def process_time(message: types.Message, state: FSMContext, bot: Bot):
     await clean_user_input(message)
@@ -151,33 +154,47 @@ async def process_time(message: types.Message, state: FSMContext, bot: Bot):
         return
 
     data = await state.get_data()
-    date_str = data.get('date') # Наприклад "02.01"
+    date_str = data.get('date') # Наприклад "30.01"
     time_str = message.text     # Наприклад "14:00"
     
     try:
-        # 🔥 МАГІЯ ЧАСУ: Визначаємо Київську зону
+        # 1. Створюємо об'єкт часу для НОВОЇ поїздки
         kyiv_tz = pytz.timezone('Europe/Kyiv')
-        
-        # Отримуємо ТОЧНИЙ час у Києві прямо зараз
         now_kyiv = datetime.now(kyiv_tz)
         
-        # Створюємо дату поїздки (поки без часового поясу)
-        # Припускаємо поточний рік
         trip_dt_naive = datetime.strptime(f"{date_str}.{now_kyiv.year} {time_str}", "%d.%m.%Y %H:%M")
-        
-        # Робимо цю дату "Київською"
         trip_dt = kyiv_tz.localize(trip_dt_naive)
         
-        # Логіка Нового Року (якщо зараз грудень, а поїздка на січень)
-        # Якщо дата поїздки була більше ніж 30 днів тому -> значить це наступний рік
+        # Корекція року (якщо це поїздка на наступний рік)
         if (now_kyiv - trip_dt).days > 30:
-             # Додаємо рік
              trip_dt = trip_dt.replace(year=now_kyiv.year + 1)
         
-        # Порівнюємо: "Дата поїздки" < "Зараз у Києві"
+        # Перевірка: чи не минув час
         if trip_dt < now_kyiv:
              await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Цей час вже минув!</b>\nВведіть коректний час виїзду:", kb_back())
              return
+
+        # 🔥 2. ПЕРЕВІРКА НА ДУБЛІКАТИ (Нова логіка)
+        active_trips = get_active_driver_trips(message.from_user.id)
+        
+        for row in active_trips:
+            if row['date'] == date_str:
+                
+                existing_dt_naive = datetime.strptime(f"{row['date']}.{now_kyiv.year} {row['time']}", "%d.%m.%Y %H:%M")
+                existing_dt = kyiv_tz.localize(existing_dt_naive)
+                
+                
+                diff_seconds = abs((trip_dt - existing_dt).total_seconds())
+                
+                
+                if diff_seconds < 7200:
+                    await update_or_send_msg(bot, message.chat.id, state, 
+                        f"⚠️ <b>Неможливо створити поїздку!</b>\n\n"
+                        f"У вас вже є активна поїздка на <b>{row['time']}</b>.\n"
+                        f"Мінімальний інтервал між рейсами — 2 години.", 
+                        kb_back()
+                    )
+                    return
 
     except ValueError:
         pass 
