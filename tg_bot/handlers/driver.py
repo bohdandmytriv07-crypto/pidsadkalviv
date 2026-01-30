@@ -14,7 +14,7 @@ from database import (
     get_trip_passengers, cancel_trip_full, kick_passenger, 
     get_last_driver_trip, get_subscribers_for_trip,
     add_or_update_city, finish_trip, log_event,
-    get_driver_history
+    get_driver_history, get_active_driver_trips
 )
 from handlers.rating import ask_for_ratings 
 from states import TripStates
@@ -143,16 +143,24 @@ async def process_date(call: types.CallbackQuery, state: FSMContext):
     await update_or_send_msg(call.bot, call.message.chat.id, state, f"📅 Дата: <b>{date_val}</b>\n\n🕒 <b>Введіть час виїзду:</b>\nФормат ГГ:ХХ (напр. 18:30)", kb_back())
 
 
-# Не забудь додати імпорт нової функції з бази зверху файлу:
-from database import save_trip, get_last_driver_trip, get_active_driver_trips  # <--- ДОДАЙ get_active_driver_trips
-
 @router.message(TripStates.time)
 async def process_time(message: types.Message, state: FSMContext, bot: Bot):
     await clean_user_input(message)
-    if not re.match(r"^([01]\d|2[0-3]):([0-5]\d)$", message.text):
-        await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Невірний формат!</b>\nВведіть час так: 09:00 або 18:30", kb_back())
+    
+
+    raw_time = message.text.replace(".", ":").replace(",", ":").replace(" ", ":").replace("-", ":")
+    
+  
+    if len(raw_time) <= 2 and raw_time.isdigit():
+        raw_time = f"{raw_time.zfill(2)}:00"
+    
+ 
+    if not re.match(r"^([01]\d|2[0-3]):([0-5]\d)$", raw_time):
+        await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Не зрозумів час.</b>\nНапишіть просто: <code>18 30</code> або <code>09:00</code>", kb_back())
         return
 
+    message.text = raw_time 
+    
     data = await state.get_data()
     date_str = data.get('date') # Наприклад "30.01"
     time_str = message.text     # Наприклад "14:00"
@@ -370,9 +378,13 @@ async def show_driver_trips(call: types.CallbackQuery, state: FSMContext):
         if passengers:
             text += "\n\n👥 <b>Пасажири:</b>"
             for p in passengers:
-                text += f"\n👤 {p['name']} ({p['phone']})"
+                passenger_link = f"<a href='tg://user?id={p['user_id']}'>{p['name']}</a>"
+                phone_link = f"<a href='tel:{p['phone']}'>{p['phone']}</a>"
+                
+                text += f"\n👤 {passenger_link} ({phone_link})"
+                
                 kb_rows.append([
-                    InlineKeyboardButton(text=f"💬 Чат: {p['name']}", callback_data=f"chat_start_{p['user_id']}"),
+                    InlineKeyboardButton(text=f"💬 Чат з {p['name']}", callback_data=f"chat_start_{p['user_id']}"),
                     InlineKeyboardButton(text="🚫 Висадити", callback_data=f"kick_{p['booking_id']}")
                 ])
         
