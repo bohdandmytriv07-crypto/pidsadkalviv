@@ -640,3 +640,12 @@ def perform_db_cleanup():
     conn.execute("DELETE FROM bookings WHERE trip_id NOT IN (SELECT id FROM trips)")
     conn.commit()
     conn.close()
+def get_active_driver_trips(user_id):
+    """Повертає список активних поїздок водія (дата і час)."""
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("SELECT date, time FROM trips WHERE user_id = ? AND status = 'active'", (user_id,))
+    rows = cursor.fetchall()
+    conn.close()
+    return rows
