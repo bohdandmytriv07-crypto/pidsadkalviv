@@ -337,11 +337,16 @@ async def show_bookings(call: types.CallbackQuery, state: FSMContext):
             d_name = b.get('driver_name', 'Водій')
             d_phone = b.get('driver_phone', '-')
             
+            if d_phone != '-':
+                d_phone_fmt = f"<a href='tel:{d_phone}'>{d_phone}</a>"
+            else:
+                d_phone_fmt = "приховано"
+
             txt = (
                 f"📍 <b>{b['destination']}</b>\n"
                 f"🚗 Звідки: {b['origin']}\n"
                 f"🗓 {b['date']} о {b['time']}\n"
-                f"👤 Водій: {d_name} ({d_phone})"
+                f"👤 Водій: {d_name} ({d_phone_fmt})"
             )
             
             kb = InlineKeyboardMarkup(inline_keyboard=[
