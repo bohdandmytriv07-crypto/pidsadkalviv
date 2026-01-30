@@ -187,7 +187,7 @@ async def process_time(message: types.Message, state: FSMContext, bot: Bot):
                 diff_seconds = abs((trip_dt - existing_dt).total_seconds())
                 
                 
-                if diff_seconds < 7200:
+                if diff_seconds < 3600:
                     await update_or_send_msg(bot, message.chat.id, state, 
                         f"⚠️ <b>Неможливо створити поїздку!</b>\n\n"
                         f"У вас вже є активна поїздка на <b>{row['time']}</b>.\n"
