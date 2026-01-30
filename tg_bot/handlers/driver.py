@@ -151,25 +151,49 @@ async def process_date(call: types.CallbackQuery, state: FSMContext):
 async def process_time(message: types.Message, state: FSMContext, bot: Bot):
     await clean_user_input(message)
     
-    # 1. Замінюємо будь-які роздільники на двокрапку
-    raw_text = message.text.strip().replace(".", ":").replace(",", ":").replace(" ", ":").replace("-", ":")
-    parts = raw_text.split(":")
-    formatted_time = None
-    
-    if len(parts) == 1 and parts[0].isdigit():
-        formatted_time = f"{parts[0].zfill(2)}:00"
-    elif len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
-        formatted_time = f"{parts[0].zfill(2)}:{parts[1].zfill(2)}"
-    
-    if not formatted_time or not re.match(r"^([01]\d|2[0-3]):([0-5]\d)$", formatted_time):
+    raw_text = message.text.strip()
+    h, m = None, None
+
+    # 1. Логіка розпізнавання часу
+    # Якщо ввели суцільні цифри (наприклад: 1830, 930, 19)
+    if raw_text.isdigit():
+        if len(raw_text) == 4:   # 1830 -> 18:30
+            h, m = raw_text[:2], raw_text[2:]
+        elif len(raw_text) == 3: # 930 -> 09:30
+            h, m = raw_text[:1], raw_text[1:]
+        elif len(raw_text) in [1, 2]: # 9 або 19 -> 09:00 або 19:00
+            h, m = raw_text, "00"
+    else:
+        # Якщо є роздільники (., :, пробіл, дефіс)
+        # Замінюємо все на двокрапку
+        normalized = re.sub(r'[.,\s-]+', ':', raw_text)
+        parts = normalized.split(':')
+        
+        if len(parts) >= 2: # 18:30
+            h, m = parts[0], parts[1]
+        elif len(parts) == 1: # 18:
+            h, m = parts[0], "00"
+
+
+    try:
+        if h is None or m is None: raise ValueError
+        
+        h_int, m_int = int(h), int(m)
+        
+      
+        if not (0 <= h_int <= 23 and 0 <= m_int <= 59):
+            raise ValueError
+            
+        formatted_time = f"{h_int:02d}:{m_int:02d}"
+
+    except ValueError:
         await update_or_send_msg(bot, message.chat.id, state, 
-            "⚠️ <b>Не зрозумів час.</b>\nВведіть, наприклад: <code>18 30</code>, <code>9:00</code> або просто <code>19</code>", 
+            "⚠️ <b>Не зрозумів час.</b>\nСпробуйте формат: <code>18:30</code>, <code>18 30</code> або просто <code>19</code>", 
             kb_back()
         )
         return
 
-    # 🔥 FIX: Прибрано помилковий рядок message.text = formatted_time
-    
+  
     data = await state.get_data()
     date_str = data.get('date')
     
@@ -177,29 +201,35 @@ async def process_time(message: types.Message, state: FSMContext, bot: Bot):
         kyiv_tz = pytz.timezone('Europe/Kyiv')
         now_kyiv = datetime.now(kyiv_tz)
         
-        # Використовуємо formatted_time
         trip_dt_naive = datetime.strptime(f"{date_str}.{now_kyiv.year} {formatted_time}", "%d.%m.%Y %H:%M")
         trip_dt = kyiv_tz.localize(trip_dt_naive)
         
+   
         if (now_kyiv - trip_dt).days > 30:
              trip_dt = trip_dt.replace(year=now_kyiv.year + 1)
         
+      
         if trip_dt < now_kyiv:
-             await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Цей час вже минув!</b>", kb_back())
+             await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Цей час вже минув!</b>\nВведіть коректний час:", kb_back())
              return
 
+      
         active_trips = get_active_driver_trips(message.from_user.id)
         for row in active_trips:
+           
             if row['date'] == date_str:
                 existing_dt_naive = datetime.strptime(f"{row['date']}.{now_kyiv.year} {row['time']}", "%d.%m.%Y %H:%M")
                 existing_dt = kyiv_tz.localize(existing_dt_naive)
+                
+               
                 if abs((trip_dt - existing_dt).total_seconds()) < 3600:
-                    await update_or_send_msg(bot, message.chat.id, state, f"⚠️ <b>У вас вже є поїздка на {row['time']}!</b>\nПотрібен інтервал 1 година.", kb_back())
+                    await update_or_send_msg(bot, message.chat.id, state, f"⚠️ <b>У вас вже є поїздка о {row['time']}!</b>\nПотрібен інтервал мінімум 1 година.", kb_back())
                     return
 
-    except ValueError: pass 
+    except ValueError: 
+        pass 
 
-    # Зберігаємо правильний час
+ 
     await state.update_data(time=formatted_time)
     
     if data.get('saved_price'):
