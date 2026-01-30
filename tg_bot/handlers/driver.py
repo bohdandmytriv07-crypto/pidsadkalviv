@@ -191,7 +191,7 @@ async def process_time(message: types.Message, state: FSMContext, bot: Bot):
                     await update_or_send_msg(bot, message.chat.id, state, 
                         f"⚠️ <b>Неможливо створити поїздку!</b>\n\n"
                         f"У вас вже є активна поїздка на <b>{row['time']}</b>.\n"
-                        f"Мінімальний інтервал між рейсами — 2 години.", 
+                        f"Мінімальний інтервал між рейсами — 1 години.", 
                         kb_back()
                     )
                     return

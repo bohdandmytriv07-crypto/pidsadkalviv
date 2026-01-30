@@ -1,5 +1,4 @@
-﻿import uuid
-import asyncio
+﻿import asyncio
 from contextlib import suppress
 from aiogram import Router, F, types, Bot
 from aiogram.fsm.context import FSMContext
@@ -13,12 +12,12 @@ from utils import (
 
 from states import SearchStates
 
-# 🔥 ОНОВЛЕНИЙ ІМПОРТ: search_trips_page
 from database import (
     search_trips, search_trips_page, add_booking, get_user, get_user_bookings, 
     get_trip_details, delete_booking, get_recent_searches, save_search_history,
     add_subscription, get_user_rating, format_rating, log_event,
-    add_or_update_city, get_passenger_history
+    add_or_update_city, get_passenger_history, 
+    get_user_active_bookings_count # <--- 🔥 ДОДАНО НОВУ ФУНКЦІЮ
 )
 from keyboards import kb_dates, kb_menu, kb_back
 
@@ -101,6 +100,7 @@ async def search_start_handler(call: types.CallbackQuery, state: FSMContext):
     
     msg_text = "📜 <b>Оберіть зі списку або напишіть місто:</b>" if history else "📍 <b>Звідки виїжджаємо?</b>\nВведіть місто:"
     await update_or_send_msg(call.bot, call.message.chat.id, state, msg_text, InlineKeyboardMarkup(inline_keyboard=kb_rows))
+
 @router.callback_query(F.data.startswith("hist_"))
 async def history_search_select(call: types.CallbackQuery, state: FSMContext):
     parts = call.data.split("_")
@@ -112,7 +112,6 @@ async def history_search_select(call: types.CallbackQuery, state: FSMContext):
 async def process_search_origin(message: types.Message, state: FSMContext, bot: Bot):
     await clean_user_input(message)
     text = message.text.strip()
-
    
     if text.startswith("/") or len(text) > 50 or len(text) < 2:
         await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Введіть коректну назву міста (без команд).</b>", kb_back())
@@ -163,7 +162,6 @@ async def execute_search(call: types.CallbackQuery, state: FSMContext):
     await state.update_data(date=date_val, current_page=0, search_msg_ids=[])
     
     # Перевіряємо, чи є взагалі поїздки (швидкий чек першої сторінки)
-    # Викликаємо пагінацію в потоці
     trips, count = await asyncio.to_thread(
         search_trips_page, 
         data['origin'], data['dest'], date_val, call.from_user.id, PAGE_SIZE, 0
@@ -192,7 +190,6 @@ async def _render_trips_page(message: types.Message, state: FSMContext):
 
     data = await state.get_data()
     page = data.get('current_page', 0)
-    
     
     trips, total_count = await asyncio.to_thread(
         search_trips_page, 
@@ -231,7 +228,6 @@ async def _render_trips_page(message: types.Message, state: FSMContext):
     if page > 0: 
         nav_btns.append(InlineKeyboardButton(text="⬅️", callback_data="page_prev"))
     
-    # Перевірка: якщо (поточна сторінка + 1) * розмір < загальної кількості, то є наступна
     if (page + 1) * PAGE_SIZE < total_count: 
         nav_btns.append(InlineKeyboardButton(text="➡️", callback_data="page_next"))
     
@@ -258,11 +254,27 @@ async def prev_page(call: types.CallbackQuery, state: FSMContext):
     await state.update_data(current_page=data['current_page'] - 1)
     await _render_trips_page(call.message, state)
 
+# ==========================================
+# 🎫 БРОНЮВАННЯ (З ЗАХИСТОМ)
+# ==========================================
+
 @router.callback_query(F.data.startswith("book_"))
 async def book_trip(call: types.CallbackQuery, state: FSMContext):
+    # Чистимо результати пошуку
     await delete_messages_list(state, call.bot, call.message.chat.id, "search_msg_ids")
     
-    user = get_user(call.from_user.id)
+    user_id = call.from_user.id
+
+    # 🔥 ЕТАП 1: Перевірка ліміту активних бронювань
+    active_count = get_user_active_bookings_count(user_id)
+    if active_count >= 2:
+        await call.answer("⚠️ Ліміт! У вас вже є 2 активні поїздки.\nСкасуйте одну, щоб забронювати нову.", show_alert=True)
+        # Повертаємо користувача до пошуку, щоб він не завис
+        await _render_trips_page(call.message, state) 
+        return
+
+    # 🔥 ЕТАП 2: Перевірка профілю
+    user = get_user(user_id)
     if not user or user['phone'] == "-":
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="👤 Заповнити профіль", callback_data="profile_edit")],
@@ -272,10 +284,10 @@ async def book_trip(call: types.CallbackQuery, state: FSMContext):
         return
 
     trip_id = call.data.split("_")[1]
-    success, msg = add_booking(trip_id, call.from_user.id)
+    success, msg = add_booking(trip_id, user_id)
     
     if success:
-        log_event(call.from_user.id, "booking_success", f"trip_{trip_id}")
+        log_event(user_id, "booking_success", f"trip_{trip_id}")
         trip = get_trip_details(trip_id)
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="💬 Написати водію", callback_data=f"chat_start_{trip['user_id']}")],

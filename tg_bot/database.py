@@ -649,3 +649,11 @@ def get_active_driver_trips(user_id):
     rows = cursor.fetchall()
     conn.close()
     return rows
+def get_user_active_bookings_count(user_id):
+    """Рахує, скільки активних бронювань має пасажир."""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT count(*) FROM bookings WHERE user_id = ? AND status = 'active'", (user_id,))
+    count = cursor.fetchone()[0]
+    conn.close()
+    return count
