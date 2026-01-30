@@ -1,5 +1,6 @@
 ﻿import os
 import asyncio
+import TelegramForbiddenError
 from contextlib import suppress
 from aiogram import Router, F, types, Bot
 from aiogram.filters import Command, CommandObject
@@ -334,10 +335,16 @@ async def do_broadcast(message: types.Message, state: FSMContext, bot: Bot):
         good = 0
         bad = 0
         for u in users:
+            # В admin.py всередині worker():
             try: 
                 await message.copy_to(u['user_id'])
                 good += 1           
                 await asyncio.sleep(0.1) 
+            except TelegramForbiddenError:
+                
+                with get_connection() as conn:
+                    conn.execute("UPDATE users SET is_blocked_bot=1 WHERE user_id=?", (u['user_id'],))
+                bad += 1
             except Exception: 
                 bad += 1
                 
