@@ -23,6 +23,7 @@ from database import (
 from keyboards import kb_dates, kb_menu, kb_back
 
 router = Router()
+kb_ok = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="✅ Зрозуміло", callback_data="hide_msg")]])
 PAGE_SIZE = 3
 
 # ==========================================
@@ -298,28 +299,31 @@ async def book_trip(call: types.CallbackQuery, state: FSMContext):
     if success:
         log_event(user_id, "booking_success", f"trip_{trip_id}")
         trip = get_trip_details(trip_id)
+        
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="💬 Написати водію", callback_data=f"chat_start_{trip['user_id']}")],
             [InlineKeyboardButton(text="🏠 В меню", callback_data="menu_home")]
         ])
+        
         msg = await call.message.answer(
             f"✅ <b>Успішно!</b>\nВи забронювали місце до {trip['destination']}.\nВодій: {trip['name']} ({trip['phone']})",
             reply_markup=kb, parse_mode="HTML"
         )
         await state.update_data(last_msg_id=msg.message_id)
         
+        # 🔥 ВИПРАВЛЕНИЙ БЛОК (БЕЗ notify_msg)
         with suppress(Exception):
-            notify_msg = await call.bot.send_message(
+            await call.bot.send_message(
                 trip['user_id'], 
                 f"🆕 <b>Новий пасажир!</b>\nНа ваш рейс додався {call.from_user.full_name}.", 
-                parse_mode="HTML"
+                parse_mode="HTML", 
+                reply_markup=kb_ok
             )
-            # Записуємо це повідомлення в список "на видалення" для водія
-            save_chat_msg(trip['user_id'], notify_msg.message_id)
+            # Тут більше немає save_chat_msg, бо кнопка "Зрозуміло" сама видалить повідомлення
             
     else:
+        # (код else залишається без змін)
         await call.answer(msg_text, show_alert=True)
-        # Якщо помилка (наприклад, місця закінчились), повертаємо в меню
         kb = kb_menu("passenger")
         msg = await call.message.answer("❌ <b>Помилка бронювання.</b>", reply_markup=kb, parse_mode="HTML")
         await state.update_data(last_msg_id=msg.message_id)
@@ -373,7 +377,7 @@ async def show_bookings(call: types.CallbackQuery, state: FSMContext):
             
             kb = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="💬 Чат", callback_data=f"chat_start_{b['driver_id']}")],
-                [InlineKeyboardButton(text="❌ Скасувати", callback_data=f"cancel_book_{b['id']}")]
+                InlineKeyboardButton(text="❌ Скасувати", callback_data=f"ask_cancel_bk_{b['id']}")
             ])
             m = await call.message.answer(txt, reply_markup=kb, parse_mode="HTML")
             msg_ids.append(m.message_id)
@@ -414,15 +418,27 @@ async def show_passenger_history_handler(call: types.CallbackQuery, state: FSMCo
         msg_ids.append(f.message_id)
     await state.update_data(booking_msg_ids=msg_ids)
 
-@router.callback_query(F.data.startswith("cancel_book_"))
-async def cancel_booking_handler(call: types.CallbackQuery, state: FSMContext):
-    info = delete_booking(int(call.data.split("_")[2]), call.from_user.id)
+# ==========================================
+# 🔥 ПІДТВЕРДЖЕННЯ СКАСУВАННЯ БРОНІ
+# ==========================================
+@router.callback_query(F.data.startswith("ask_cancel_bk_"))
+async def ask_cancel_booking(call: types.CallbackQuery):
+    bid = call.data.split("_")[3]
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✅ ТАК, скасувати", callback_data=f"conf_cancel_bk_{bid}")],
+        [InlineKeyboardButton(text="🔙 НІ", callback_data="pass_my_books")]
+    ])
+    await call.message.edit_text("⚠️ <b>Ви впевнені, що хочете скасувати бронювання?</b>", reply_markup=kb, parse_mode="HTML")
+
+@router.callback_query(F.data.startswith("conf_cancel_bk_"))
+async def confirm_cancel_booking(call: types.CallbackQuery, state: FSMContext):
+    info = delete_booking(int(call.data.split("_")[3]), call.from_user.id)
     if info:
         await call.answer("Скасовано.")
+        # 🔥 Сповіщення водію з кнопкою "Зрозуміло"
         with suppress(Exception): 
-            msg = await call.bot.send_message(info['driver_id'], f"❌ Пасажир {info['passenger_name'] or 'Пасажир'} скасував бронь.")
-            save_chat_msg(info['driver_id'], msg.message_id)
-            
+            p_name = info['passenger_name'] or "Пасажир"
+            await call.bot.send_message(info['driver_id'], f"❌ <b>{p_name} скасував бронювання.</b>\nМісце знову вільне.", parse_mode="HTML", reply_markup=kb_ok)
         await show_bookings(call, state)
 
 @router.callback_query(F.data.startswith("sub_"))
