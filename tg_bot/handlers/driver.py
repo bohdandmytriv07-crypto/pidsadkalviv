@@ -255,18 +255,30 @@ async def process_seats(message: types.Message, state: FSMContext, bot: Bot):
 @router.message(TripStates.price)
 async def process_price(message: types.Message, state: FSMContext, bot: Bot):
     await clean_user_input(message)
+    
+ 
+    if not message.text:
+        await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Будь ласка, напишіть ціну цифрами.</b>", kb_back())
+        return
+
+   
+    clean_price = re.sub(r'\D', '', message.text) # "200 грн" -> "200"
+
     try:
-        price = int(message.text)
+        if not clean_price: raise ValueError
+        price = int(clean_price)
+        
         if price <= 0: raise ValueError
         if price > 5000:
             await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Занадто висока ціна!</b>\nВкажіть реальну суму до 5000 грн.", kb_back())
             return
     except ValueError:
-        await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Ціна має бути числом > 0!</b>", kb_back())
+        await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Ціна має бути числом (наприклад: 200).</b>", kb_back())
         return
 
     await state.update_data(price=price)
     await state.set_state(TripStates.description)
+    
     kb_skip = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="➡️ Пропустити", callback_data="skip_desc")],
         [InlineKeyboardButton(text="🔙 Назад", callback_data="menu_home")]

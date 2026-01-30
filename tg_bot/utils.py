@@ -106,6 +106,9 @@ def _geocode_sync(text: str):
 
 async def validate_city_real(city_name: str) -> str | None:
     clean_query = re.sub(r'[^\w\s-]', '', city_name).strip()
+      
+    if not clean_query: return None 
+
     try:
         location = await asyncio.to_thread(_geocode_sync, f"{clean_query}, Ukraine")
         if location: 

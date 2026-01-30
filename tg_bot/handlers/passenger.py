@@ -140,6 +140,12 @@ async def process_search_origin(message: types.Message, state: FSMContext, bot: 
 @router.message(SearchStates.dest)
 async def process_search_dest(message: types.Message, state: FSMContext, bot: Bot):
     await clean_user_input(message)
+    
+    # 🛡 ЗАХИСТ: Перевірка на текст
+    if not message.text:
+        await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Напишіть назву міста текстом.</b>", kb_back())
+        return
+
     text = message.text.strip()
     if text.startswith("/") or len(text) > 50 or len(text) < 2:
         await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Введіть коректну назву міста.</b>", kb_back())
@@ -148,13 +154,19 @@ async def process_search_dest(message: types.Message, state: FSMContext, bot: Bo
     clean_city = get_city_suggestion(text) or await validate_city_real(text)
     
     if clean_city:
+        data = await state.get_data()
+        origin_city = data.get('origin', '').lower()
+        
+        if clean_city.lower() == origin_city:
+            await update_or_send_msg(bot, message.chat.id, state, f"⚠️ <b>Ви вже у місті {clean_city}!</b>\nОберіть інше місто призначення:", kb_back())
+            return
+
         add_or_update_city(clean_city)
         await state.update_data(dest=clean_city)
         await state.set_state(SearchStates.date)
         await update_or_send_msg(bot, message.chat.id, state, f"🏁 Куди: <b>{clean_city}</b>\n\n📅 <b>Оберіть дату:</b>", kb_dates("sdate"))
     else:
         await update_or_send_msg(bot, message.chat.id, state, "❌ <b>Місто не знайдено.</b> Спробуйте ще раз:", kb_back())
-
 
 @router.callback_query(SearchStates.date, F.data.startswith("sdate_"))
 async def execute_search(call: types.CallbackQuery, state: FSMContext):
