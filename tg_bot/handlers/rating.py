@@ -1,7 +1,7 @@
-﻿from contextlib import suppress
+﻿import asyncio
+from contextlib import suppress
 from aiogram import Router, F, types, Bot
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-# 🔥 ВИПРАВЛЕНО: Імпортуємо add_rating замість add_review
 from database import add_rating, get_user
 
 router = Router()
@@ -26,8 +26,6 @@ async def process_rating(call: types.CallbackQuery):
     
     from_id = call.from_user.id
     
-    # 🔥 ВИПРАВЛЕНО: Викликаємо правильну функцію з database.py
-    # add_rating(from_id, to_id, trip_id, role, score)
     try:
         add_rating(from_id, target_id, trip_id, role_being_rated, score)
         success = True
@@ -37,16 +35,24 @@ async def process_rating(call: types.CallbackQuery):
     
     if success:
         target_user = get_user(target_id)
-        # 🔥 FIX: Захист від None
+        # Захист від None (якщо ім'я не знайдено)
         name = target_user['name'] if (target_user and target_user['name']) else "Користувача"
         
+        # 1. Показуємо повідомлення про успіх
         with suppress(Exception):
             await call.message.edit_text(
                 f"✅ Ви оцінили <b>{name}</b> на <b>{score} ⭐</b>.\nДякуємо!",
                 parse_mode="HTML"
             )
+            
+        # 2. 🔥 FIX: Чекаємо 3 секунди і видаляємо повідомлення
+        await asyncio.sleep(3)
+        with suppress(Exception):
+            await call.message.delete()
+            
     else:
         await call.answer("Помилка збереження оцінки.", show_alert=True)
+        # Якщо помилка - видаляємо одразу
         with suppress(Exception):
             await call.message.delete()
 
@@ -58,10 +64,11 @@ async def ask_for_ratings(bot: Bot, trip_id: str, driver_id: int, passengers: li
     # 1. Просимо ПАСАЖИРІВ оцінити ВОДІЯ
     driver_info = get_user(driver_id)
     if driver_info:
+        driver_name = driver_info['name'] or "Водія"
         for p in passengers:
             text = (
                 f"🏁 <b>Поїздка завершена!</b>\n\n"
-                f"Як вам водій <b>{driver_info['name']}</b>?\n"
+                f"Як вам водій <b>{driver_name}</b>?\n"
                 f"Будь ласка, поставте оцінку:"
             )
             try:
@@ -76,9 +83,10 @@ async def ask_for_ratings(bot: Bot, trip_id: str, driver_id: int, passengers: li
     # 2. Просимо ВОДІЯ оцінити ПАСАЖИРІВ
     if passengers:
         for p in passengers:
+            p_name = p['name'] or "Пасажира"
             text = (
                 f"🏁 <b>Поїздка завершена!</b>\n\n"
-                f"Оцініть пасажира <b>{p['name']}</b>:"
+                f"Оцініть пасажира <b>{p_name}</b>:"
             )
             try:
                 await bot.send_message(
