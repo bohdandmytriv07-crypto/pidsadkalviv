@@ -233,3 +233,12 @@ async def process_support(message: types.Message, state: FSMContext, bot: Bot):
     
     except Exception as e:
         print(f"Support Error: {e}")
+
+# ==========================================
+# 🗑 УНІВЕРСАЛЬНА КНОПКА "ЗРОЗУМІЛО" (Видаляє повідомлення)
+# ==========================================
+@router.callback_query(F.data == "hide_msg")
+async def global_hide_msg(call: types.CallbackQuery):
+    with suppress(TelegramBadRequest):
+        await call.message.delete()
+    await call.answer()
