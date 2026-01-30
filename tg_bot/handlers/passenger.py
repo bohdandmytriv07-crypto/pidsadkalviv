@@ -5,7 +5,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.exceptions import TelegramBadRequest
 
-# 🔥 ДОДАНО: Імпорт delete_prev_msg
+# Імпорти утиліт
 from utils import (
     clean_user_input, update_or_send_msg, delete_messages_list,
     delete_prev_msg, get_city_suggestion, validate_city_real
@@ -18,11 +18,13 @@ from database import (
     get_trip_details, delete_booking, get_recent_searches, save_search_history,
     add_subscription, get_user_rating, format_rating, log_event,
     add_or_update_city, get_passenger_history, 
-    get_user_active_bookings_count,save_chat_msg 
+    get_user_active_bookings_count
 )
 from keyboards import kb_dates, kb_menu, kb_back
 
 router = Router()
+
+# Універсальна кнопка для закриття сповіщень
 kb_ok = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="✅ Зрозуміло", callback_data="hide_msg")]])
 PAGE_SIZE = 3
 
@@ -73,7 +75,6 @@ async def show_trip_preview(message: types.Message, state: FSMContext, trip_id: 
     ])
     
     msg = await message.answer(text, reply_markup=kb, parse_mode="HTML")
-    # 🔥 Зберігаємо ID, щоб потім видалити
     await state.update_data(trip_msg_ids=[msg.message_id], last_msg_id=msg.message_id)
 
 
@@ -85,7 +86,6 @@ async def show_trip_preview(message: types.Message, state: FSMContext, trip_id: 
 async def passenger_menu_handler(call: types.CallbackQuery, state: FSMContext):
     await state.clear()
     await state.update_data(role="passenger")
-    # Використовуємо update_or_send_msg, щоб редагувати старе меню або видаляти його
     await update_or_send_msg(call.bot, call.message.chat.id, state, "👋 <b>Меню пасажира</b>", kb_menu("passenger"))
 
 # ==========================================
@@ -94,11 +94,8 @@ async def passenger_menu_handler(call: types.CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == "pass_find")
 async def search_start_handler(call: types.CallbackQuery, state: FSMContext):
-    # 🔥 ЧИСТКА: Видаляємо все зайве
     await delete_messages_list(state, call.bot, call.message.chat.id, "search_msg_ids")
     await delete_messages_list(state, call.bot, call.message.chat.id, "booking_msg_ids")
-    
-    # 🔥 Якщо було якесь одиночне повідомлення (наприклад "Успішно підписано"), видаляємо його
     await delete_prev_msg(state, call.bot, call.message.chat.id)
     
     await state.set_state(SearchStates.origin)
@@ -112,7 +109,6 @@ async def search_start_handler(call: types.CallbackQuery, state: FSMContext):
     
     msg_text = "📜 <b>Оберіть зі списку або напишіть місто:</b>" if history else "📍 <b>Звідки виїжджаємо?</b>\nВведіть місто:"
     
-    # Використовуємо update_or_send_msg для чистоти
     await update_or_send_msg(call.bot, call.message.chat.id, state, msg_text, InlineKeyboardMarkup(inline_keyboard=kb_rows))
 
 @router.callback_query(F.data.startswith("hist_"))
@@ -165,7 +161,6 @@ async def execute_search(call: types.CallbackQuery, state: FSMContext):
     date_val = call.data.split("_")[1]
     data = await state.get_data()
     
-    # Видаляємо меню вибору дати
     with suppress(TelegramBadRequest): await call.message.delete()
     save_search_history(call.from_user.id, data['origin'], data['dest'])
     
@@ -261,7 +256,7 @@ async def prev_page(call: types.CallbackQuery, state: FSMContext):
     await _render_trips_page(call.message, state)
 
 # ==========================================
-# 🎫 БРОНЮВАННЯ (З ФІКСОМ ОЧИСТКИ)
+# 🎫 БРОНЮВАННЯ
 # ==========================================
 
 @router.callback_query(F.data.startswith("book_"))
@@ -273,22 +268,18 @@ async def book_trip(call: types.CallbackQuery, state: FSMContext):
     
     if active_count >= 2:
         await call.answer("⚠️ Ліміт! У вас вже є 2 активні поїздки.", show_alert=True)
-        # Не видаляємо повідомлення з поїздками, щоб користувач бачив їх
         return
 
     user = get_user(user_id)
     
-    # 🔥 UX FIX: Видаляємо повідомлення, на якому натиснули "Бронювати" (щоб воно не висіло)
-    # Це особливо важливо, якщо це було Notification повідомлення
+    # Видаляємо повідомлення, на якому натиснули "Бронювати"
     with suppress(TelegramBadRequest): await call.message.delete()
 
-    # Перевірка профілю
     if not user or user['phone'] == "-":
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="👤 Заповнити профіль", callback_data="profile_edit")],
             [InlineKeyboardButton(text="🔙 Назад", callback_data="menu_home")]
         ])
-        # 🔥 Шлемо попередження і ЗАПАМ'ЯТОВУЄМО його ID, щоб потім видалити
         msg = await call.message.answer("⚠️ <b>Потрібен номер телефону!</b>\nЩоб водій міг з вами зв'язатися.", reply_markup=kb, parse_mode="HTML")
         await state.update_data(last_msg_id=msg.message_id)
         return
@@ -311,7 +302,7 @@ async def book_trip(call: types.CallbackQuery, state: FSMContext):
         )
         await state.update_data(last_msg_id=msg.message_id)
         
-        # 🔥 ВИПРАВЛЕНИЙ БЛОК (БЕЗ notify_msg)
+        # 🔥 FIX: Сповіщення водію БЕЗ помилок
         with suppress(Exception):
             await call.bot.send_message(
                 trip['user_id'], 
@@ -319,10 +310,8 @@ async def book_trip(call: types.CallbackQuery, state: FSMContext):
                 parse_mode="HTML", 
                 reply_markup=kb_ok
             )
-            # Тут більше немає save_chat_msg, бо кнопка "Зрозуміло" сама видалить повідомлення
             
     else:
-        # (код else залишається без змін)
         await call.answer(msg_text, show_alert=True)
         kb = kb_menu("passenger")
         msg = await call.message.answer("❌ <b>Помилка бронювання.</b>", reply_markup=kb, parse_mode="HTML")
@@ -335,12 +324,10 @@ async def book_trip(call: types.CallbackQuery, state: FSMContext):
 @router.callback_query(F.data == "pass_my_books")
 async def show_bookings(call: types.CallbackQuery, state: FSMContext):
     await call.answer()
-    # Очищаємо попередні екрани
     await delete_messages_list(state, call.bot, call.message.chat.id, "booking_msg_ids")
     await delete_messages_list(state, call.bot, call.message.chat.id, "search_msg_ids")
     await delete_prev_msg(state, call.bot, call.message.chat.id)
     
-    # Видаляємо кнопку, яку натиснули (якщо це було меню)
     with suppress(TelegramBadRequest): await call.message.delete()
     
     try:
@@ -375,9 +362,10 @@ async def show_bookings(call: types.CallbackQuery, state: FSMContext):
                 f"👤 Водій: {d_name} ({d_phone_fmt})"
             )
             
+            # 🔥 FIX: Правильний синтаксис кнопок
             kb = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="💬 Чат", callback_data=f"chat_start_{b['driver_id']}")],
-                InlineKeyboardButton(text="❌ Скасувати", callback_data=f"ask_cancel_bk_{b['id']}")
+                [InlineKeyboardButton(text="❌ Скасувати", callback_data=f"ask_cancel_bk_{b['id']}")]
             ])
             m = await call.message.answer(txt, reply_markup=kb, parse_mode="HTML")
             msg_ids.append(m.message_id)
@@ -446,12 +434,10 @@ async def sub_handler(call: types.CallbackQuery, state: FSMContext):
     p = call.data.split("_")
     add_subscription(call.from_user.id, p[1], p[2], p[3])
     
-    # 🔥 UX FIX: Видаляємо повідомлення "Поїздок не знайдено"
     with suppress(TelegramBadRequest): await call.message.delete()
     
     await call.answer("Підписано! Я повідомлю, коли з'явиться поїздка.", show_alert=True)
     
     kb = kb_menu("passenger")
-    # 🔥 Зберігаємо ID нового повідомлення, щоб потім його можна було видалити
     msg = await call.message.answer("✅ <b>Успішно підписано.</b>\nЩо далі?", reply_markup=kb, parse_mode="HTML")
     await state.update_data(last_msg_id=msg.message_id)
