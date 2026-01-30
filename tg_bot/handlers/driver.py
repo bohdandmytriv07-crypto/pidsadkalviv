@@ -14,7 +14,8 @@ from database import (
     get_trip_passengers, cancel_trip_full, kick_passenger, 
     get_last_driver_trip, get_subscribers_for_trip,
     add_or_update_city, finish_trip, log_event,
-    get_driver_history, get_active_driver_trips
+    get_driver_history, get_active_driver_trips, 
+    save_chat_msg
 )
 from handlers.rating import ask_for_ratings 
 from states import TripStates
@@ -446,7 +447,10 @@ async def kick_passenger_handler(call: types.CallbackQuery, state: FSMContext):
     info = kick_passenger(int(call.data.split("_")[1]), call.from_user.id)
     if info:
         await call.answer("Пасажира висаджено.")
-        with suppress(Exception): await call.bot.send_message(info['passenger_id'], "🚫 Водій скасував ваше бронювання.")
+        with suppress(Exception): 
+            msg = await call.bot.send_message(info['passenger_id'], "🚫 Водій скасував ваше бронювання.")
+            save_chat_msg(info['passenger_id'], msg.message_id)
+            
         await show_driver_trips(call, state)
 
 @router.callback_query(F.data.startswith("drv_ask_cancel_"))
@@ -463,5 +467,7 @@ async def do_cancel(call: types.CallbackQuery, state: FSMContext):
     trip_info, passengers = cancel_trip_full(call.data.split("_")[3], call.from_user.id)
     await call.answer("Поїздку скасовано.")
     for pid in passengers:
-        with suppress(Exception): await call.bot.send_message(pid, f"⚠️ Водій скасував поїздку {trip_info['origin']} - {trip_info['destination']}.")
+        with suppress(Exception): 
+            msg = await call.bot.send_message(pid, f"⚠️ Водій скасував поїздку {trip_info['origin']} - {trip_info['destination']}.")
+            save_chat_msg(pid, msg.message_id)
     await show_driver_trips(call, state)

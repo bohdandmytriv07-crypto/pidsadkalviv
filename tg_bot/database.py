@@ -228,8 +228,17 @@ def get_user(user_id):
 def save_user(user_id, name, username, phone=None, model='-', number='-', color='-', ref_source=None):
     conn = get_connection()
     if get_user(user_id):
-        updates = ["name=?, username=?, last_active=CURRENT_TIMESTAMP"]
-        params = [name, username]
+        # 🔥 FIX: Оновлюємо ім'я та юзернейм тільки якщо вони передані (не None)
+        updates = ["last_active=CURRENT_TIMESTAMP"]
+        params = []
+        
+        if name:
+            updates.append("name=?")
+            params.append(name)
+        if username:
+            updates.append("username=?")
+            params.append(username)
+            
         if phone: 
             updates.append("phone=?")
             params.append(phone)
@@ -245,13 +254,17 @@ def save_user(user_id, name, username, phone=None, model='-', number='-', color=
         if ref_source:
              updates.append("ref_source = COALESCE(ref_source, ?)")
              params.append(ref_source)
+             
         params.append(user_id)
-        conn.execute(f"UPDATE users SET {', '.join(updates)} WHERE user_id=?", params)
+        
+        if updates: # Якщо є що оновлювати
+            conn.execute(f"UPDATE users SET {', '.join(updates)} WHERE user_id=?", params)
     else:
+        # При створенні нового юзера ім'я обов'язкове
         conn.execute('''
             INSERT INTO users (user_id, username, name, phone, ref_source, created_at, last_active) 
             VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-        ''', (user_id, username, name, phone if phone else '-', ref_source))
+        ''', (user_id, username, name if name else "Користувач", phone if phone else '-', ref_source))
     conn.commit()
     conn.close()
 

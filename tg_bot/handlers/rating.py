@@ -37,7 +37,8 @@ async def process_rating(call: types.CallbackQuery):
     
     if success:
         target_user = get_user(target_id)
-        name = target_user['name'] if target_user else "Користувача"
+        # 🔥 FIX: Захист від None
+        name = target_user['name'] if (target_user and target_user['name']) else "Користувача"
         
         with suppress(Exception):
             await call.message.edit_text(
