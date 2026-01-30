@@ -1,6 +1,6 @@
 ﻿import os
 import asyncio
-import TelegramForbiddenError
+from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from contextlib import suppress
 from aiogram import Router, F, types, Bot
 from aiogram.filters import Command, CommandObject
