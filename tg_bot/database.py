@@ -534,3 +534,21 @@ def perform_db_cleanup():
     conn.execute("DELETE FROM search_history WHERE timestamp < datetime('now', '-2 days')")
     conn.commit()
     conn.close()
+# ==========================================
+# 🕒 ФОНОВІ ЗАДАЧІ (АРХІВАЦІЯ)
+# ==========================================
+
+def archive_old_trips_db():
+    """Повертає всі активні поїздки для перевірки часу в main.py."""
+    conn = get_connection()
+    # Беремо всі активні, щоб main.py перевірив їх час
+    rows = conn.execute("SELECT id, user_id, date, time FROM trips WHERE status='active'").fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+def mark_trip_finished(trip_id):
+    """Позначає поїздку як завершену (Status: finished)."""
+    conn = get_connection()
+    conn.execute("UPDATE trips SET status='finished' WHERE id=?", (trip_id,))
+    conn.commit()
+    conn.close()
