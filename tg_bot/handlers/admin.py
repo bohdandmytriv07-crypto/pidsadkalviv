@@ -276,26 +276,20 @@ async def process_find_user(message: types.Message, state: FSMContext, bot: Bot)
     if message.from_user.id not in ADMIN_IDS: return
     with suppress(TelegramBadRequest): await message.delete()
     q = message.text.strip()
-    conn = get_connection()
     
-    
-    if q.isdigit(): 
-       
-        u = conn.execute("SELECT * FROM users WHERE user_id=?", (int(q),)).fetchone()
-        if not u:
-            u = conn.execute("SELECT * FROM users WHERE phone LIKE ?", (f"%{q}%",)).fetchone()
-            
-    elif q.startswith("@"): 
-       
-        u = conn.execute("SELECT * FROM users WHERE username=?", (q,)).fetchone()
-        
-    else: 
-        
-        if q.startswith("+"):
-             u = conn.execute("SELECT * FROM users WHERE phone LIKE ?", (f"%{q}%",)).fetchone()
-        else:
-             u = conn.execute("SELECT * FROM users WHERE username=?", (f"@{q}",)).fetchone()
-
+ 
+    with get_connection() as conn:
+        if q.isdigit(): 
+            u = conn.execute("SELECT * FROM users WHERE user_id=?", (int(q),)).fetchone()
+            if not u:
+                u = conn.execute("SELECT * FROM users WHERE phone LIKE ?", (f"%{q}%",)).fetchone()
+        elif q.startswith("@"): 
+            u = conn.execute("SELECT * FROM users WHERE username=?", (q,)).fetchone()
+        else: 
+            if q.startswith("+"):
+                 u = conn.execute("SELECT * FROM users WHERE phone LIKE ?", (f"%{q}%",)).fetchone()
+            else:
+                 u = conn.execute("SELECT * FROM users WHERE username=?", (f"@{q}",)).fetchone()
     data = await state.get_data()
     mid = data.get("menu_msg_id")
     
@@ -332,8 +326,10 @@ async def start_broadcast(call: types.CallbackQuery, state: FSMContext):
 @router.message(AdminStates.broadcast)
 async def do_broadcast(message: types.Message, state: FSMContext, bot: Bot):
     if message.from_user.id not in ADMIN_IDS: return
-    from database import get_connection # локальний імпорт
-    users = get_connection().execute("SELECT user_id FROM users WHERE is_blocked_bot=0 AND is_banned=0").fetchall()
+    
+    with get_connection() as conn:
+        users = conn.execute("SELECT user_id FROM users WHERE is_blocked_bot=0 AND is_banned=0").fetchall()
+    
     async def worker():
         good = 0
         bad = 0
