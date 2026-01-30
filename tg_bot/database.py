@@ -8,7 +8,7 @@ from config import DB_FILE
 
 def get_connection():
     conn = sqlite3.connect(DB_FILE)
-    conn.row_factory = sqlite3.Row  # Дозволяє звертатись до полів за назвою (row['id'])
+    conn.row_factory = sqlite3.Row
     return conn
 
 def init_db():
@@ -113,6 +113,33 @@ def init_db():
 
     conn.commit()
     conn.close()
+
+# ==========================================
+# 📊 АНАЛІТИКА
+# ==========================================
+
+def get_stats_general():
+    conn = get_connection()
+    active = conn.execute("SELECT COUNT(*) FROM trips WHERE status='active'").fetchone()[0]
+    finished = conn.execute("SELECT COUNT(*) FROM trips WHERE status='finished'").fetchone()[0]
+    bookings = conn.execute("SELECT COUNT(*) FROM bookings").fetchone()[0]
+    conn.close()
+    return {'active_trips': active, 'finished_trips': finished, 'total_bookings': bookings}
+
+def get_stats_extended():
+    conn = get_connection()
+    total = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+    blocked = conn.execute("SELECT COUNT(*) FROM users WHERE is_blocked_bot=1").fetchone()[0]
+    new_today = conn.execute("SELECT COUNT(*) FROM users WHERE date(created_at) = date('now')").fetchone()[0]
+    
+    drivers = conn.execute("SELECT COUNT(*) FROM users WHERE model != '-'").fetchone()[0]
+    passengers = total - drivers
+
+    conn.close()
+    return {
+        'total_users': total, 'blocked': blocked, 'new_today': new_today, 
+        'drivers': drivers, 'passengers': passengers
+    }
 
 # ==========================================
 # 👤 КОРИСТУВАЧІ
@@ -233,8 +260,8 @@ def get_active_driver_trips(user_id):
     conn.close()
     return [dict(row) for row in rows]
 
-def get_driver_active_trips_full(user_id):
-    """Для меню 'Мої поїздки'."""
+def get_driver_active_trips(user_id):
+    """Повертає ВСІ активні поїздки водія (для меню 'Мої поїздки')."""
     conn = get_connection()
     rows = conn.execute("SELECT * FROM trips WHERE user_id = ? AND status = 'active' ORDER BY date, time", (user_id,)).fetchall()
     conn.close()
@@ -255,7 +282,6 @@ def finish_trip(trip_id):
 def delete_trip(trip_id):
     """Повне скасування поїздки водієм."""
     conn = get_connection()
-    # Отримуємо ID пасажирів для сповіщення
     passengers = conn.execute("SELECT passenger_id FROM bookings WHERE trip_id = ? AND status = 'active'", (trip_id,)).fetchall()
     
     conn.execute("UPDATE trips SET status = 'cancelled' WHERE id = ?", (trip_id,))
@@ -265,14 +291,27 @@ def delete_trip(trip_id):
     
     return [p['passenger_id'] for p in passengers]
 
+def cancel_trip_full(trip_id, driver_id):
+    # Аліас для delete_trip, щоб не ламати старий код
+    p_ids = delete_trip(trip_id)
+    # Повертаємо інфу про поїздку (хоча вона вже скасована, дістаємо структуру)
+    conn = get_connection()
+    trip = conn.execute("SELECT * FROM trips WHERE id = ?", (trip_id,)).fetchone()
+    conn.close()
+    return dict(trip) if trip else {}, p_ids
+
 # ==========================================
 # 🔍 ПОШУК ТА ПАГІНАЦІЯ
 # ==========================================
 
+def search_trips(origin, destination, date, viewer_id):
+    # Для сумісності
+    trips, _ = search_trips_page(origin, destination, date, viewer_id, 100, 0)
+    return trips
+
 def search_trips_page(origin, destination, date, viewer_id, limit, offset):
     conn = get_connection()
     
-    # Отримуємо поїздки
     rows = conn.execute('''
         SELECT t.*, u.name as driver_name, u.rating_driver, u.model, u.color, u.user_id
         FROM trips t
@@ -284,7 +323,6 @@ def search_trips_page(origin, destination, date, viewer_id, limit, offset):
         LIMIT ? OFFSET ?
     ''', (origin, destination, date, viewer_id, limit, offset)).fetchall()
     
-    # Рахуємо загальну кількість
     count = conn.execute('''
         SELECT COUNT(*)
         FROM trips t
@@ -296,6 +334,21 @@ def search_trips_page(origin, destination, date, viewer_id, limit, offset):
     conn.close()
     return [dict(row) for row in rows], count
 
+def get_all_active_trips_paginated(limit, offset):
+    conn = get_connection()
+    rows = conn.execute('''
+        SELECT t.*, u.name, u.phone, u.username, u.model, u.color, u.rating_driver
+        FROM trips t 
+        JOIN users u ON t.user_id = u.user_id 
+        WHERE t.status = 'active' 
+        ORDER BY t.rowid DESC 
+        LIMIT ? OFFSET ?
+    ''', (limit, offset)).fetchall()
+    
+    count = conn.execute("SELECT COUNT(*) FROM trips WHERE status='active'").fetchone()[0]
+    conn.close()
+    return [dict(row) for row in rows], count
+
 # ==========================================
 # 🎫 БРОНЮВАННЯ (З ОБМЕЖЕННЯМИ)
 # ==========================================
@@ -303,6 +356,7 @@ def search_trips_page(origin, destination, date, viewer_id, limit, offset):
 def get_user_active_bookings_count(user_id):
     """Рахує активні бронювання для захисту від спаму."""
     conn = get_connection()
+    # УВАГА: В таблиці bookings поле називається passenger_id
     count = conn.execute("SELECT count(*) FROM bookings WHERE passenger_id = ? AND status = 'active'", (user_id,)).fetchone()[0]
     conn.close()
     return count
@@ -316,7 +370,7 @@ def add_booking(trip_id, passenger_id):
         conn.close()
         return False, "Ви вже забронювали місце."
 
-    # Перевірка місць та статусу поїздки
+    # Перевірка місць та статусу
     trip = conn.execute("SELECT seats_taken, seats_total, user_id, status FROM trips WHERE id = ?", (trip_id,)).fetchone()
     
     if not trip or trip['status'] != 'active':
@@ -387,10 +441,29 @@ def get_passenger_history(user_id):
         JOIN trips t ON b.trip_id = t.id
         JOIN users u ON t.user_id = u.user_id
         WHERE b.passenger_id = ? AND (t.status = 'finished' OR t.date < date('now'))
-        ORDER BY t.date DESC LIMIT 10
+        ORDER BY t.rowid DESC LIMIT 10
     ''', (user_id,)).fetchall()
     conn.close()
     return [dict(row) for row in rows]
+
+def kick_passenger(booking_id, driver_id):
+    conn = get_connection()
+    # Перевіряємо, чи цей пасажир належить поїздці цього водія
+    booking = conn.execute('''
+        SELECT b.trip_id, b.passenger_id 
+        FROM bookings b JOIN trips t ON b.trip_id = t.id 
+        WHERE b.id = ? AND t.user_id = ?
+    ''', (booking_id, driver_id)).fetchone()
+    
+    if not booking: 
+        conn.close()
+        return None
+        
+    conn.execute("DELETE FROM bookings WHERE id = ?", (booking_id,))
+    conn.execute("UPDATE trips SET seats_taken = seats_taken - 1 WHERE id = ?", (booking['trip_id'],))
+    conn.commit()
+    conn.close()
+    return dict(booking)
 
 # ==========================================
 # 💬 ЧАТ & ОЧИСТКА
@@ -463,15 +536,12 @@ def format_rating(avg, count):
 
 def get_user_rating(user_id, role="driver"):
     conn = get_connection()
-    # Реалізуємо простий варіант: беремо з таблиці users
-    # (Для точного підрахунку треба брати з таблиці ratings, але для швидкості можна так)
     col = "rating_driver" if role == "driver" else "rating_pass"
     user = conn.execute(f"SELECT {col} FROM users WHERE user_id = ?", (user_id,)).fetchone()
     
-    # Кількість оцінок
     cnt = conn.execute("SELECT COUNT(*) FROM ratings WHERE to_user_id = ? AND role = ?", (user_id, role)).fetchone()[0]
-    
     conn.close()
+    
     val = user[col] if user else 5.0
     return (val, cnt)
 
@@ -479,7 +549,6 @@ def add_rating(from_id, to_id, trip_id, role, score):
     conn = get_connection()
     conn.execute("INSERT INTO ratings (from_user_id, to_user_id, trip_id, role, score) VALUES (?, ?, ?, ?, ?)", (from_id, to_id, trip_id, role, score))
     
-    # Оновлюємо середнє в users
     avg = conn.execute("SELECT AVG(score) FROM ratings WHERE to_user_id = ? AND role = ?", (to_id, role)).fetchone()[0]
     col = "rating_driver" if role == "driver" else "rating_pass"
     conn.execute(f"UPDATE users SET {col} = ? WHERE user_id = ?", (avg, to_id))
@@ -489,10 +558,9 @@ def add_rating(from_id, to_id, trip_id, role, score):
 
 def save_search_history(user_id, origin, destination):
     conn = get_connection()
-    # Видаляємо такий самий запис, щоб оновити час
     conn.execute("DELETE FROM search_history WHERE user_id = ? AND origin = ? AND destination = ?", (user_id, origin, destination))
     conn.execute("INSERT INTO search_history (user_id, origin, destination) VALUES (?, ?, ?)", (user_id, origin, destination))
-    # Лишаємо останні 5
+    # Лишаємо топ 5
     conn.execute("DELETE FROM search_history WHERE rowid NOT IN (SELECT rowid FROM search_history WHERE user_id = ? ORDER BY rowid DESC LIMIT 5) AND user_id = ?", (user_id, user_id))
     conn.commit()
     conn.close()
@@ -512,8 +580,13 @@ def add_or_update_city(city_name):
     conn.commit()
     conn.close()
 
+def get_all_cities_names():
+    conn = get_connection()
+    rows = conn.execute("SELECT name FROM cities ORDER BY search_count DESC").fetchall()
+    conn.close()
+    return [row['name'] for row in rows]
+
 def get_city_suggestion(text):
-    # Тут можна реалізувати пошук по базі
     return None
 
 def add_subscription(user_id, origin, dest, date):
@@ -522,43 +595,40 @@ def add_subscription(user_id, origin, dest, date):
     conn.commit()
     conn.close()
 
+def get_subscribers_for_trip(origin, dest, date):
+    conn = get_connection()
+    rows = conn.execute("SELECT user_id FROM subscriptions WHERE origin = ? AND destination = ? AND date = ?", (origin, dest, date)).fetchall()
+    conn.execute("DELETE FROM subscriptions WHERE origin = ? AND destination = ? AND date = ?", (origin, dest, date))
+    conn.commit()
+    conn.close()
+    return [row['user_id'] for row in rows]
+
 def log_event(user_id, event, details):
     print(f"📊 LOG: {user_id} | {event} | {details}")
     if event in ["search_success", "search_empty"]:
         update_user_activity(user_id, None, None)
+
+# ==========================================
+# 🧹 ФОНОВІ ЗАДАЧІ
+# ==========================================
+
+def archive_old_trips_db():
+    conn = get_connection()
+    rows = conn.execute("SELECT id, user_id, date, time FROM trips WHERE status='active'").fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+def mark_trip_finished(trip_id):
+    conn = get_connection()
+    conn.execute("UPDATE trips SET status='finished' WHERE id=?", (trip_id,))
+    conn.commit()
+    conn.close()
 
 def perform_db_cleanup():
     conn = get_connection()
     conn.execute("DELETE FROM chat_history WHERE timestamp < datetime('now', '-7 days')")
     conn.execute("DELETE FROM trips WHERE status IN ('finished', 'cancelled') AND date < date('now', '-60 days')")
     conn.execute("DELETE FROM search_history WHERE timestamp < datetime('now', '-2 days')")
+    conn.execute("DELETE FROM bookings WHERE trip_id NOT IN (SELECT id FROM trips)")
     conn.commit()
     conn.close()
-# ==========================================
-# 🕒 ФОНОВІ ЗАДАЧІ (АРХІВАЦІЯ)
-# ==========================================
-
-def archive_old_trips_db():
-    """Повертає всі активні поїздки для перевірки часу в main.py."""
-    conn = get_connection()
-    # Беремо всі активні, щоб main.py перевірив їх час
-    rows = conn.execute("SELECT id, user_id, date, time FROM trips WHERE status='active'").fetchall()
-    conn.close()
-    return [dict(row) for row in rows]
-
-def mark_trip_finished(trip_id):
-    """Позначає поїздку як завершену (Status: finished)."""
-    conn = get_connection()
-    conn.execute("UPDATE trips SET status='finished' WHERE id=?", (trip_id,))
-    conn.commit()
-    conn.close()
-# ==========================================
-# 🏙 МІСТА (ДЛЯ UTILS.PY)
-# ==========================================
-
-def get_all_cities_names():
-    """Повертає список всіх міст для автодоповнення."""
-    conn = get_connection()
-    rows = conn.execute("SELECT name FROM cities ORDER BY search_count DESC").fetchall()
-    conn.close()
-    return [row['name'] for row in rows]
