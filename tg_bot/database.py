@@ -45,7 +45,7 @@ def init_db():
     # Змінив id на INTEGER PRIMARY KEY AUTOINCREMENT для сумісності з handlers
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS trips (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id TEXT PRIMARY KEY, 
             user_id INTEGER,
             origin TEXT,
             destination TEXT,
@@ -64,7 +64,7 @@ def init_db():
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS bookings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            trip_id INTEGER,
+            trip_id TEXT,
             passenger_id INTEGER,
             status TEXT DEFAULT 'active',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -100,10 +100,13 @@ def init_db():
     ''')
 
     # 7. Інші таблиці
+    cursor.execute('CREATE TABLE IF NOT EXISTS chat_history (id INTEGER PRIMARY KEY AUTOINCREMENT, sender_id INTEGER, receiver_id INTEGER, message TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, is_read INTEGER DEFAULT 0)')
+    cursor.execute('CREATE TABLE IF NOT EXISTS active_chats (user_id INTEGER PRIMARY KEY, partner_id INTEGER)')
+    cursor.execute('CREATE TABLE IF NOT EXISTS interface_cleanup (user_id INTEGER, message_id INTEGER)')
     cursor.execute('CREATE TABLE IF NOT EXISTS cities (name TEXT PRIMARY KEY, search_count INTEGER DEFAULT 1)')
     cursor.execute('CREATE TABLE IF NOT EXISTS search_history (user_id INTEGER, origin TEXT, destination TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)')
     cursor.execute('CREATE TABLE IF NOT EXISTS subscriptions (user_id INTEGER, origin TEXT, destination TEXT, date TEXT)')
-    cursor.execute('CREATE TABLE IF NOT EXISTS ratings (id INTEGER PRIMARY KEY AUTOINCREMENT, from_user_id INTEGER, to_user_id INTEGER, trip_id INTEGER, role TEXT, score INTEGER, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)')
+    cursor.execute('CREATE TABLE IF NOT EXISTS ratings (id INTEGER PRIMARY KEY AUTOINCREMENT, from_user_id INTEGER, to_user_id INTEGER, trip_id TEXT, role TEXT, score INTEGER, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)')
 
     conn.commit()
     conn.close()
@@ -377,12 +380,14 @@ def log_event(user_id, event, details):
 # 🚗 ПОЇЗДКИ (ДІЇ)
 # ==========================================
 
-# 🔥 Перейменовано для сумісності з handler
-def save_trip(user_id, origin, destination, date, time, price, seats, description=""):
+
+def save_trip(trip_id, user_id, origin, destination, date, time, seats, price, description=""):
     conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO trips (user_id, origin, destination, date, time, seats_total, price, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (user_id, origin, destination, date, time, seats, price, description))
-    trip_id = cursor.lastrowid
+    
+    conn.execute(
+        "INSERT INTO trips (id, user_id, origin, destination, date, time, seats_total, price, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", 
+        (trip_id, user_id, origin, destination, date, time, seats, price, description)
+    )
     conn.commit()
     conn.close()
     return trip_id
@@ -512,24 +517,45 @@ def get_user_active_bookings_count(user_id):
 
 def add_booking(trip_id, passenger_id):
     conn = get_connection()
-    exist = conn.execute("SELECT id FROM bookings WHERE trip_id = ? AND passenger_id = ?", (trip_id, passenger_id)).fetchone()
-    if exist: 
-        conn.close()
-        return False, "Вже заброньовано."
     
-    trip = conn.execute("SELECT seats_taken, seats_total, user_id FROM trips WHERE id = ?", (trip_id,)).fetchone()
-    if not trip or trip['seats_taken'] >= trip['seats_total']: 
-        conn.close()
-        return False, "Місць немає."
-    if trip['user_id'] == passenger_id: 
-        conn.close()
-        return False, "Не можна у себе."
     
-    conn.execute("INSERT INTO bookings (trip_id, passenger_id) VALUES (?, ?)", (trip_id, passenger_id))
-    conn.execute("UPDATE trips SET seats_taken = seats_taken + 1 WHERE id = ?", (trip_id,))
-    conn.commit()
-    conn.close()
-    return True, "Success"
+    trip = conn.execute("SELECT user_id FROM trips WHERE id = ?", (trip_id,)).fetchone()
+    if not trip:
+        conn.close()
+        return False, "Поїздку не знайдено."
+    
+    if trip['user_id'] == passenger_id:
+        conn.close()
+        return False, "Не можна бронювати у себе."
+
+  
+    exist = conn.execute("SELECT id FROM bookings WHERE trip_id = ? AND passenger_id = ? AND status='active'", (trip_id, passenger_id)).fetchone()
+    if exist:
+        conn.close()
+        return False, "Ви вже забронювали місце."
+
+    try:
+        
+        cursor = conn.execute("""
+            UPDATE trips 
+            SET seats_taken = seats_taken + 1 
+            WHERE id = ? AND seats_taken < seats_total
+        """, (trip_id,))
+        
+        if cursor.rowcount == 0:
+           
+            conn.close()
+            return False, "На жаль, місця щойно закінчились."
+            
+        
+        conn.execute("INSERT INTO bookings (trip_id, passenger_id) VALUES (?, ?)", (trip_id, passenger_id))
+        conn.commit()
+        conn.close()
+        return True, "Success"
+        
+    except sqlite3.Error as e:
+        conn.close()
+        return False, f"Помилка бази: {e}"
 
 def get_user_bookings(user_id):
     conn = get_connection()
