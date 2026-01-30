@@ -356,7 +356,7 @@ async def show_bookings(call: types.CallbackQuery, state: FSMContext):
         msg_ids.append(h.message_id)
         
         for b in bookings:
-            d_name = b.get('driver_name', 'Водій')
+            d_name = b.get('driver_name') or 'Водій'
             d_phone = b.get('driver_phone', '-')
             
             if d_phone != '-':
@@ -419,7 +419,10 @@ async def cancel_booking_handler(call: types.CallbackQuery, state: FSMContext):
     info = delete_booking(int(call.data.split("_")[2]), call.from_user.id)
     if info:
         await call.answer("Скасовано.")
-        with suppress(Exception): await call.bot.send_message(info['driver_id'], f"❌ Пасажир {info['passenger_name']} скасував бронь.")
+        with suppress(Exception): 
+            msg = await call.bot.send_message(info['driver_id'], f"❌ Пасажир {info['passenger_name'] or 'Пасажир'} скасував бронь.")
+            save_chat_msg(info['driver_id'], msg.message_id)
+            
         await show_bookings(call, state)
 
 @router.callback_query(F.data.startswith("sub_"))
