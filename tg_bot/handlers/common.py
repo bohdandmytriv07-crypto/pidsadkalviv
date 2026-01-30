@@ -60,15 +60,25 @@ async def cmd_start(message: types.Message, state: FSMContext, bot: Bot):
             await state.update_data(pending_trip_id=target_trip_id)
 
         terms_text = (
-            f"👋 <b>Вітаємо в боті «Підсадка Львів»!</b> 🚗\n\n"
-            f"Тут водії знаходять попутників, щоб економити на пальному, "
-            f"а пасажири — комфортно подорожують містом та областю.\n\n"
-            f"⚠️ Перед початком користування, будь ласка, ознайомтесь з "
-            f"<a href='https://t.me/pidsadkalvivinfo'>правилами спільноти</a>.\n\n"
-            f"Готові їхати? Тисніть кнопку нижче! 👇"
+            f"👋 <b>Вітаємо у спільноті «Підсадка Львів»!</b> 🇺🇦\n\n"
+            f"Це простір, де ми допомагаємо один одному:\n"
+            f"🚘 <b>Водії</b> — економлять на пальному та знаходять компанію.\n"
+            f"🎒 <b>Пасажири</b> — подорожують швидко та з комфортом.\n\n"
+            f"☝️ <b>Важливо:</b> Ми не служба таксі, ми — спільнота. Тут усе будується на взаємоповазі та довірі.\n\n"
+            f"Щоб уникнути непорозумінь, будь ласка, перегляньте наші домовленості перед початком:"
         )
-        kb_terms = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🚀 Поїхали!", callback_data="terms_ok")]])
-        msg = await message.answer(terms_text, reply_markup=kb_terms, parse_mode="HTML")
+        
+        
+        LINK_RULES = "https://t.me/pidsadkalvivinfo" 
+        LINK_PRIVACY = "https://telegra.ph/Ugoda-koristuvacha-ta-Pol%D1%96tika-konf%D1%96denc%D1%96jnost%D1%96-serv%D1%96su-P%D1%96dsadka-Lv%D1%96v-01-30" # Посилання на статтю в Telegra.ph
+        
+        kb_welcome = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📜 Правила спільноти", url=LINK_RULES)],
+            [InlineKeyboardButton(text="🔒 Умови конфіденційності", url=LINK_PRIVACY)],
+            [InlineKeyboardButton(text="🚀 Поїхали! (Приймаю умови)", callback_data="terms_ok")]
+        ])
+        
+        msg = await message.answer(terms_text, reply_markup=kb_welcome, parse_mode="HTML")
         await state.update_data(last_msg_id=msg.message_id)
 
 @router.callback_query(F.data == "terms_ok")
