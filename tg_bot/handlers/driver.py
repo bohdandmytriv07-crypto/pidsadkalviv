@@ -147,67 +147,64 @@ async def process_date(call: types.CallbackQuery, state: FSMContext):
 async def process_time(message: types.Message, state: FSMContext, bot: Bot):
     await clean_user_input(message)
     
-
-    raw_time = message.text.replace(".", ":").replace(",", ":").replace(" ", ":").replace("-", ":")
+    # 1. Замінюємо будь-які роздільники на двокрапку
+    raw_text = message.text.strip().replace(".", ":").replace(",", ":").replace(" ", ":").replace("-", ":")
     
-  
-    if len(raw_time) <= 2 and raw_time.isdigit():
-        raw_time = f"{raw_time.zfill(2)}:00"
+    # 2. Логіка виправлення формату (наприклад 9:5 -> 09:05)
+    parts = raw_text.split(":")
     
- 
-    if not re.match(r"^([01]\d|2[0-3]):([0-5]\d)$", raw_time):
-        await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Не зрозумів час.</b>\nНапишіть просто: <code>18 30</code> або <code>09:00</code>", kb_back())
+    formatted_time = None
+    
+    # Якщо ввели просто годину (наприклад "18" або "9")
+    if len(parts) == 1 and parts[0].isdigit():
+        formatted_time = f"{parts[0].zfill(2)}:00"
+        
+    # Якщо ввели години і хвилини (наприклад "9:30", "18:5")
+    elif len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+        formatted_time = f"{parts[0].zfill(2)}:{parts[1].zfill(2)}"
+    
+    # 3. Фінальна перевірка, чи це реальний час (00:00 - 23:59)
+    if not formatted_time or not re.match(r"^([01]\d|2[0-3]):([0-5]\d)$", formatted_time):
+        await update_or_send_msg(bot, message.chat.id, state, 
+            "⚠️ <b>Не зрозумів час.</b>\nВведіть, наприклад: <code>18 30</code>, <code>9:00</code> або просто <code>19</code>", 
+            kb_back()
+        )
         return
 
-    message.text = raw_time 
+    # Зберігаємо красивий час (наприклад "09:05")
+    message.text = formatted_time 
     
+    # ... ДАЛІ ЙДЕ СТАРИЙ КОД (копіюй без змін) ...
     data = await state.get_data()
-    date_str = data.get('date') # Наприклад "30.01"
-    time_str = message.text     # Наприклад "14:00"
+    date_str = data.get('date')
     
     try:
-        # 1. Створюємо об'єкт часу для НОВОЇ поїздки
         kyiv_tz = pytz.timezone('Europe/Kyiv')
         now_kyiv = datetime.now(kyiv_tz)
         
-        trip_dt_naive = datetime.strptime(f"{date_str}.{now_kyiv.year} {time_str}", "%d.%m.%Y %H:%M")
+        trip_dt_naive = datetime.strptime(f"{date_str}.{now_kyiv.year} {formatted_time}", "%d.%m.%Y %H:%M")
         trip_dt = kyiv_tz.localize(trip_dt_naive)
         
-        # Корекція року (якщо це поїздка на наступний рік)
         if (now_kyiv - trip_dt).days > 30:
              trip_dt = trip_dt.replace(year=now_kyiv.year + 1)
         
-        # Перевірка: чи не минув час
         if trip_dt < now_kyiv:
-             await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Цей час вже минув!</b>\nВведіть коректний час виїзду:", kb_back())
+             await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Цей час вже минув!</b>", kb_back())
              return
 
-        # 🔥 2. ПЕРЕВІРКА НА ДУБЛІКАТИ (Нова логіка)
+        # Перевірка на дублікати (якщо водій створює таку ж поїздку)
         active_trips = get_active_driver_trips(message.from_user.id)
-        
         for row in active_trips:
             if row['date'] == date_str:
-                
                 existing_dt_naive = datetime.strptime(f"{row['date']}.{now_kyiv.year} {row['time']}", "%d.%m.%Y %H:%M")
                 existing_dt = kyiv_tz.localize(existing_dt_naive)
-                
-                
-                diff_seconds = abs((trip_dt - existing_dt).total_seconds())
-                
-                
-                if diff_seconds < 3600:
-                    await update_or_send_msg(bot, message.chat.id, state, 
-                        f"⚠️ <b>Неможливо створити поїздку!</b>\n\n"
-                        f"У вас вже є активна поїздка на <b>{row['time']}</b>.\n"
-                        f"Мінімальний інтервал між рейсами — 1 години.", 
-                        kb_back()
-                    )
+                if abs((trip_dt - existing_dt).total_seconds()) < 3600: # Інтервал 1 година
+                    await update_or_send_msg(bot, message.chat.id, state, f"⚠️ <b>У вас вже є поїздка на {row['time']}!</b>", kb_back())
                     return
 
-    except ValueError:
-        pass 
+    except ValueError: pass 
 
-    await state.update_data(time=message.text)
+    await state.update_data(time=formatted_time)
     
     if data.get('saved_price'):
         await finalize_trip_creation(message, state, bot, price_override=data.get('saved_price'))
