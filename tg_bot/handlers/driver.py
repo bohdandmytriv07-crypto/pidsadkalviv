@@ -8,14 +8,14 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.exceptions import TelegramBadRequest
 import pytz
+
 # Імпорти з бази даних
 from database import (
     get_user, save_user, create_trip, get_driver_active_trips, 
     get_trip_passengers, cancel_trip_full, kick_passenger, 
     get_last_driver_trip, get_subscribers_for_trip,
     add_or_update_city, finish_trip, log_event,
-    get_driver_history, get_active_driver_trips, 
-    save_chat_msg
+    get_driver_history, get_active_driver_trips
 )
 from handlers.rating import ask_for_ratings 
 from states import TripStates
@@ -29,14 +29,17 @@ from utils import (
 )
 
 router = Router()
+
+# Кнопка підтвердження прочитання (Універсальна)
 kb_ok = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="✅ Зрозуміло", callback_data="hide_msg")]])
+
 # ==========================================
 # 🚗 СТВОРЕННЯ ПОЇЗДКИ
 # ==========================================
 
 @router.callback_query(F.data == "drv_create")
 async def start_create_trip_handler(call: types.CallbackQuery, state: FSMContext, bot: Bot):
-    # 🔥 ЧИСТКА: Якщо у водія був відкритий список поїздок - видаляємо його
+    # Очищаємо попередні повідомлення списку поїздок
     await delete_messages_list(state, bot, call.message.chat.id, "trip_msg_ids")
     
     await state.update_data(last_msg_id=call.message.message_id, role="driver")
@@ -141,7 +144,7 @@ async def process_date(call: types.CallbackQuery, state: FSMContext):
     date_val = call.data.split("_")[1]
     await state.update_data(date=date_val)
     await state.set_state(TripStates.time)
-    await update_or_send_msg(call.bot, call.message.chat.id, state, f"📅 Дата: <b>{date_val}</b>\n\n🕒 <b>Введіть час виїзду:</b>\nФормат ГГ:ХХ (напр. 18:30)", kb_back())
+    await update_or_send_msg(call.bot, call.message.chat.id, state, f"📅 Дата: <b>{date_val}</b>\n\n🕒 <b>Введіть час виїзду:</b>\nМожна так: <code>18 30</code> або <code>9:00</code>", kb_back())
 
 
 @router.message(TripStates.time)
@@ -165,10 +168,8 @@ async def process_time(message: types.Message, state: FSMContext, bot: Bot):
         )
         return
 
-    # ❌ ВИДАЛИ ЦЕЙ РЯДОК (Він викликає помилку):
-    # message.text = formatted_time 
+    # 🔥 FIX: Прибрано помилковий рядок message.text = formatted_time
     
-    # Далі код використовує змінну formatted_time, тому все буде працювати:
     data = await state.get_data()
     date_str = data.get('date')
     
@@ -176,7 +177,7 @@ async def process_time(message: types.Message, state: FSMContext, bot: Bot):
         kyiv_tz = pytz.timezone('Europe/Kyiv')
         now_kyiv = datetime.now(kyiv_tz)
         
-        # Тут ми використовуємо formatted_time, все ок
+        # Використовуємо formatted_time
         trip_dt_naive = datetime.strptime(f"{date_str}.{now_kyiv.year} {formatted_time}", "%d.%m.%Y %H:%M")
         trip_dt = kyiv_tz.localize(trip_dt_naive)
         
@@ -198,7 +199,7 @@ async def process_time(message: types.Message, state: FSMContext, bot: Bot):
 
     except ValueError: pass 
 
-    # Тут теж використовуємо formatted_time
+    # Зберігаємо правильний час
     await state.update_data(time=formatted_time)
     
     if data.get('saved_price'):
@@ -207,6 +208,8 @@ async def process_time(message: types.Message, state: FSMContext, bot: Bot):
 
     await state.set_state(TripStates.seats)
     await update_or_send_msg(bot, message.chat.id, state, "💺 <b>Скільки вільних місць?</b>\nВведіть цифру (1-8):", kb_back())
+
+
 @router.message(TripStates.seats)
 async def process_seats(message: types.Message, state: FSMContext, bot: Bot):
     await clean_user_input(message)
@@ -228,23 +231,19 @@ async def process_price(message: types.Message, state: FSMContext, bot: Bot):
         if price > 5000:
             await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Занадто висока ціна!</b>\nВкажіть реальну суму до 5000 грн.", kb_back())
             return
-            
     except ValueError:
         await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Ціна має бути числом > 0!</b>", kb_back())
         return
 
     await state.update_data(price=price)
-    
     await state.set_state(TripStates.description)
     kb_skip = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="➡️ Пропустити", callback_data="skip_desc")],
         [InlineKeyboardButton(text="🔙 Назад", callback_data="menu_home")]
     ])
-    
     await update_or_send_msg(
         bot, message.chat.id, state, 
-        "💬 <b>Додайте коментар (необов'язково):</b>\n\n"
-        "Напишіть деталі (напр. <i>'Беру передачі', 'Їду через центр'</i>) або натисніть кнопку:", 
+        "💬 <b>Додайте коментар (необов'язково):</b>\nНапишіть деталі (напр. <i>'Беру передачі', 'Їду через центр'</i>) або натисніть кнопку:", 
         kb_skip
     )
 
@@ -258,13 +257,12 @@ async def process_description(message: types.Message, state: FSMContext, bot: Bo
     await clean_user_input(message)
     text = message.text.strip()
     
-  
     if len(text) > 200:
         await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Занадто довгий текст!</b> Скоротіть до 200 символів.", kb_back())
         return
         
     if "<" in text or ">" in text:
-        await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Приберіть символи < та >.</b>\nВони заборонені.", kb_back())
+        await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Приберіть символи < та >.</b>", kb_back())
         return
 
     await finalize_trip_creation(message, state, bot, desc_text=text)
@@ -286,17 +284,12 @@ async def finalize_trip_creation(message: types.Message, state: FSMContext, bot:
     
     log_event(message.chat.id, "trip_created", f"{data['origin']}->{data['destination']}")
     
-    # 🔥 FIX: Правильне кодування посилання
     bot_info = await bot.get_me()
-    bot_username = bot_info.username
-    deep_link = f"https://t.me/{bot_username}?start=book_{trip_id}"
-    
-    share_text_raw = f"🚗 Їду {data['origin']} -> {data['destination']} ({data['date']} {data['time']}). Бронюй тут:"
-    share_text_encoded = quote(share_text_raw)
+    deep_link = f"https://t.me/{bot_info.username}?start=book_{trip_id}"
+    share_text_encoded = quote(f"🚗 Їду {data['origin']} -> {data['destination']} ({data['date']} {data['time']}). Бронюй тут:")
     share_url = f"https://t.me/share/url?url={deep_link}&text={share_text_encoded}"
     
     desc_view = f"\n💬 <i>{description}</i>" if description else ""
-    
     text = (
         f"✅ <b>Поїздку створено!</b>\n\n"
         f"🚗 {data['origin']} ➝ {data['destination']}\n"
@@ -315,17 +308,13 @@ async def finalize_trip_creation(message: types.Message, state: FSMContext, bot:
 
 async def _notify_subscribers(bot, driver_id, trip_id, trip_data, price, description=""):
     subscribers = get_subscribers_for_trip(trip_data['origin'], trip_data['destination'], trip_data['date'])
-    
     desc_line = f"\n💬 <i>{description}</i>" if description else ""
-    
     text = (
         f"🔔 <b>Знайдено поїздку!</b>\n"
         f"🚗 {trip_data['origin']} ➝ {trip_data['destination']}\n"
         f"⏰ {trip_data['time']} | 💰 {price} грн{desc_line}"
     )
-    
     kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="✅ Бронювати", callback_data=f"book_{trip_id}")]])
-    
     for sub_id in subscribers:
         if sub_id != driver_id:
             with suppress(Exception): await bot.send_message(sub_id, text, reply_markup=kb, parse_mode="HTML")
@@ -355,38 +344,33 @@ async def show_driver_trips(call: types.CallbackQuery, state: FSMContext):
 
     header = await call.message.answer("🗂 <b>Активні поїздки:</b>", parse_mode="HTML")
     new_msg_ids.append(header.message_id)
-    
     bot_info = await call.bot.get_me()
 
     for trip in trips:
         free = trip['seats_total'] - trip['seats_taken']
         text = f"🚗 <b>{trip['origin']} ➝ {trip['destination']}</b>\n📅 {trip['date']} | ⏰ {trip['time']}\n💰 {trip['price']} грн | Вільно: {free}"
-        
         kb_rows = []
         passengers = get_trip_passengers(trip['id'])
         
         if passengers:
             text += "\n\n👥 <b>Пасажири:</b>"
             for p in passengers:
-                passenger_link = f"<a href='tg://user?id={p['user_id']}'>{p['name']}</a>"
-                phone_link = f"<a href='tel:{p['phone']}'>{p['phone']}</a>"
-                
-                text += f"\n👤 {passenger_link} ({phone_link})"
-                
+                p_link = f"<a href='tg://user?id={p['user_id']}'>{p['name']}</a>"
+                ph_link = f"<a href='tel:{p['phone']}'>{p['phone']}</a>"
+                text += f"\n👤 {p_link} ({ph_link})"
+                # 🔥 КНОПКА ВИСАДКИ (Запитує підтвердження)
                 kb_rows.append([
-                    InlineKeyboardButton(text=f"💬 Чат з {p['name']}", callback_data=f"chat_start_{p['user_id']}"),
+                    InlineKeyboardButton(text=f"💬 Чат: {p['name']}", callback_data=f"chat_start_{p['user_id']}"),
                     InlineKeyboardButton(text="🚫 Висадити", callback_data=f"kick_ask_{p['booking_id']}")
                 ])
         
-        # 🔥 FIX: Правильне кодування посилання в списку
-        deep_link = f"https://t.me/{bot_info.username}?start=book_{trip['id']}"
-        share_text_raw = f"🚗 Їду {trip['origin']} -> {trip['destination']} ({trip['date']} о {trip['time']}). Бронюй місце тут:"
-        share_text_encoded = quote(share_text_raw)
-        share_url = f"https://t.me/share/url?url={deep_link}&text={share_text_encoded}"
-
+        share_url = f"https://t.me/share/url?url={f'https://t.me/{bot_info.username}?start=book_{trip['id']}'}&text={quote(f'🚗 Їду {trip['origin']}->{trip['destination']}')}"
+        
         kb_rows.append([InlineKeyboardButton(text="📢 Поділитися поїздкою", url=share_url)])
-        InlineKeyboardButton(text="🏁 Завершити", callback_data=f"drv_ask_finish_{trip['id']}")
-        InlineKeyboardButton(text="❌ Скасувати", callback_data=f"drv_ask_cancel_{trip['id']}")
+        # 🔥 КНОПКИ ДІЙ (Запитують підтвердження)
+        kb_rows.append([InlineKeyboardButton(text="🏁 Завершити", callback_data=f"drv_ask_finish_{trip['id']}")])
+        kb_rows.append([InlineKeyboardButton(text="❌ Скасувати", callback_data=f"drv_ask_cancel_{trip['id']}")])
+        
         card = await call.message.answer(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=kb_rows), parse_mode="HTML")
         new_msg_ids.append(card.message_id)
 
@@ -396,7 +380,6 @@ async def show_driver_trips(call: types.CallbackQuery, state: FSMContext):
     ])
     footer = await call.message.answer("🔽 Управління:", reply_markup=kb_back_btn)
     new_msg_ids.append(footer.message_id)
-    
     await state.update_data(trip_msg_ids=new_msg_ids)
 
 
@@ -415,7 +398,6 @@ async def show_driver_history(call: types.CallbackQuery, state: FSMContext):
     else:
         h = await call.message.answer("📜 <b>Ваші останні поїздки:</b>", parse_mode="HTML")
         msg_ids.append(h.message_id)
-        
         for t in history:
             status_icon = "✅" if t['status'] == 'finished' else "❌"
             txt = (
@@ -425,11 +407,10 @@ async def show_driver_history(call: types.CallbackQuery, state: FSMContext):
             )
             m = await call.message.answer(txt, parse_mode="HTML")
             msg_ids.append(m.message_id)
-            
         f = await call.message.answer("🔽 Меню:", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Активні поїздки", callback_data="drv_my_trips")]]))
         msg_ids.append(f.message_id)
-        
     await state.update_data(trip_msg_ids=msg_ids)
+
 # ==========================================
 # 🔥 ЛОГІКА ПІДТВЕРДЖЕНЬ (CONFIRMATION)
 # ==========================================
@@ -468,7 +449,7 @@ async def confirm_cancel_trip(call: types.CallbackQuery, state: FSMContext):
     trip_info, passengers = cancel_trip_full(call.data.split("_")[3], call.from_user.id)
     await call.answer("Поїздку скасовано.")
     for pid in passengers:
-        # 🔥 Сповіщення з кнопкою "Зрозуміло"
+        # 🔥 FIX: Повідомлення з кнопкою "Зрозуміло"
         with suppress(Exception): 
             await call.bot.send_message(pid, f"🚫 <b>УВАГА!</b>\nВодій скасував поїздку {trip_info['origin']} - {trip_info['destination']}.", parse_mode="HTML", reply_markup=kb_ok)
     await show_driver_trips(call, state)
@@ -488,9 +469,7 @@ async def confirm_kick_passenger(call: types.CallbackQuery, state: FSMContext):
     info = kick_passenger(int(call.data.split("_")[2]), call.from_user.id)
     if info:
         await call.answer("Пасажира висаджено.")
-        # 🔥 Сповіщення з кнопкою "Зрозуміло"
+        # 🔥 FIX: Повідомлення з кнопкою "Зрозуміло"
         with suppress(Exception): 
             await call.bot.send_message(info['passenger_id'], "🚫 <b>Водій скасував ваше бронювання.</b>", parse_mode="HTML", reply_markup=kb_ok)
         await show_driver_trips(call, state)
-
-
