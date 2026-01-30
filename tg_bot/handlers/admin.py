@@ -135,12 +135,12 @@ async def _render_trip_card(message: types.Message, state: FSMContext):
     trip = trips[0]
     passengers = get_trip_passengers(trip['id'])
     
-    # Формуємо список пасажирів
     pass_list = ""
     if passengers:
         pass_list = "\n👥 <b>Пасажири:</b>"
         for p in passengers:
-            pass_list += f"\n- {p['name']} (<code>{p['phone']}</code>)"
+            p_name = p['name'] or "Без імені"
+            pass_list += f"\n- {p_name} (<code>{p['phone']}</code>)"
     else:
         pass_list = "\n👥 Пасажирів немає."
 
