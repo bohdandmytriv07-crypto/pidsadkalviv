@@ -243,8 +243,10 @@ async def process_time(message: types.Message, state: FSMContext, bot: Bot):
 @router.message(TripStates.seats)
 async def process_seats(message: types.Message, state: FSMContext, bot: Bot):
     await clean_user_input(message)
-    if not message.text.isdigit() or not (1 <= int(message.text) <= 8):
-        await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Введіть цифру від 1 до 8:</b>", kb_back())
+    val = message.text.strip()
+    
+    if not val.isdigit() or not (1 <= int(val) <= 10):
+        await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Введіть цифру від 1 до 10:</b>", kb_back())
         return
 
     await state.update_data(seats=int(message.text))
