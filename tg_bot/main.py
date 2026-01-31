@@ -18,7 +18,8 @@ from aiogram.types import ChatMemberUpdated
 
 # Middleware
 from middlewares import AntiFloodMiddleware, ActivityMiddleware
-
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from database import get_bookings_to_remind, mark_booking_reminded
 from config import API_TOKEN 
 from database import (
     init_db, set_user_blocked_bot, 
@@ -120,7 +121,41 @@ async def on_user_block(event: ChatMemberUpdated):
 async def global_error_handler(event: types.ErrorEvent):
     logger.exception(f"🔥 Critical Update Error: {event.exception}")
     return True
-
+async def check_reminders_job(bot: Bot):
+    try:
+        bookings = await asyncio.to_thread(get_bookings_to_remind)
+        kyiv_tz = pytz.timezone('Europe/Kyiv')
+        now = datetime.now(kyiv_tz)
+        
+        for b in bookings:
+            try:
+                # Парсимо час поїздки
+                trip_dt_str = f"{b['date']}.{now.year} {b['time']}"
+                trip_dt = datetime.strptime(trip_dt_str, "%d.%m.%Y %H:%M")
+                trip_dt = kyiv_tz.localize(trip_dt)
+                
+                # Якщо зараз січень, а поїздка в грудні - віднімаємо рік (фікс переходу року)
+                if (trip_dt - now).days > 180:
+                    trip_dt = trip_dt.replace(year=now.year - 1)
+                
+                # Різниця в часі
+                diff = (trip_dt - now).total_seconds()
+                
+                # Якщо до поїздки від 30 хв до 90 хв (нагадуємо за годину)
+                if 1800 < diff < 5400:
+                    # Надсилаємо нагадування пасажиру
+                    text = f"⏰ <b>Нагадування!</b>\nЧерез годину ({b['time']}) поїздка: {b['origin']} ➝ {b['destination']}."
+                    await bot.send_message(b['passenger_id'], text)
+                    
+                    # Позначаємо в базі, щоб не слати двічі
+                    await asyncio.to_thread(mark_booking_reminded, b['id'])
+                    
+            except Exception as e:
+                print(f"Reminder Error for {b['id']}: {e}")
+                continue
+                
+    except Exception as e:
+        logger.error(f"Scheduler Error: {e}")
 # ==========================================
 # 🚀 MAIN FUNCTION
 # ==========================================
@@ -164,7 +199,11 @@ async def main():
     dp.include_router(chat.router)
     dp.include_router(rating.router)
 
-    # Видаляємо вебхуки і запускаємо фонові задачі
+ 
+    scheduler = AsyncIOScheduler()
+    scheduler.add_job(check_reminders_job, 'interval', minutes=2, kwargs={'bot': bot})
+    scheduler.start()
+    
     await bot.delete_webhook(drop_pending_updates=True)
     asyncio.create_task(background_tasks(bot))
 
