@@ -2,6 +2,7 @@
 import logging
 import sys
 import os
+from config import API_TOKEN, SENTRY_DSN
 import sentry_sdk
 from datetime import datetime
 import pytz
@@ -30,7 +31,6 @@ from database import (
 # Імпорти хендлерів
 from handlers import common, passenger, driver, admin, profile, chat, rating
 from handlers.rating import ask_for_ratings 
-SENTRY_DSN="https://6721cc67cfc35dbdcd147955722559c4@o4510807075782656.ingest.de.sentry.io/4510807089741904"
 # ==========================================
 # ⚙️ НАЛАШТУВАННЯ ЛОГУВАННЯ
 # ==========================================
@@ -38,13 +38,25 @@ def setup_logging():
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(formatter)
-    # Створюємо файл логів (максимум 5 МБ)
+    
+  
     file_handler = RotatingFileHandler("bot.log", maxBytes=5*1024*1024, backupCount=1, encoding="utf-8")
     file_handler.setFormatter(formatter)
+    
     logging.basicConfig(level=logging.INFO, handlers=[console_handler, file_handler])
 
-logger = logging.getLogger(__name__)
+    
+    if SENTRY_DSN:
+        sentry_sdk.init(
+            dsn=SENTRY_DSN,
+            traces_sample_rate=1.0,
+            profiles_sample_rate=1.0,
+        )
+        logging.info("✅ Sentry успішно підключено! Помилки будуть відслідковуватись.")
+    else:
+        logging.warning("⚠️ SENTRY_DSN не знайдено в .env або config.py. Логування помилок у хмару вимкнено.")
 
+logger = logging.getLogger(__name__)
 # ==========================================
 # 🕒 ФОНОВІ ЗАДАЧІ (NON-BLOCKING)
 # ==========================================
