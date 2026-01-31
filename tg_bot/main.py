@@ -2,6 +2,7 @@
 import logging
 import sys
 import os
+import sentry_sdk
 from datetime import datetime
 import pytz
 from logging.handlers import RotatingFileHandler
@@ -28,7 +29,7 @@ from database import (
 # Імпорти хендлерів
 from handlers import common, passenger, driver, admin, profile, chat, rating
 from handlers.rating import ask_for_ratings 
-
+SENTRY_DSN="https://6721cc67cfc35dbdcd147955722559c4@o4510807075782656.ingest.de.sentry.io/4510807089741904"
 # ==========================================
 # ⚙️ НАЛАШТУВАННЯ ЛОГУВАННЯ
 # ==========================================

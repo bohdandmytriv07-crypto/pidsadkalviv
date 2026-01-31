@@ -758,3 +758,21 @@ def can_user_book(user_id):
         return False, "🚫 <b>Блокування на 24 години!</b>\nВи занадто часто скасовували бронювання. Це схоже на збір номерів телефонів."
     
     return True, ""
+def get_bookings_to_remind():
+    """Шукає бронювання, до яких лишилась ~1 година і ще не було нагадування."""
+    conn = get_connection()
+     
+    rows = conn.execute("""
+        SELECT b.id, b.passenger_id, t.origin, t.destination, t.date, t.time, t.user_id as driver_id
+        FROM bookings b
+        JOIN trips t ON b.trip_id = t.id
+        WHERE b.status = 'active' AND b.reminded = 0 AND t.status = 'active'
+    """).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def mark_booking_reminded(booking_id):
+    conn = get_connection()
+    conn.execute("UPDATE bookings SET reminded = 1 WHERE id = ?", (booking_id,))
+    conn.commit()
+    conn.close()
