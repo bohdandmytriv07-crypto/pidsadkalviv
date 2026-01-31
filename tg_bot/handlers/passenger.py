@@ -6,6 +6,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.exceptions import TelegramBadRequest
 from utils import safe_html
+from database import can_user_book
+from database import log_cancellation_event
 # Імпорти утиліт
 from utils import (
     clean_user_input, update_or_send_msg, delete_messages_list,
@@ -281,25 +283,40 @@ async def prev_page(call: types.CallbackQuery, state: FSMContext):
 # 🎫 БРОНЮВАННЯ
 # ==========================================
 
+# Переконайтеся, що у вас є ці імпорти зверху файлу:
+from database import get_user, can_user_book, get_user_active_bookings_count, add_booking, get_trip_details
+
 @router.callback_query(F.data.startswith("book_"))
 async def book_trip(call: types.CallbackQuery, state: FSMContext):
     await delete_messages_list(state, call.bot, call.message.chat.id, "search_msg_ids")
     
     user_id = call.from_user.id
-    active_count = get_user_active_bookings_count(user_id)
     
+
+    allowed, reason = can_user_book(user_id)
+    if not allowed:
+        await call.answer("Блокування дій!", show_alert=True)
+        await call.message.answer(reason, parse_mode="HTML")
+        return
+
+
+    active_count = get_user_active_bookings_count(user_id)
     if active_count >= 2:
         await call.answer("⚠️ Ліміт! У вас вже є 2 активні поїздки.", show_alert=True)
         return
 
+
     user = get_user(user_id)
     
-    # Видаляємо повідомлення, на якому натиснули "Бронювати"
+ 
     with suppress(TelegramBadRequest): await call.message.delete()
 
+
     if not user or user['phone'] == "-":
+
         trip_id = call.data.split("_")[1]
         await state.update_data(pending_booking_id=trip_id)
+
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="👤 Заповнити профіль", callback_data="profile_edit")],
             [InlineKeyboardButton(text="🔙 Назад", callback_data="menu_home")]
@@ -326,7 +343,7 @@ async def book_trip(call: types.CallbackQuery, state: FSMContext):
         )
         await state.update_data(last_msg_id=msg.message_id)
         
-        # 🔥 FIX: Сповіщення водію БЕЗ помилок
+
         with suppress(Exception):
             await call.bot.send_message(
                 trip['user_id'], 
@@ -446,6 +463,7 @@ async def ask_cancel_booking(call: types.CallbackQuery):
 async def confirm_cancel_booking(call: types.CallbackQuery, state: FSMContext):
     info = delete_booking(int(call.data.split("_")[3]), call.from_user.id)
     if info:
+        log_cancellation_event(call.from_user.id) 
         await call.answer("Скасовано.")
         # 🔥 Сповіщення водію з кнопкою "Зрозуміло"
         with suppress(Exception): 
