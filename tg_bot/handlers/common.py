@@ -165,7 +165,11 @@ async def cb_support(call: types.CallbackQuery, state: FSMContext, bot: Bot):
     await call.answer()
 
 async def _start_support(chat_id, state, bot):
+    # Очищаємо попередні списки
     await delete_messages_list(state, bot, chat_id, "trip_msg_ids")
+    
+    # Створюємо пустий список для повідомлень юзера в сапорті
+    await state.update_data(support_user_msgs=[]) 
     
     kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Скасувати", callback_data="back_start")]])
     await state.set_state(SupportStates.waiting_for_message)
@@ -174,14 +178,25 @@ async def _start_support(chat_id, state, bot):
         "🆘 <b>Підтримка</b>\n\n"
         "Опишіть проблему або надішліть фото/відео.\n"
         "📸 <b>Можна надсилати багато фото одразу!</b>\n"
-        "Вони будуть зникати тут, але з'являться у адміністратора."
+        "Натисніть кнопку внизу, коли закінчите."
     )
     await update_or_send_msg(bot, chat_id, state, text, kb)
 
 @router.callback_query(F.data == "support_finish")
 async def support_finish(call: types.CallbackQuery, state: FSMContext, bot: Bot):
     await call.answer("Запит надіслано!", show_alert=True)
-    # 🔥 Повертаємо на вибір ролі
+    
+    # 🔥 FIX 2: Видаляємо всі повідомлення, які юзер надіслав у тікет
+    chat_id = call.message.chat.id
+    data = await state.get_data()
+    user_msgs = data.get("support_user_msgs", [])
+    
+    for mid in user_msgs:
+        with suppress(Exception):
+            await bot.delete_message(chat_id, mid)
+            await asyncio.sleep(0.05) # Невеличка затримка для стабільності
+            
+    # Повертаємо на вибір ролі
     await back_to_start_handler(call, state)
 
 @router.message(SupportStates.waiting_for_message)
@@ -189,14 +204,11 @@ async def process_support(message: types.Message, state: FSMContext, bot: Bot):
     user = message.from_user
     text = message.text or message.caption or ""
 
-    # Ліміт тексту
-    if len(text) > 1000:
-        w = await message.answer("⚠️ Текст занадто довгий (макс 1000).")
-        await asyncio.sleep(5)
-        with suppress(Exception): await w.delete()
-        # Видаляємо довге повідомлення юзера
-        with suppress(Exception): await message.delete()
-        return
+    # Додаємо ID повідомлення в список для видалення в кінці
+    data = await state.get_data()
+    current_list = data.get("support_user_msgs", [])
+    current_list.append(message.message_id)
+    await state.update_data(support_user_msgs=current_list)
 
     # Заголовок
     header = f"🆘 <b>Тікет від:</b> {user.full_name} (ID: <code>{user.id}</code>)\n"
@@ -204,33 +216,31 @@ async def process_support(message: types.Message, state: FSMContext, bot: Bot):
     else: header += "\n"
 
     try:
-        # 1. Спочатку пересилаємо адміну
-        if message.photo:
-            await bot.send_photo(SUPPORT_CHANNEL_ID, message.photo[-1].file_id, caption=header + text, parse_mode="HTML")
-        elif message.video:
-            await bot.send_video(SUPPORT_CHANNEL_ID, message.video.file_id, caption=header + text, parse_mode="HTML")
-        elif message.text:
-            await bot.send_message(SUPPORT_CHANNEL_ID, header + text, parse_mode="HTML")
+        # Пересилаємо адміну
+        # Використовуємо copy_to, щоб зберегти тип контенту (фото/відео/текст)
+        await message.copy_to(SUPPORT_CHANNEL_ID, caption=header + text, parse_mode="HTML")
         
-        # 2. 🔥 ОДРАЗУ видаляємо повідомлення користувача з чату
-        # Це вирішує проблему з альбомами, бо кожне повідомлення альбому видалиться окремо
-        with suppress(Exception):
-            await message.delete()
-
-        # 3. Оновлюємо інтерфейс бота (щоб кнопка була знизу)
-        await delete_prev_msg(state, bot, message.chat.id)
+        # 🔥 Оновлюємо інтерфейс (кнопку "Завершити")
+        # Робимо це хитро: не видаляємо і шлемо нове, а пробуємо редагувати старе повідомлення бота,
+        # щоб воно завжди було знизу.
         
+        last_bot_msg_id = data.get("last_msg_id")
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="✅ Надіслати все і вийти", callback_data="support_finish")]
         ])
         
-        msg = await message.answer(
-            "✅ <b>Отримано!</b>\nНадсилайте ще або завершіть:", 
-            reply_markup=kb, 
-            parse_mode="HTML"
-        )
-        await state.update_data(last_msg_id=msg.message_id)
-    
+        # Якщо це перше повідомлення - оновлюємо текст бота, щоб юзер бачив, що процес йде
+        if len(current_list) == 1:
+             msg = await bot.send_message(
+                message.chat.id,
+                "✅ <b>Отримано!</b>\nНадсилайте ще або завершіть:", 
+                reply_markup=kb, 
+                parse_mode="HTML"
+            )
+           
+             await delete_prev_msg(state, bot, message.chat.id)
+             await state.update_data(last_msg_id=msg.message_id)
+             
     except Exception as e:
         print(f"Support Error: {e}")
 
