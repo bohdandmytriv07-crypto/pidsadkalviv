@@ -41,6 +41,7 @@ async def show_profile(call: types.CallbackQuery, state: FSMContext):
             kb = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="✏️ Змінити ім'я/телефон", callback_data="edit_personal")],
                 [InlineKeyboardButton(text="🚘 Змінити авто", callback_data="edit_car")],
+                [InlineKeyboardButton(text="🤝 Запросити друга", url=f"https://t.me/share/url?url={ref_link}&text=Привіт! Я їжджу з Підсадка Львів. Приєднуйся!")],
                 [InlineKeyboardButton(text="🔙 В меню", callback_data="menu_home")]
             ])
             
