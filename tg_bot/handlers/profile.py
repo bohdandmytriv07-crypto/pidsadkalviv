@@ -93,23 +93,19 @@ async def start_edit_personal(call: types.CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == "edit_car")
 async def start_edit_car(call: types.CallbackQuery, state: FSMContext):
-    """Тільки авто"""
-    # 🔥 ВИПРАВЛЕННЯ 3: Завантажуємо всі дані, включаючи ім'я
     user = get_user(call.from_user.id)
     if user:
+        # 🔥 ВИПРАВЛЕНО ТУТ: Прибрали body=user['body'], бо такої колонки немає
         await state.update_data(
             name=user['name'], 
             phone=user['phone'],
             model=user['model'],
-            body=user['body'],
-            color=user['color'],
-            number=user['number']
+            number=user['number'],
+            color=user['color']
         )
-        
     await state.update_data(edit_mode="car")
     await state.set_state(ProfileStates.model)
     await update_or_send_msg(call.bot, call.message.chat.id, state, "🚘 <b>Введіть нову марку та модель:</b>", kb_back())
-
 # ==========================================
 # 👤 ОСОБИСТІ ДАНІ
 # ==========================================
