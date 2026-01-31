@@ -747,13 +747,20 @@ def mark_trip_finished(trip_id):
 
 def perform_db_cleanup():
     conn = get_connection()
-    conn.execute("DELETE FROM chat_history WHERE timestamp < datetime('now', '-7 days')")
-    conn.execute("DELETE FROM trips WHERE status IN ('finished', 'cancelled') AND date < date('now', '-60 days')")
-    conn.execute("DELETE FROM search_history WHERE timestamp < datetime('now', '-2 days')")
-    conn.execute("DELETE FROM bookings WHERE trip_id NOT IN (SELECT id FROM trips)")
-    conn.commit()
-    conn.close()
+    try:
+        # Видалення старих даних
+        conn.execute("DELETE FROM chat_history WHERE timestamp < datetime('now', '-7 days')")
+        conn.execute("DELETE FROM trips WHERE status IN ('finished', 'cancelled') AND date < date('now', '-60 days')")
+        conn.execute("DELETE FROM search_history WHERE timestamp < datetime('now', '-2 days')")
+        conn.execute("DELETE FROM bookings WHERE trip_id NOT IN (SELECT id FROM trips)")
+   
+        conn.execute("PRAGMA wal_checkpoint(TRUNCATE);")
 
+        conn.commit()
+    except Exception as e:
+        print(f"Cleanup Error: {e}")
+    finally:
+        conn.close()
 def ban_user_by_id(user_id, reason="Admin Ban"):
     conn = get_connection()
     conn.execute("UPDATE users SET is_banned = 1 WHERE user_id = ?", (user_id,))

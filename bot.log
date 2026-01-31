@@ -1791,3 +1791,5 @@ KeyError: 'body'
 2026-02-01 00:16:49,684 - apscheduler.executors.default - INFO - Job "check_reminders_job (trigger: interval[0:02:00], next run at: 2026-02-01 00:18:49 EET)" executed successfully
 2026-02-01 00:18:49,682 - apscheduler.executors.default - INFO - Running job "check_reminders_job (trigger: interval[0:02:00], next run at: 2026-02-01 00:20:49 EET)" (scheduled at 2026-02-01 00:18:49.681256+02:00)
 2026-02-01 00:18:49,685 - apscheduler.executors.default - INFO - Job "check_reminders_job (trigger: interval[0:02:00], next run at: 2026-02-01 00:20:49 EET)" executed successfully
+2026-02-01 00:20:49,681 - apscheduler.executors.default - INFO - Running job "check_reminders_job (trigger: interval[0:02:00], next run at: 2026-02-01 00:22:49 EET)" (scheduled at 2026-02-01 00:20:49.681256+02:00)
+2026-02-01 00:20:49,684 - apscheduler.executors.default - INFO - Job "check_reminders_job (trigger: interval[0:02:00], next run at: 2026-02-01 00:22:49 EET)" executed successfully
