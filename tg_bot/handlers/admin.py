@@ -324,49 +324,55 @@ async def start_broadcast(call: types.CallbackQuery, state: FSMContext):
     m = await call.message.edit_text("✍️ Текст/фото для розсилки:", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙", callback_data="admin_back_home")]]))
     await state.set_state(AdminStates.broadcast)
 
+# 📂 admin.py
+
 @router.message(AdminStates.broadcast)
 async def do_broadcast(message: types.Message, state: FSMContext, bot: Bot):
     if message.from_user.id not in ADMIN_IDS: return
     
-    # 1. Отримуємо список користувачів
-    with get_connection() as conn:
-        users = conn.execute("SELECT user_id FROM users WHERE is_blocked_bot=0 AND is_banned=0").fetchall()
-    
-    await message.answer(f"🚀 Починаю розсилку на {len(users)} користувачів...")
+    await message.answer(f"🚀 Починаю розсилку...")
 
     async def worker():
         good = 0
         bad = 0
-        blocked_ids = [] # Сюди збираємо ID тих, хто заблокував бота
-
-        for u in users:
-            try: 
-                # copy_to - найкращий метод, бо зберігає фото/відео/форматування
-                await message.copy_to(u['user_id'])
-                good += 1           
-                await asyncio.sleep(0.05) 
-            except TelegramForbiddenError:
-               
-                blocked_ids.append(u['user_id'])
-                bad += 1
-            except Exception as e: 
-                
-                bad += 1
         
-       
-        if blocked_ids:
-            with get_connection() as conn:
-                
-                placeholders = ','.join('?' for _ in blocked_ids)
-                query = f"UPDATE users SET is_blocked_bot=1 WHERE user_id IN ({placeholders})"
-                conn.execute(query, blocked_ids)
+        # 🔥 ОПТИМІЗАЦІЯ: Відкриваємо з'єднання один раз
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        # Вибираємо тільки тих, хто не блокував бота
+        cursor.execute("SELECT user_id FROM users WHERE is_blocked_bot=0 AND is_banned=0")
+        
+        while True:
+            # Читаємо по 100 юзерів за раз
+            batch = cursor.fetchmany(100)
+            if not batch: break # Якщо список закінчився
+            
+            blocked_ids_in_batch = []
+            
+            for row in batch:
+                user_id = row[0] # row - це кортеж (user_id,)
+                try: 
+                    await message.copy_to(user_id)
+                    good += 1           
+                    await asyncio.sleep(0.05) # Пауза, щоб не перевищити ліміти Telegram (30 msg/sec)
+                except TelegramForbiddenError:
+                    blocked_ids_in_batch.append(user_id)
+                    bad += 1
+                except Exception: 
+                    bad += 1
+            
+            # Оновлюємо статус заблокованих одразу для цієї пачки
+            if blocked_ids_in_batch:
+                placeholders = ','.join('?' for _ in blocked_ids_in_batch)
+                conn.execute(f"UPDATE users SET is_blocked_bot=1 WHERE user_id IN ({placeholders})", blocked_ids_in_batch)
                 conn.commit()
 
-        await bot.send_message(message.chat.id, f"✅ Розсилка завершена:\n👍 Успішно: {good}\n💀 Заблокували бота (помічені): {bad}")
+        conn.close()
+        await bot.send_message(message.chat.id, f"✅ Розсилка завершена:\n👍 Успішно: {good}\n💀 Заблокували бота: {bad}")
 
     asyncio.create_task(worker())
-    await message.answer("⏳ Процес пішов у фоні. Можете користуватись ботом.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🏠 Додому", callback_data="admin_back_home")]]))
-    await state.clear()
+    # ... далі без змін ...
 
 @router.callback_query(F.data == "admin_export_db")
 async def export_db(call: types.CallbackQuery):

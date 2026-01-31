@@ -1,5 +1,6 @@
 ﻿import uuid
 import re
+import html
 from datetime import datetime, timedelta  # 🔥 Додано timedelta
 from urllib.parse import quote 
 from contextlib import suppress
@@ -289,17 +290,16 @@ async def skip_description(call: types.CallbackQuery, state: FSMContext, bot: Bo
 @router.message(TripStates.description)
 async def process_description(message: types.Message, state: FSMContext, bot: Bot):
     await clean_user_input(message)
-    text = message.text.strip()
+    raw_text = message.text.strip()
     
-    if len(text) > 200:
+    if len(raw_text) > 200:
         await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Занадто довгий текст!</b> Скоротіть до 200 символів.", kb_back())
         return
         
-    if "<" in text or ">" in text:
-        await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Приберіть символи < та >.</b>", kb_back())
-        return
+    # 🔥 ВИПРАВЛЕННЯ: Дозволяємо будь-які символи, але екрануємо їх для HTML
+    safe_text = html.escape(raw_text)
 
-    await finalize_trip_creation(message, state, bot, desc_text=text)
+    await finalize_trip_creation(message, state, bot, desc_text=safe_text)
 
 
 async def finalize_trip_creation(message: types.Message, state: FSMContext, bot: Bot, price_override=None, desc_text=None):

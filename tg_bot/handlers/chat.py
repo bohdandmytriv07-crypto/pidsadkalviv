@@ -245,21 +245,33 @@ async def _relay_message(bot: Bot, sender_id: int, receiver_id: int, text=None, 
         await bot.send_message(sender_id, "❌ Користувач заблокував бота.")
         delete_active_chat(sender_id)
 
+# 📂 chat.py
+
 @router.message(F.text & (F.text != EXIT_TEXT))
 @router.message(F.photo | F.voice | F.location | F.contact) 
 async def chat_relay_handler(message: types.Message, bot: Bot):
     partner_id = get_active_chat_partner(message.from_user.id)
+    
+    # Якщо чату немає, ігноруємо
     if not partner_id: return 
    
+    # Валідація довжини
     if message.text and len(message.text) > 1000:
+        # Тут можна не видаляти, а просто попередити
         await message.answer("⚠️ <b>Повідомлення занадто довге!</b>\nМаксимум 1000 символів.")
         return
 
-    if message.text and message.text.startswith("/") and message.text != "/start":
-        await message.answer("⚠️ <b>Команди в чаті не працюють.</b>\nПросто пишіть текст.")
-        return
-
-    if message.text: 
-        await _relay_message(bot, message.from_user.id, partner_id, text=message.text, original_msg=message)
-    else: 
-        await _relay_message(bot, message.from_user.id, partner_id, text=None, original_msg=message)
+    # 🔥 ЗМІНА: Спочатку пробуємо переслати
+    try:
+        if message.text: 
+            await _relay_message(bot, message.from_user.id, partner_id, text=message.text, original_msg=message)
+        else: 
+            await _relay_message(bot, message.from_user.id, partner_id, text=None, original_msg=message)
+            
+        
+        with suppress(TelegramBadRequest):
+            await message.delete()
+            
+    except Exception as e:
+        print(f"Chat Relay Error: {e}")
+        await message.answer("❌ <b>Помилка доставки!</b> Спробуйте ще раз.")

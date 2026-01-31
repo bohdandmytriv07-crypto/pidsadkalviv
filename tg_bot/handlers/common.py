@@ -21,8 +21,48 @@ router = Router()
 # 🏁 START / MENU
 # ==========================================
 
+# 📂 common.py
+
+# Додай ці імпорти зверху, якщо їх немає
+from aiogram.exceptions import TelegramBadRequest
+from contextlib import suppress
+
+# ==========================================
+# 🏁 БЕЗПЕЧНИЙ START
+# ==========================================
+
 @router.message(CommandStart())
 async def cmd_start(message: types.Message, state: FSMContext, bot: Bot):
+    # Перевіряємо поточний стан користувача
+    current_state = await state.get_state()
+    
+    # Якщо у юзера є активний стан (він щось заповнює), питаємо підтвердження
+    if current_state: 
+        kb_reset = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="⚠️ Так, скинути все", callback_data="confirm_restart")],
+            [InlineKeyboardButton(text="🔙 Ні, я продовжую", callback_data="hide_msg")]
+        ])
+        await message.answer(
+            "⚠️ <b>Ви зараз заповнюєте дані.</b>\nЯкщо почати спочатку, весь прогрес буде втрачено.", 
+            reply_markup=kb_reset, 
+            parse_mode="HTML"
+        )
+        return
+
+    # Якщо станів немає — запускаємо звичайну логіку
+    await _execute_start(message, state, bot)
+
+@router.callback_query(F.data == "confirm_restart")
+async def confirm_restart_handler(call: types.CallbackQuery, state: FSMContext, bot: Bot):
+    # Видаляємо повідомлення з питанням
+    with suppress(TelegramBadRequest): await call.message.delete()
+    
+    # Запускаємо логіку старту, передаючи користувача з callback
+    # Ми емулюємо пусте повідомлення "/start", щоб скинути все в меню
+    await _execute_start(call.message, state, bot, override_user=call.from_user, force_text="/start")
+
+# 👇 Твоя оригінальна логіка перенесена сюди
+async def _execute_start(message: types.Message, state: FSMContext, bot: Bot, override_user=None, force_text=None):
     await state.clear() 
     
     try:
@@ -30,14 +70,19 @@ async def cmd_start(message: types.Message, state: FSMContext, bot: Bot):
         await temp_msg.delete()
     except: pass
 
-    user_id = message.from_user.id
+    # Визначаємо User Object (якщо виклик з кнопки - беремо override_user)
+    user_obj = override_user if override_user else message.from_user
+    user_id = user_obj.id
     
-    args = message.text.split(maxsplit=1)
+    # Визначаємо текст (якщо виклик з кнопки - беремо force_text)
+    text_content = force_text if force_text else message.text
+    
+    args = text_content.split(maxsplit=1)
     argument = args[1] if len(args) > 1 else None
     ref_source = argument if argument and not argument.startswith("book_") else None
     
-    username = f"@{message.from_user.username}" if message.from_user.username else None
-    save_user(user_id, message.from_user.full_name, username, ref_source=ref_source)
+    username = f"@{user_obj.username}" if user_obj.username else None
+    save_user(user_id, user_obj.full_name, username, ref_source=ref_source)
     
     if is_user_banned(user_id):
         await message.answer("⛔ <b>Ви заблоковані адміністратором.</b>", parse_mode="HTML")
@@ -68,9 +113,8 @@ async def cmd_start(message: types.Message, state: FSMContext, bot: Bot):
             f"Щоб уникнути непорозумінь, будь ласка, перегляньте наші домовленості перед початком:"
         )
         
-        
         LINK_RULES = "https://t.me/pidsadkalvivinfo" 
-        LINK_PRIVACY = "https://telegra.ph/Ugoda-koristuvacha-ta-Pol%D1%96tika-konf%D1%96denc%D1%96jnost%D1%96-serv%D1%96su-P%D1%96dsadka-Lv%D1%96v-01-30" # Посилання на статтю в Telegra.ph
+        LINK_PRIVACY = "https://telegra.ph/Ugoda-koristuvacha-ta-Pol%D1%96tika-konf%D1%96denc%D1%96jnost%D1%96-serv%D1%96su-P%D1%96dsadka-Lv%D1%96v-01-30"
         
         kb_welcome = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="📜 Правила спільноти", url=LINK_RULES)],
