@@ -7,7 +7,7 @@ from database import get_user, save_user, get_user_rating, format_rating
 from states import ProfileStates
 from keyboards import kb_back, kb_menu, kb_car_type, kb_plate_type
 from utils import clean_user_input, send_new_clean_msg, update_or_send_msg, delete_prev_msg
-
+from database import get_referral_count
 router = Router()
 
 @router.callback_query(F.data == "profile_edit")
@@ -23,14 +23,17 @@ async def show_profile(call: types.CallbackQuery, state: FSMContext):
     # 🔥 ВИПРАВЛЕННЯ 1: Красиве відображення замість "None"
     u_name = user['name'] if user['name'] else "Без імені"
     u_phone = user['phone'] if user['phone'] != "-" else "Не вказано"
-    
+    ref_count = get_referral_count(call.from_user.id)
+    bot_info = await call.bot.get_me()
+    ref_link = f"https://t.me/{bot_info.username}?start=ref_{call.from_user.id}"
     if user and user['phone'] != "-":
         avg, count = get_user_rating(call.from_user.id)
         
         if role == "passenger":
-            txt = f"👤 <b>Ваш профіль:</b>\n\n📛 {u_name}\n📱 {u_phone}\n{format_rating(avg, count)}"
+            txt = f"👤 <b>Ваш профіль:</b>\n...\n👥 <b>Запрошено друзів:</b> {ref_count}"
             kb = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="✏️ Змінити ім'я та телефон", callback_data="edit_personal")],
+                [InlineKeyboardButton(text="✏️ Змінити дані", callback_data="edit_personal")],
+                [InlineKeyboardButton(text="🤝 Запросити друга", url=f"https://t.me/share/url?url={ref_link}&text=Привіт! Я їжджу з Підсадка Львів. Приєднуйся!")],
                 [InlineKeyboardButton(text="🔙 В меню", callback_data="menu_home")]
             ])
         else:
