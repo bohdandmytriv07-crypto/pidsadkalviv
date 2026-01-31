@@ -776,3 +776,10 @@ def mark_booking_reminded(booking_id):
     conn.execute("UPDATE bookings SET reminded = 1 WHERE id = ?", (booking_id,))
     conn.commit()
     conn.close()
+def get_referral_count(user_id):
+    conn = get_connection()
+    # Рахуємо, скількох людей привів цей user_id (ref_source = 'ref_USERID')
+    ref_tag = f"ref_{user_id}"
+    count = conn.execute("SELECT COUNT(*) FROM users WHERE ref_source = ?", (ref_tag,)).fetchone()[0]
+    conn.close()
+    return count
