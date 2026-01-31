@@ -328,29 +328,44 @@ async def start_broadcast(call: types.CallbackQuery, state: FSMContext):
 async def do_broadcast(message: types.Message, state: FSMContext, bot: Bot):
     if message.from_user.id not in ADMIN_IDS: return
     
+    # 1. Отримуємо список користувачів
     with get_connection() as conn:
         users = conn.execute("SELECT user_id FROM users WHERE is_blocked_bot=0 AND is_banned=0").fetchall()
     
+    await message.answer(f"🚀 Починаю розсилку на {len(users)} користувачів...")
+
     async def worker():
         good = 0
         bad = 0
+        blocked_ids = [] # Сюди збираємо ID тих, хто заблокував бота
+
         for u in users:
-            # В admin.py всередині worker():
             try: 
+                # copy_to - найкращий метод, бо зберігає фото/відео/форматування
                 await message.copy_to(u['user_id'])
                 good += 1           
-                await asyncio.sleep(0.1) 
+                await asyncio.sleep(0.05) 
             except TelegramForbiddenError:
-                
-                with get_connection() as conn:
-                    conn.execute("UPDATE users SET is_blocked_bot=1 WHERE user_id=?", (u['user_id'],))
+               
+                blocked_ids.append(u['user_id'])
                 bad += 1
-            except Exception: 
-                bad += 1
+            except Exception as e: 
                 
-        await bot.send_message(message.chat.id, f"✅ Розсилка завершена:\nУспішно: {good}\nНе доставлено: {bad}")
+                bad += 1
+        
+       
+        if blocked_ids:
+            with get_connection() as conn:
+                
+                placeholders = ','.join('?' for _ in blocked_ids)
+                query = f"UPDATE users SET is_blocked_bot=1 WHERE user_id IN ({placeholders})"
+                conn.execute(query, blocked_ids)
+                conn.commit()
+
+        await bot.send_message(message.chat.id, f"✅ Розсилка завершена:\n👍 Успішно: {good}\n💀 Заблокували бота (помічені): {bad}")
+
     asyncio.create_task(worker())
-    await message.answer("🚀 Почали.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🏠", callback_data="admin_back_home")]]))
+    await message.answer("⏳ Процес пішов у фоні. Можете користуватись ботом.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🏠 Додому", callback_data="admin_back_home")]]))
     await state.clear()
 
 @router.callback_query(F.data == "admin_export_db")
