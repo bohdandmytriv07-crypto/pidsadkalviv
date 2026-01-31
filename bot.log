@@ -1866,3 +1866,20 @@ KeyError: 'body'
 2026-02-01 00:27:40,468 - aiogram.event - INFO - Update id=892636877 is handled. Duration 3372 ms by bot id=8301191163
 2026-02-01 00:28:04,584 - apscheduler.executors.default - INFO - Running job "check_reminders_job (trigger: interval[0:02:00], next run at: 2026-02-01 00:30:04 EET)" (scheduled at 2026-02-01 00:28:04.583459+02:00)
 2026-02-01 00:28:04,587 - apscheduler.executors.default - INFO - Job "check_reminders_job (trigger: interval[0:02:00], next run at: 2026-02-01 00:30:04 EET)" executed successfully
+2026-02-01 00:51:58,183 - root - INFO - ✅ Sentry успішно підключено! Помилки будуть відслідковуватись.
+2026-02-01 00:51:58,183 - __main__ - INFO - 🚀 Ініціалізація бази даних...
+2026-02-01 00:51:58,185 - __main__ - INFO - ✅ База даних готова (WAL mode on)!
+2026-02-01 00:51:58,186 - __main__ - INFO - 💻 Запуск бота (VPS Mode)...
+2026-02-01 00:51:58,388 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-02-01 00:51:58,389 - apscheduler.scheduler - INFO - Added job "check_reminders_job" to job store "default"
+2026-02-01 00:51:58,389 - apscheduler.scheduler - INFO - Scheduler started
+2026-02-01 00:51:58,703 - __main__ - INFO - 🤖 Bot started! Press Ctrl+C to stop.
+2026-02-01 00:51:58,704 - aiogram.dispatcher - INFO - Start polling
+2026-02-01 00:51:58,704 - __main__ - INFO - 🕒 Планувальник фонових задач запущено.
+2026-02-01 00:51:58,822 - aiogram.dispatcher - INFO - Run polling for bot @pidsadkalviv_bot id=8301191163 - 'Підсадка Львів'
+2026-02-01 00:52:08,893 - aiogram.dispatcher - INFO - Polling stopped
+2026-02-01 00:52:09,149 - aiogram.dispatcher - ERROR - Failed to fetch updates - TelegramNetworkError: HTTP Client says - ServerDisconnectedError: Server disconnected
+2026-02-01 00:52:09,197 - aiogram.dispatcher - WARNING - Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 8301191163)
+2026-02-01 00:52:09,448 - __main__ - INFO - 🛑 Bot stopped.
+2026-02-01 00:52:09,449 - aiogram.dispatcher - INFO - Polling stopped for bot @pidsadkalviv_bot id=8301191163 - 'Підсадка Львів'
+2026-02-01 00:52:09,450 - __main__ - INFO - 👋 Stopped manually.
