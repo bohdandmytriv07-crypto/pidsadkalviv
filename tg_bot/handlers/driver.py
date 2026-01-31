@@ -38,10 +38,12 @@ kb_ok = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="✅ З
 
 @router.callback_query(F.data == "drv_create")
 async def start_create_trip_handler(call: types.CallbackQuery, state: FSMContext, bot: Bot):
+    # Очищаємо попередні повідомлення
     await delete_messages_list(state, bot, call.message.chat.id, "trip_msg_ids")
     
     await state.update_data(last_msg_id=call.message.message_id, role="driver")
     
+    # 1. Перевірка профілю
     user = get_user(call.from_user.id)
     if not user: save_user(call.from_user.id, call.from_user.full_name, "-")
 
@@ -53,6 +55,21 @@ async def start_create_trip_handler(call: types.CallbackQuery, state: FSMContext
         await update_or_send_msg(bot, call.message.chat.id, state, "⚠️ <b>Ви не можете створити поїздку!</b>\nПотрібно вказати авто та номер телефону в профілі.", kb)
         return
 
+    # 2. 🔥 АНТИ-СПАМ: Перевірка ліміту активних поїздок
+    active_trips = get_driver_active_trips(call.from_user.id)
+    if len(active_trips) >= 2:  # ⛔ ЛІМІТ: Максимум 2 поїздки
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🗂 Мої поїздки", callback_data="drv_my_trips")],
+            [InlineKeyboardButton(text="🔙 В меню", callback_data="menu_home")]
+        ])
+        await update_or_send_msg(
+            bot, call.message.chat.id, state, 
+            "🚫 <b>Ліміт вичерпано!</b>\nУ вас вже є 2 активні поїздки.\nЗавершіть або скасуйте старі, щоб створити нову.", 
+            kb
+        )
+        return
+
+    # 3. Логіка повтору останньої поїздки
     last_trip = get_last_driver_trip(call.from_user.id)
     if last_trip:
         trip_details = (
