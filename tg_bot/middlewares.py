@@ -55,6 +55,10 @@ class AntiFloodMiddleware(BaseMiddleware):
         data: Dict[str, Any]
     ) -> Any:
         
+ 
+        if hasattr(event, "media_group_id") and event.media_group_id:
+            return await handler(event, data)
+
         user = data.get("event_from_user")
         if not user:
             return await handler(event, data)
@@ -63,6 +67,7 @@ class AntiFloodMiddleware(BaseMiddleware):
         
         if user.id in self.last_time:
             if current_time - self.last_time[user.id] < self.rate_limit:
+              
                 if isinstance(event, CallbackQuery):
                     await event.answer("⏳ Не тисніть так швидко!", show_alert=True)
                 return 
