@@ -1663,3 +1663,80 @@ KeyError: 'body'
 2026-01-31 23:59:42,618 - apscheduler.executors.default - INFO - Running job "check_reminders_job (trigger: interval[0:02:00], next run at: 2026-02-01 00:01:42 EET)" (scheduled at 2026-01-31 23:59:42.617582+02:00)
 2026-01-31 23:59:42,619 - __main__ - ERROR - Scheduler Error: no such column: b.reminded
 2026-01-31 23:59:42,623 - apscheduler.executors.default - INFO - Job "check_reminders_job (trigger: interval[0:02:00], next run at: 2026-02-01 00:01:42 EET)" executed successfully
+2026-02-01 00:01:14,537 - root - INFO - ✅ Sentry успішно підключено! Помилки будуть відслідковуватись.
+2026-02-01 00:01:14,538 - __main__ - INFO - 🚀 Ініціалізація бази даних...
+2026-02-01 00:01:14,540 - __main__ - INFO - ✅ База даних готова (WAL mode on)!
+2026-02-01 00:01:14,540 - __main__ - INFO - 💻 Запуск бота (VPS Mode)...
+2026-02-01 00:01:14,745 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-02-01 00:01:14,746 - apscheduler.scheduler - INFO - Added job "check_reminders_job" to job store "default"
+2026-02-01 00:01:14,746 - apscheduler.scheduler - INFO - Scheduler started
+2026-02-01 00:01:15,059 - __main__ - INFO - 🤖 Bot started! Press Ctrl+C to stop.
+2026-02-01 00:01:15,060 - aiogram.dispatcher - INFO - Start polling
+2026-02-01 00:01:15,060 - __main__ - INFO - 🕒 Планувальник фонових задач запущено.
+2026-02-01 00:01:15,180 - aiogram.dispatcher - INFO - Run polling for bot @pidsadkalviv_bot id=8301191163 - 'Підсадка Львів'
+2026-02-01 00:01:17,084 - aiogram.event - INFO - Update id=892636743 is handled. Duration 310 ms by bot id=8301191163
+2026-02-01 00:01:24,238 - aiogram.event - INFO - Update id=892636744 is handled. Duration 252 ms by bot id=8301191163
+2026-02-01 00:01:27,760 - aiogram.event - INFO - Update id=892636745 is handled. Duration 104 ms by bot id=8301191163
+2026-02-01 00:01:31,161 - aiogram.event - INFO - Update id=892636746 is handled. Duration 248 ms by bot id=8301191163
+2026-02-01 00:01:34,614 - aiogram.event - INFO - Update id=892636747 is handled. Duration 100 ms by bot id=8301191163
+2026-02-01 00:01:40,425 - aiogram.event - INFO - Update id=892636748 is handled. Duration 346 ms by bot id=8301191163
+2026-02-01 00:01:44,854 - aiogram.event - INFO - Update id=892636749 is handled. Duration 96 ms by bot id=8301191163
+2026-02-01 00:01:54,290 - aiogram.event - INFO - Update id=892636750 is handled. Duration 408 ms by bot id=8301191163
+2026-02-01 00:01:57,228 - aiogram.event - INFO - Update id=892636751 is handled. Duration 600 ms by bot id=8301191163
+2026-02-01 00:01:59,386 - aiogram.event - INFO - Update id=892636752 is handled. Duration 93 ms by bot id=8301191163
+2026-02-01 00:02:00,646 - aiogram.event - INFO - Update id=892636753 is handled. Duration 171 ms by bot id=8301191163
+2026-02-01 00:02:03,842 - aiogram.event - INFO - Update id=892636754 is handled. Duration 97 ms by bot id=8301191163
+2026-02-01 00:02:07,102 - aiogram.event - INFO - Update id=892636755 is handled. Duration 169 ms by bot id=8301191163
+2026-02-01 00:02:08,853 - aiogram.event - INFO - Update id=892636756 is handled. Duration 171 ms by bot id=8301191163
+2026-02-01 00:02:10,803 - aiogram.event - INFO - Update id=892636757 is handled. Duration 88 ms by bot id=8301191163
+2026-02-01 00:02:15,248 - aiogram.event - INFO - Update id=892636758 is handled. Duration 179 ms by bot id=8301191163
+2026-02-01 00:02:18,992 - aiogram.event - INFO - Update id=892636759 is handled. Duration 166 ms by bot id=8301191163
+2026-02-01 00:02:21,181 - aiogram.event - INFO - Update id=892636760 is handled. Duration 165 ms by bot id=8301191163
+2026-02-01 00:02:22,883 - aiogram.event - INFO - Update id=892636761 is handled. Duration 226 ms by bot id=8301191163
+2026-02-01 00:02:25,286 - aiogram.event - INFO - Update id=892636762 is handled. Duration 288 ms by bot id=8301191163
+2026-02-01 00:02:34,491 - aiogram.event - INFO - Update id=892636763 is handled. Duration 107 ms by bot id=8301191163
+2026-02-01 00:02:37,407 - aiogram.event - INFO - Update id=892636764 is handled. Duration 205 ms by bot id=8301191163
+2026-02-01 00:02:39,450 - aiogram.event - INFO - Update id=892636765 is handled. Duration 467 ms by bot id=8301191163
+2026-02-01 00:02:42,143 - aiogram.event - INFO - Update id=892636766 is handled. Duration 263 ms by bot id=8301191163
+2026-02-01 00:02:45,483 - aiogram.event - INFO - Update id=892636767 is handled. Duration 171 ms by bot id=8301191163
+2026-02-01 00:02:48,731 - aiogram.event - INFO - Update id=892636768 is handled. Duration 194 ms by bot id=8301191163
+2026-02-01 00:02:51,359 - aiogram.event - INFO - Update id=892636769 is handled. Duration 282 ms by bot id=8301191163
+2026-02-01 00:02:53,365 - aiogram.event - INFO - Update id=892636770 is handled. Duration 375 ms by bot id=8301191163
+2026-02-01 00:02:57,836 - aiogram.event - INFO - Update id=892636771 is handled. Duration 645 ms by bot id=8301191163
+2026-02-01 00:03:01,950 - aiogram.event - INFO - Update id=892636772 is handled. Duration 369 ms by bot id=8301191163
+2026-02-01 00:03:07,028 - aiogram.event - INFO - Update id=892636773 is handled. Duration 228 ms by bot id=8301191163
+2026-02-01 00:03:10,910 - aiogram.event - INFO - Update id=892636774 is handled. Duration 566 ms by bot id=8301191163
+2026-02-01 00:03:11,554 - aiogram.event - INFO - Update id=892636775 is handled. Duration 152 ms by bot id=8301191163
+2026-02-01 00:03:14,745 - apscheduler.executors.default - INFO - Running job "check_reminders_job (trigger: interval[0:02:00], next run at: 2026-02-01 00:05:14 EET)" (scheduled at 2026-02-01 00:03:14.744851+02:00)
+2026-02-01 00:03:14,748 - __main__ - ERROR - Scheduler Error: no such column: b.reminded
+2026-02-01 00:03:14,801 - apscheduler.executors.default - INFO - Job "check_reminders_job (trigger: interval[0:02:00], next run at: 2026-02-01 00:05:14 EET)" executed successfully
+2026-02-01 00:03:16,724 - aiogram.event - INFO - Update id=892636776 is handled. Duration 263 ms by bot id=8301191163
+2026-02-01 00:03:25,410 - aiogram.event - INFO - Update id=892636777 is handled. Duration 316 ms by bot id=8301191163
+2026-02-01 00:03:29,080 - aiogram.event - INFO - Update id=892636778 is handled. Duration 296 ms by bot id=8301191163
+2026-02-01 00:03:32,050 - aiogram.event - INFO - Update id=892636779 is handled. Duration 266 ms by bot id=8301191163
+2026-02-01 00:03:33,049 - aiogram.event - INFO - Update id=892636780 is handled. Duration 245 ms by bot id=8301191163
+2026-02-01 00:03:34,021 - aiogram.event - INFO - Update id=892636781 is handled. Duration 241 ms by bot id=8301191163
+2026-02-01 00:03:34,848 - aiogram.event - INFO - Update id=892636782 is handled. Duration 280 ms by bot id=8301191163
+2026-02-01 00:03:35,852 - aiogram.event - INFO - Update id=892636783 is handled. Duration 246 ms by bot id=8301191163
+2026-02-01 00:03:41,206 - aiogram.event - INFO - Update id=892636784 is handled. Duration 1210 ms by bot id=8301191163
+2026-02-01 00:03:53,869 - aiogram.event - INFO - Update id=892636785 is handled. Duration 223 ms by bot id=8301191163
+2026-02-01 00:03:57,611 - aiogram.event - INFO - Update id=892636786 is handled. Duration 606 ms by bot id=8301191163
+2026-02-01 00:04:03,608 - aiogram.event - INFO - Update id=892636787 is handled. Duration 253 ms by bot id=8301191163
+2026-02-01 00:04:21,375 - aiogram.event - INFO - Update id=892636788 is handled. Duration 1289 ms by bot id=8301191163
+2026-02-01 00:04:27,841 - aiogram.event - INFO - Update id=892636789 is handled. Duration 295 ms by bot id=8301191163
+2026-02-01 00:04:31,465 - aiogram.event - INFO - Update id=892636790 is handled. Duration 84 ms by bot id=8301191163
+2026-02-01 00:04:36,061 - aiogram.event - INFO - Update id=892636791 is handled. Duration 191 ms by bot id=8301191163
+2026-02-01 00:04:37,423 - aiogram.event - INFO - Update id=892636792 is handled. Duration 85 ms by bot id=8301191163
+2026-02-01 00:04:38,461 - aiogram.event - INFO - Update id=892636793 is handled. Duration 149 ms by bot id=8301191163
+2026-02-01 00:04:39,071 - aiogram.event - INFO - Update id=892636794 is handled. Duration 88 ms by bot id=8301191163
+2026-02-01 00:04:39,950 - aiogram.event - INFO - Update id=892636795 is handled. Duration 136 ms by bot id=8301191163
+2026-02-01 00:04:40,589 - aiogram.event - INFO - Update id=892636796 is handled. Duration 82 ms by bot id=8301191163
+2026-02-01 00:04:42,701 - aiogram.event - INFO - Update id=892636797 is handled. Duration 198 ms by bot id=8301191163
+2026-02-01 00:04:42,907 - aiogram.event - INFO - Update id=892636798 is handled. Duration 281 ms by bot id=8301191163
+2026-02-01 00:04:44,407 - aiogram.event - INFO - Update id=892636799 is handled. Duration 138 ms by bot id=8301191163
+2026-02-01 00:05:14,746 - apscheduler.executors.default - INFO - Running job "check_reminders_job (trigger: interval[0:02:00], next run at: 2026-02-01 00:07:14 EET)" (scheduled at 2026-02-01 00:05:14.744851+02:00)
+2026-02-01 00:05:14,747 - __main__ - ERROR - Scheduler Error: no such column: b.reminded
+2026-02-01 00:05:14,753 - apscheduler.executors.default - INFO - Job "check_reminders_job (trigger: interval[0:02:00], next run at: 2026-02-01 00:07:14 EET)" executed successfully
+2026-02-01 00:07:14,746 - apscheduler.executors.default - INFO - Running job "check_reminders_job (trigger: interval[0:02:00], next run at: 2026-02-01 00:09:14 EET)" (scheduled at 2026-02-01 00:07:14.744851+02:00)
+2026-02-01 00:07:14,747 - __main__ - ERROR - Scheduler Error: no such column: b.reminded
+2026-02-01 00:07:14,755 - apscheduler.executors.default - INFO - Job "check_reminders_job (trigger: interval[0:02:00], next run at: 2026-02-01 00:09:14 EET)" executed successfully

@@ -30,7 +30,6 @@ from utils import (
 
 router = Router()
 
-# Кнопка підтвердження прочитання (Універсальна)
 kb_ok = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="✅ Зрозуміло", callback_data="hide_msg")]])
 
 # ==========================================
@@ -39,7 +38,6 @@ kb_ok = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="✅ З
 
 @router.callback_query(F.data == "drv_create")
 async def start_create_trip_handler(call: types.CallbackQuery, state: FSMContext, bot: Bot):
-    # Очищаємо попередні повідомлення списку поїздок
     await delete_messages_list(state, bot, call.message.chat.id, "trip_msg_ids")
     
     await state.update_data(last_msg_id=call.message.message_id, role="driver")
@@ -47,7 +45,6 @@ async def start_create_trip_handler(call: types.CallbackQuery, state: FSMContext
     user = get_user(call.from_user.id)
     if not user: save_user(call.from_user.id, call.from_user.full_name, "-")
 
-    # Перевірка профілю (Авто + Телефон)
     if not user or user['phone'] == "-" or user['model'] == "-" or user['number'] == "-":
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🚘 Додати авто та телефон", callback_data="profile_edit")],
@@ -154,8 +151,6 @@ async def process_time(message: types.Message, state: FSMContext, bot: Bot):
     raw_text = message.text.strip()
     h, m = None, None
 
-    # 1. Логіка розпізнавання часу
-    # Якщо ввели суцільні цифри (наприклад: 1830, 930, 19)
     if raw_text.isdigit():
         if len(raw_text) == 4:   # 1830 -> 18:30
             h, m = raw_text[:2], raw_text[2:]
@@ -164,8 +159,6 @@ async def process_time(message: types.Message, state: FSMContext, bot: Bot):
         elif len(raw_text) in [1, 2]: # 9 або 19 -> 09:00 або 19:00
             h, m = raw_text, "00"
     else:
-        # Якщо є роздільники (., :, пробіл, дефіс)
-        # Замінюємо все на двокрапку
         normalized = re.sub(r'[.,\s-]+', ':', raw_text)
         parts = normalized.split(':')
         
@@ -174,18 +167,11 @@ async def process_time(message: types.Message, state: FSMContext, bot: Bot):
         elif len(parts) == 1: # 18:
             h, m = parts[0], "00"
 
-
     try:
         if h is None or m is None: raise ValueError
-        
         h_int, m_int = int(h), int(m)
-        
-      
-        if not (0 <= h_int <= 23 and 0 <= m_int <= 59):
-            raise ValueError
-            
+        if not (0 <= h_int <= 23 and 0 <= m_int <= 59): raise ValueError
         formatted_time = f"{h_int:02d}:{m_int:02d}"
-
     except ValueError:
         await update_or_send_msg(bot, message.chat.id, state, 
             "⚠️ <b>Не зрозумів час.</b>\nСпробуйте формат: <code>18:30</code>, <code>18 30</code> або просто <code>19</code>", 
@@ -193,7 +179,6 @@ async def process_time(message: types.Message, state: FSMContext, bot: Bot):
         )
         return
 
-  
     data = await state.get_data()
     date_str = data.get('date')
     
@@ -204,32 +189,24 @@ async def process_time(message: types.Message, state: FSMContext, bot: Bot):
         trip_dt_naive = datetime.strptime(f"{date_str}.{now_kyiv.year} {formatted_time}", "%d.%m.%Y %H:%M")
         trip_dt = kyiv_tz.localize(trip_dt_naive)
         
-   
         if (now_kyiv - trip_dt).days > 30:
              trip_dt = trip_dt.replace(year=now_kyiv.year + 1)
         
-      
         if trip_dt < now_kyiv:
              await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Цей час вже минув!</b>\nВведіть коректний час:", kb_back())
              return
 
-      
         active_trips = get_active_driver_trips(message.from_user.id)
         for row in active_trips:
-           
             if row['date'] == date_str:
                 existing_dt_naive = datetime.strptime(f"{row['date']}.{now_kyiv.year} {row['time']}", "%d.%m.%Y %H:%M")
                 existing_dt = kyiv_tz.localize(existing_dt_naive)
-                
-               
                 if abs((trip_dt - existing_dt).total_seconds()) < 3600:
                     await update_or_send_msg(bot, message.chat.id, state, f"⚠️ <b>У вас вже є поїздка о {row['time']}!</b>\nПотрібен інтервал мінімум 1 година.", kb_back())
                     return
 
-    except ValueError: 
-        pass 
+    except ValueError: pass 
 
- 
     await state.update_data(time=formatted_time)
     
     if data.get('saved_price'):
@@ -244,12 +221,11 @@ async def process_time(message: types.Message, state: FSMContext, bot: Bot):
 async def process_seats(message: types.Message, state: FSMContext, bot: Bot):
     await clean_user_input(message)
     val = message.text.strip()
-    
-    if not val.isdigit() or not (1 <= int(val) <= 10):
-        await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Введіть цифру від 1 до 10:</b>", kb_back())
+    if not val.isdigit() or not (1 <= int(val) <= 8):
+        await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Введіть цифру від 1 до 8:</b>", kb_back())
         return
 
-    await state.update_data(seats=int(message.text))
+    await state.update_data(seats=int(val))
     await state.set_state(TripStates.price)
     await update_or_send_msg(bot, message.chat.id, state, "💰 <b>Ціна за 1 місце (грн):</b>\nНапишіть тільки суму:", kb_back())
 
@@ -258,18 +234,14 @@ async def process_seats(message: types.Message, state: FSMContext, bot: Bot):
 async def process_price(message: types.Message, state: FSMContext, bot: Bot):
     await clean_user_input(message)
     
- 
     if not message.text:
         await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Будь ласка, напишіть ціну цифрами.</b>", kb_back())
         return
 
-   
-    clean_price = re.sub(r'\D', '', message.text) # "200 грн" -> "200"
-
+    clean_price = re.sub(r'\D', '', message.text)
     try:
         if not clean_price: raise ValueError
         price = int(clean_price)
-        
         if price <= 0: raise ValueError
         if price > 5000:
             await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Занадто висока ціна!</b>\nВкажіть реальну суму до 5000 грн.", kb_back())
@@ -349,6 +321,11 @@ async def finalize_trip_creation(message: types.Message, state: FSMContext, bot:
     await update_or_send_msg(bot, message.chat.id, state, text, kb)
     await _notify_subscribers(bot, message.chat.id, trip_id, data, final_price, description)
 
+    # 🔥 FIX: ОЧИЩЕННЯ СТАНУ ПІСЛЯ СТВОРЕННЯ
+    # Щоб наступні повідомлення не сприймались як опис нової поїздки
+    await state.clear()
+    await state.update_data(role="driver")
+
 
 async def _notify_subscribers(bot, driver_id, trip_id, trip_data, price, description=""):
     subscribers = get_subscribers_for_trip(trip_data['origin'], trip_data['destination'], trip_data['date'])
@@ -402,7 +379,6 @@ async def show_driver_trips(call: types.CallbackQuery, state: FSMContext):
                 p_link = f"<a href='tg://user?id={p['user_id']}'>{p['name']}</a>"
                 ph_link = f"<a href='tel:{p['phone']}'>{p['phone']}</a>"
                 text += f"\n👤 {p_link} ({ph_link})"
-                # 🔥 КНОПКА ВИСАДКИ (Запитує підтвердження)
                 kb_rows.append([
                     InlineKeyboardButton(text=f"💬 Чат: {p['name']}", callback_data=f"chat_start_{p['user_id']}"),
                     InlineKeyboardButton(text="🚫 Висадити", callback_data=f"kick_ask_{p['booking_id']}")
@@ -411,7 +387,6 @@ async def show_driver_trips(call: types.CallbackQuery, state: FSMContext):
         share_url = f"https://t.me/share/url?url={f'https://t.me/{bot_info.username}?start=book_{trip['id']}'}&text={quote(f'🚗 Їду {trip['origin']}->{trip['destination']}')}"
         
         kb_rows.append([InlineKeyboardButton(text="📢 Поділитися поїздкою", url=share_url)])
-        # 🔥 КНОПКИ ДІЙ (Запитують підтвердження)
         kb_rows.append([InlineKeyboardButton(text="🏁 Завершити", callback_data=f"drv_ask_finish_{trip['id']}")])
         kb_rows.append([InlineKeyboardButton(text="❌ Скасувати", callback_data=f"drv_ask_cancel_{trip['id']}")])
         
@@ -459,7 +434,6 @@ async def show_driver_history(call: types.CallbackQuery, state: FSMContext):
 # 🔥 ЛОГІКА ПІДТВЕРДЖЕНЬ (CONFIRMATION)
 # ==========================================
 
-# 1. ЗАВЕРШЕННЯ
 @router.callback_query(F.data.startswith("drv_ask_finish_"))
 async def ask_finish_trip(call: types.CallbackQuery):
     tid = call.data.split("_")[3]
@@ -478,7 +452,6 @@ async def confirm_finish_trip(call: types.CallbackQuery, state: FSMContext):
     await show_driver_trips(call, state)
     if passengers: await ask_for_ratings(call.bot, trip_id, call.from_user.id, passengers)
 
-# 2. СКАСУВАННЯ ПОЇЗДКИ
 @router.callback_query(F.data.startswith("drv_ask_cancel_"))
 async def ask_cancel_trip(call: types.CallbackQuery):
     tid = call.data.split("_")[3]
@@ -493,12 +466,10 @@ async def confirm_cancel_trip(call: types.CallbackQuery, state: FSMContext):
     trip_info, passengers = cancel_trip_full(call.data.split("_")[3], call.from_user.id)
     await call.answer("Поїздку скасовано.")
     for pid in passengers:
-        # 🔥 FIX: Повідомлення з кнопкою "Зрозуміло"
         with suppress(Exception): 
             await call.bot.send_message(pid, f"🚫 <b>УВАГА!</b>\nВодій скасував поїздку {trip_info['origin']} - {trip_info['destination']}.", parse_mode="HTML", reply_markup=kb_ok)
     await show_driver_trips(call, state)
 
-# 3. ВИСАДКА ПАСАЖИРА
 @router.callback_query(F.data.startswith("kick_ask_"))
 async def ask_kick_passenger(call: types.CallbackQuery):
     bid = call.data.split("_")[2]
@@ -513,7 +484,6 @@ async def confirm_kick_passenger(call: types.CallbackQuery, state: FSMContext):
     info = kick_passenger(int(call.data.split("_")[2]), call.from_user.id)
     if info:
         await call.answer("Пасажира висаджено.")
-        # 🔥 FIX: Повідомлення з кнопкою "Зрозуміло"
         with suppress(Exception): 
             await call.bot.send_message(info['passenger_id'], "🚫 <b>Водій скасував ваше бронювання.</b>", parse_mode="HTML", reply_markup=kb_ok)
         await show_driver_trips(call, state)
