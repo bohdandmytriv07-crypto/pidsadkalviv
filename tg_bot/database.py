@@ -104,6 +104,13 @@ def init_db():
     cursor.execute('CREATE TABLE IF NOT EXISTS subscriptions (user_id INTEGER, origin TEXT, destination TEXT, date TEXT)')
     cursor.execute('CREATE TABLE IF NOT EXISTS ratings (id INTEGER PRIMARY KEY AUTOINCREMENT, from_user_id INTEGER, to_user_id INTEGER, trip_id TEXT, role TEXT, score INTEGER, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)')
 
+    # 8. Лог скасувань (Анти-скрапінг)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS cancellation_logs (
+            user_id INTEGER,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
 
     
     conn.commit()
@@ -722,3 +729,32 @@ def ban_user_by_id(user_id, reason="Admin Ban"):
     conn.execute("UPDATE bookings SET status = 'cancelled' WHERE passenger_id = ? AND status = 'active'", (user_id,))
     conn.commit()
     conn.close()
+def log_cancellation_event(user_id):
+    """Записує факт скасування поїздки."""
+    conn = get_connection()
+    conn.execute("INSERT INTO cancellation_logs (user_id) VALUES (?)", (user_id,))
+    # Очищаємо старі логи (старші 24 годин), щоб база не розпухала
+    conn.execute("DELETE FROM cancellation_logs WHERE timestamp < datetime('now', '-1 day')")
+    conn.commit()
+    conn.close()
+
+def can_user_book(user_id):
+    """
+    Перевіряє, чи можна користувачу бронювати.
+    Повертає: (True, "") або (False, "причина")
+    Ліміт: 3 скасування за 24 години.
+    """
+    conn = get_connection()
+    
+    # Рахуємо скасування за останні 24 години
+    count = conn.execute(
+        "SELECT COUNT(*) FROM cancellation_logs WHERE user_id = ? AND timestamp > datetime('now', '-1 day')", 
+        (user_id,)
+    ).fetchone()[0]
+    
+    conn.close()
+    
+    if count >= 3:
+        return False, "🚫 <b>Блокування на 24 години!</b>\nВи занадто часто скасовували бронювання. Це схоже на збір номерів телефонів."
+    
+    return True, ""
