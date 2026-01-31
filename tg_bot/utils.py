@@ -1,5 +1,6 @@
 ﻿import asyncio
 import re
+import html
 from contextlib import suppress
 from aiogram import types, Bot
 from aiogram.fsm.context import FSMContext
@@ -116,3 +117,9 @@ async def validate_city_real(city_name: str) -> str | None:
     except Exception:
         return None 
     return None
+import html # <--- Додайте цей імпорт на самому початку файлу
+
+def safe_html(text: str) -> str:
+    """Очищає текст від спецсимволів HTML (<, >, &)."""
+    if not text: return ""
+    return html.escape(str(text))
