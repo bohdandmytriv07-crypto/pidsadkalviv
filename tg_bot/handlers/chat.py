@@ -207,31 +207,37 @@ async def leave_chat_text(message: types.Message, state: FSMContext, bot: Bot):
 
 async def _relay_message(bot: Bot, sender_id: int, receiver_id: int, text=None, original_msg: types.Message=None):
     sender = get_user(sender_id)
-    
-    if sender and sender['name']:
-        sender_name = sender['name']
-    elif original_msg and original_msg.from_user.full_name:
-        sender_name = original_msg.from_user.full_name
-    else:
-        sender_name = "Пасажир"
+    sender_name = sender['name'] if (sender and sender['name']) else "Користувач"
     
     if original_msg:
         save_chat_msg(sender_id, original_msg.message_id)
 
+    # 🔥 ВИЗНАЧАЄМО ТИП КОНТЕНТУ ДЛЯ ІСТОРІЇ
+    history_text = text
+    if not history_text and original_msg:
+        if original_msg.photo: history_text = "[Фото]"
+        elif original_msg.voice: history_text = "[Голосове]"
+        elif original_msg.sticker: history_text = "[Стікер]"
+        elif original_msg.location: history_text = "[Мапа]"
+        elif original_msg.contact: history_text = "[Контакт]"
+        else: history_text = "[Вкладення]"
+
     try:
         sent_msg = None
         if text:
+            # Текстове повідомлення
             sent_msg = await bot.send_message(receiver_id, f"👤 <b>{sender_name}:</b>\n{text}", reply_markup=kb_reply(sender_id), parse_mode="HTML")
-            save_message_to_history(sender_id, receiver_id, text)
         elif original_msg:
-            if original_msg.contact:
-                sent_msg = await bot.send_contact(receiver_id, original_msg.contact.phone_number, original_msg.contact.first_name, reply_markup=kb_reply(sender_id))
-            else:
-                sent_msg = await original_msg.copy_to(receiver_id, caption=f"👤 <b>{sender_name}</b> надіслав вкладення.", reply_markup=kb_reply(sender_id), parse_mode="HTML")
+            # Медіа (фото, стікер тощо) - використовуємо copy_to
+            sent_msg = await original_msg.copy_to(receiver_id, caption=f"👤 <b>{sender_name}</b>", reply_markup=kb_reply(sender_id), parse_mode="HTML")
+        
+        # Зберігаємо в історію правильний опис
+        if history_text:
+            save_message_to_history(sender_id, receiver_id, history_text)
         
         if sent_msg: save_chat_msg(receiver_id, sent_msg.message_id)
 
-        ack_text = f"✅ Ви: {text}" if text else "✅ Ви надіслали файл."
+        ack_text = f"✅ Ви: {history_text}" 
         ack = await bot.send_message(sender_id, ack_text)
         save_chat_msg(sender_id, ack.message_id)
 
