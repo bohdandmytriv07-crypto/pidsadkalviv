@@ -242,15 +242,16 @@ async def process_number(message: types.Message, state: FSMContext, bot: Bot):
     data = await state.get_data()
     
     raw_num = message.text.strip().upper().replace(" ", "").replace("-", "")
+    # Транслітерація кирилиці в латиницю для номерів
     translation = str.maketrans("АВЕКМНОРСТІХ", "ABEKMHOPCTIX") 
     clean_num = raw_num.translate(translation)
 
     error_msg = None
     if data.get("plate_type") == "std":
-        if not re.match(r'^[A-ZА-ЯІ]{2}\d{4}[A-ZА-ЯІ]{2}$', clean_num):
+        if not re.match(r'^[A-Z]{2}\d{4}[A-Z]{2}$', clean_num):
             error_msg = "❌ <b>Невірний формат!</b> Приклад: BC1234AI"
     else:
-        if len(clean_num) < 3 or len(clean_num) > 8 or not re.match(r'^[A-ZА-ЯІ0-9]+$', clean_num):
+        if len(clean_num) < 3 or len(clean_num) > 8 or not re.match(r'^[A-Z0-9]+$', clean_num):
             error_msg = "❌ <b>Помилка!</b> Тільки літери/цифри, 3-8 символів."
 
     if error_msg:
@@ -260,17 +261,19 @@ async def process_number(message: types.Message, state: FSMContext, bot: Bot):
     await delete_prev_msg(state, bot, message.chat.id)
     uname = f"@{message.from_user.username}" if message.from_user.username else None
     
-    # 🔥 ВИПРАВЛЕННЯ 4: Оскільки ми завантажили дані на старті (у start_edit_car),
-    # тут data.get('name') та data.get('phone') точно містять старі значення, а не None.
+    # 🔥 ХАК: Об'єднуємо модель і тип кузова, щоб не міняти структуру БД
+    full_model = f"{data['model']} ({data['body']})"
+
+    # 🔥 ВИПРАВЛЕНО: Передаємо аргументи чітко по іменах (keyword arguments)
+    # Це врятує від плутанини, куди що записується
     save_user(
-        message.from_user.id, 
-        data.get('name'), 
-        uname, 
-        data.get('phone'), 
-        data['model'], 
-        data['body'], 
-        data['color'], 
-        clean_num
+        user_id=message.from_user.id, 
+        name=data.get('name'), 
+        username=uname, 
+        phone=data.get('phone'), 
+        model=full_model,     
+        number=clean_num,      
+        color=data['color']
     )
     
     await state.clear()
