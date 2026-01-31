@@ -3,19 +3,39 @@ from datetime import datetime
 from config import DB_FILE
 
 # ==========================================
-# 🔌 ПІДКЛЮЧЕННЯ
+# 🔌 ПІДКЛЮЧЕННЯ (TUNED 🚀)
 # ==========================================
 
 def get_connection():
-    conn = sqlite3.connect(DB_FILE)
+    conn = sqlite3.connect(DB_FILE, timeout=5.0) # Чекаємо 5 сек, якщо база зайнята
     conn.row_factory = sqlite3.Row
+    
+    # 🔥 ТЮНІНГ ПРОДУКТИВНОСТІ (виконується при кожному з'єднанні)
+    
+    # 1. Синхронізація: NORMAL (швидше і безпечно в WAL режимі)
+    conn.execute("PRAGMA synchronous = NORMAL;")
+    
+    # 2. Кеш: -64000 сторінок = ~64 MB RAM (зберігаємо часті дані в пам'яті)
+    conn.execute("PRAGMA cache_size = -64000;")
+    
+    # 3. Тимчасові файли: тільки в RAM
+    conn.execute("PRAGMA temp_store = MEMORY;")
+    
+    # 4. Memory Map: читаємо базу прямо з RAM (дуже прискорює пошук)
+    # 268435456 байт = 256 MB. Якщо база менша - вона вся залетить в RAM.
+    conn.execute("PRAGMA mmap_size = 268435456;") 
+    
     return conn
 
 def init_db():
     conn = get_connection()
-    # 🔥 Вмикаємо WAL режим для швидкості та конкурентності
-    conn.execute("PRAGMA journal_mode=WAL;") 
-    conn.execute("PRAGMA synchronous=NORMAL;")
+    
+    # 🔥 ГЛОБАЛЬНІ НАЛАШТУВАННЯ (Зберігаються у файлі назавжди)
+    # WAL-режим: дозволяє читати і писати одночасно
+    conn.execute("PRAGMA journal_mode = WAL;")
+    
+    # Оптимізація розміру сторінки (4KB - стандарт для сучасних ОС)
+    conn.execute("PRAGMA page_size = 4096;")
     
     cursor = conn.cursor()
     
@@ -40,6 +60,9 @@ def init_db():
             last_active DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+    # Індекси для швидкого пошуку юзерів
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
     
     # 2. Поїздки
     cursor.execute('''
@@ -57,7 +80,9 @@ def init_db():
             description TEXT DEFAULT '' 
         )
     ''')
+    # Складний індекс для пошуку поїздок (найважливіший!)
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_trips_search ON trips(origin, destination, date, status)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_trips_user ON trips(user_id)")
 
     # 3. Бронювання
     cursor.execute('''
@@ -66,9 +91,13 @@ def init_db():
             trip_id TEXT,
             passenger_id INTEGER,
             status TEXT DEFAULT 'active',
+            reminded INTEGER DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+    # Індекси для "Моїх бронювань" і "Пасажирів поїздки"
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_bookings_pass ON bookings(passenger_id, status)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_bookings_trip ON bookings(trip_id)")
 
     # 4. Історія повідомлень
     cursor.execute('''
@@ -81,6 +110,7 @@ def init_db():
             is_read INTEGER DEFAULT 0
         )
     ''')
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_chat_pair ON chat_history(sender_id, receiver_id)")
 
     # 5. Активні сесії чатів
     cursor.execute('''
@@ -97,8 +127,9 @@ def init_db():
             message_id INTEGER
         )
     ''')
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_cleanup_user ON interface_cleanup(user_id)")
 
-    # 7. Інші таблиці (Міста, Історія пошуку, Підписки, Рейтинги)
+    # 7. Інші таблиці
     cursor.execute('CREATE TABLE IF NOT EXISTS cities (name TEXT PRIMARY KEY, search_count INTEGER DEFAULT 1)')
     cursor.execute('CREATE TABLE IF NOT EXISTS search_history (user_id INTEGER, origin TEXT, destination TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)')
     cursor.execute('CREATE TABLE IF NOT EXISTS subscriptions (user_id INTEGER, origin TEXT, destination TEXT, date TEXT)')
@@ -111,10 +142,11 @@ def init_db():
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-
     
     conn.commit()
     conn.close()
+
+# ... далі йде решта функцій (get_stats_general і т.д.) без змін ...
 
 # ==========================================
 # 📊 АНАЛІТИКА (РОЗШИРЕНА)

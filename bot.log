@@ -1756,3 +1756,38 @@ KeyError: 'body'
 2026-02-01 00:10:06,229 - aiogram.event - INFO - Update id=892636802 is handled. Duration 2979 ms by bot id=8301191163
 2026-02-01 00:10:07,687 - aiogram.event - INFO - Update id=892636803 is handled. Duration 83 ms by bot id=8301191163
 2026-02-01 00:10:11,249 - aiogram.event - INFO - Update id=892636804 is handled. Duration 2781 ms by bot id=8301191163
+2026-02-01 00:12:49,469 - root - INFO - ✅ Sentry успішно підключено! Помилки будуть відслідковуватись.
+2026-02-01 00:12:49,469 - __main__ - INFO - 🚀 Ініціалізація бази даних...
+2026-02-01 00:12:49,472 - __main__ - INFO - ✅ База даних готова (WAL mode on)!
+2026-02-01 00:12:49,472 - __main__ - INFO - 💻 Запуск бота (VPS Mode)...
+2026-02-01 00:12:49,681 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-02-01 00:12:49,682 - apscheduler.scheduler - INFO - Added job "check_reminders_job" to job store "default"
+2026-02-01 00:12:49,682 - apscheduler.scheduler - INFO - Scheduler started
+2026-02-01 00:12:49,976 - __main__ - INFO - 🤖 Bot started! Press Ctrl+C to stop.
+2026-02-01 00:12:49,977 - aiogram.dispatcher - INFO - Start polling
+2026-02-01 00:12:49,977 - __main__ - INFO - 🕒 Планувальник фонових задач запущено.
+2026-02-01 00:12:50,090 - aiogram.dispatcher - INFO - Run polling for bot @pidsadkalviv_bot id=8301191163 - 'Підсадка Львів'
+2026-02-01 00:12:55,056 - aiogram.event - INFO - Update id=892636805 is handled. Duration 407 ms by bot id=8301191163
+2026-02-01 00:12:59,247 - aiogram.event - INFO - Update id=892636806 is handled. Duration 205 ms by bot id=8301191163
+2026-02-01 00:13:04,325 - aiogram.event - INFO - Update id=892636807 is handled. Duration 90 ms by bot id=8301191163
+2026-02-01 00:13:06,039 - aiogram.event - INFO - Update id=892636808 is handled. Duration 259 ms by bot id=8301191163
+2026-02-01 00:13:08,669 - aiogram.event - INFO - Update id=892636809 is handled. Duration 309 ms by bot id=8301191163
+2026-02-01 00:13:10,117 - aiogram.event - INFO - Update id=892636810 is handled. Duration 254 ms by bot id=8301191163
+2026-02-01 00:13:11,718 - aiogram.event - INFO - Update id=892636811 is handled. Duration 307 ms by bot id=8301191163
+2026-02-01 00:13:13,301 - aiogram.event - INFO - Update id=892636812 is handled. Duration 333 ms by bot id=8301191163
+2026-02-01 00:13:15,139 - aiogram.event - INFO - Update id=892636813 is handled. Duration 304 ms by bot id=8301191163
+2026-02-01 00:13:17,531 - aiogram.event - INFO - Update id=892636814 is handled. Duration 313 ms by bot id=8301191163
+2026-02-01 00:13:19,338 - aiogram.event - INFO - Update id=892636815 is handled. Duration 360 ms by bot id=8301191163
+2026-02-01 00:13:45,599 - aiogram.event - INFO - Update id=892636816 is handled. Duration 250 ms by bot id=8301191163
+2026-02-01 00:13:47,261 - aiogram.event - INFO - Update id=892636817 is handled. Duration 84 ms by bot id=8301191163
+2026-02-01 00:13:48,298 - aiogram.event - INFO - Update id=892636818 is handled. Duration 163 ms by bot id=8301191163
+2026-02-01 00:13:52,860 - aiogram.event - INFO - Update id=892636819 is handled. Duration 1513 ms by bot id=8301191163
+2026-02-01 00:13:59,085 - aiogram.event - INFO - Update id=892636820 is handled. Duration 1661 ms by bot id=8301191163
+2026-02-01 00:14:01,617 - aiogram.event - INFO - Update id=892636821 is handled. Duration 300 ms by bot id=8301191163
+2026-02-01 00:14:12,049 - aiogram.event - INFO - Update id=892636822 is handled. Duration 1196 ms by bot id=8301191163
+2026-02-01 00:14:49,682 - apscheduler.executors.default - INFO - Running job "check_reminders_job (trigger: interval[0:02:00], next run at: 2026-02-01 00:16:49 EET)" (scheduled at 2026-02-01 00:14:49.681256+02:00)
+2026-02-01 00:14:49,686 - apscheduler.executors.default - INFO - Job "check_reminders_job (trigger: interval[0:02:00], next run at: 2026-02-01 00:16:49 EET)" executed successfully
+2026-02-01 00:16:49,682 - apscheduler.executors.default - INFO - Running job "check_reminders_job (trigger: interval[0:02:00], next run at: 2026-02-01 00:18:49 EET)" (scheduled at 2026-02-01 00:16:49.681256+02:00)
+2026-02-01 00:16:49,684 - apscheduler.executors.default - INFO - Job "check_reminders_job (trigger: interval[0:02:00], next run at: 2026-02-01 00:18:49 EET)" executed successfully
+2026-02-01 00:18:49,682 - apscheduler.executors.default - INFO - Running job "check_reminders_job (trigger: interval[0:02:00], next run at: 2026-02-01 00:20:49 EET)" (scheduled at 2026-02-01 00:18:49.681256+02:00)
+2026-02-01 00:18:49,685 - apscheduler.executors.default - INFO - Job "check_reminders_job (trigger: interval[0:02:00], next run at: 2026-02-01 00:20:49 EET)" executed successfully
