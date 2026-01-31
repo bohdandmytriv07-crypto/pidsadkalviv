@@ -110,8 +110,8 @@ class PythonAnywhereSession(AiohttpSession):
         super().__init__(*args, **kwargs)
 
     async def create_session(self) -> ClientSession:
-        # trust_env=True змушує aiohttp читати змінні середовища (де PythonAnywhere ховає проксі)
-        return ClientSession(trust_env=True, json_serialize=self.json_dumps, json_deserialize=self.json_loads)
+        # 🔥 ВИПРАВЛЕНО: Прибрали json_deserialize, бо він викликав помилку
+        return ClientSession(trust_env=True, json_serialize=self.json_dumps)
 # ==========================================
 # 🚫 ОБРОБКА БЛОКУВАНЬ КОРИСТУВАЧАМИ
 # ==========================================
