@@ -6,7 +6,7 @@ import sentry_sdk
 from datetime import datetime
 import pytz
 from logging.handlers import RotatingFileHandler
-
+from aiohttp import ClientSession
 # Імпорт для налаштування проксі (для PythonAnywhere)
 from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram import Bot, Dispatcher, types
@@ -105,7 +105,13 @@ async def background_tasks(bot: Bot):
         except Exception as e:
             logger.error(f"⚠️ Background Task Error: {e}")
             await asyncio.sleep(60)
+class PythonAnywhereSession(AiohttpSession):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
+    async def create_session(self) -> ClientSession:
+        # trust_env=True змушує aiohttp читати змінні середовища (де PythonAnywhere ховає проксі)
+        return ClientSession(trust_env=True, json_serialize=self.json_dumps, json_deserialize=self.json_loads)
 # ==========================================
 # 🚫 ОБРОБКА БЛОКУВАНЬ КОРИСТУВАЧАМИ
 # ==========================================
@@ -170,13 +176,13 @@ async def main():
     # --- 🔥 НАЛАШТУВАННЯ ПРОКСІ ДЛЯ СЕРВЕРА 🔥 ---
     # Перевіряємо, чи ми на PythonAnywhere (вони мають цю змінну середовища)
     if os.getenv("PYTHONANYWHERE_DOMAIN"):
-        logger.info("🌐 Запуск на сервері PythonAnywhere (використовуємо Proxy)")
-        session = AiohttpSession(proxy="http://proxy.server:3128")
+        logger.info("🌐 Запуск на сервері PythonAnywhere (Native Proxy)")
+        # Використовуємо наш кастомний клас, без явного вказання proxy="..."
+        session = PythonAnywhereSession()
         bot = Bot(token=API_TOKEN, session=session, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     else:
         logger.info("💻 Запуск локально (пряме з'єднання)")
         bot = Bot(token=API_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-    # ---------------------------------------------
 
     dp = Dispatcher(storage=MemoryStorage())
 
