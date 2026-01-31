@@ -1,6 +1,6 @@
 ﻿import uuid
 import re
-from datetime import datetime
+from datetime import datetime, timedelta  # 🔥 Додано timedelta
 from urllib.parse import quote 
 from contextlib import suppress
 from aiogram import Router, F, types, Bot
@@ -15,7 +15,8 @@ from database import (
     get_trip_passengers, cancel_trip_full, kick_passenger, 
     get_last_driver_trip, get_subscribers_for_trip,
     add_or_update_city, finish_trip, log_event,
-    get_driver_history, get_active_driver_trips
+    get_driver_history, get_active_driver_trips,
+    get_trip_details  # 🔥 Додано цей імпорт для отримання часу поїздки
 )
 from handlers.rating import ask_for_ratings 
 from states import TripStates
@@ -453,9 +454,45 @@ async def show_driver_history(call: types.CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data.startswith("drv_ask_finish_"))
 async def ask_finish_trip(call: types.CallbackQuery):
-    tid = call.data.split("_")[3]
+    trip_id = call.data.split("_")[3]
+    
+    # 🔥 АНТИ-ФРОД: Перевірка часу
+    # Отримуємо дані про поїздку
+    trip = get_trip_details(trip_id)
+    
+    if trip:
+        kyiv_tz = pytz.timezone('Europe/Kyiv')
+        now = datetime.now(kyiv_tz)
+        
+        try:
+            # Формуємо дату і час поїздки
+            trip_dt_str = f"{trip['date']}.{now.year} {trip['time']}"
+            trip_dt = datetime.strptime(trip_dt_str, "%d.%m.%Y %H:%M")
+            trip_dt = kyiv_tz.localize(trip_dt)
+            
+            # Коригування року, якщо поїздка на межі (грудень/січень)
+            if (trip_dt - now).days > 180:
+                trip_dt = trip_dt.replace(year=now.year - 1)
+            elif (now - trip_dt).days > 180:
+                trip_dt = trip_dt.replace(year=now.year + 1)
+                
+            # 🔥 УМОВА: Дозволити завершення тільки через 30 хвилин після старту
+            min_finish_time = trip_dt + timedelta(minutes=30)
+            
+            if now < min_finish_time:
+                # Рахуємо скільки лишилось
+                wait_time = min_finish_time - now
+                minutes_left = int(wait_time.total_seconds() / 60) + 1
+                
+                await call.answer(f"⏳ Зарано! Завершити можна через {minutes_left} хв після початку.", show_alert=True)
+                return
+
+        except ValueError:
+            # Якщо формат дати якось пошкоджений - пропускаємо (дозволяємо завершити)
+            pass
+
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="✅ ТАК, завершити", callback_data=f"drv_conf_finish_{tid}")],
+        [InlineKeyboardButton(text="✅ ТАК, завершити", callback_data=f"drv_conf_finish_{trip_id}")],
         [InlineKeyboardButton(text="🔙 НІ", callback_data="drv_my_trips")]
     ])
     await call.message.edit_text("🏁 <b>Ви точно хочете завершити цю поїздку?</b>", reply_markup=kb, parse_mode="HTML")
