@@ -70,21 +70,32 @@ async def start_chat_handler(call: types.CallbackQuery, bot: Bot, state: FSMCont
         return
 
     # 🔥 ЛОГІКА ЦИТУВАННЯ: Зберігаємо текст ДО видалення повідомлення
+    # 🔥 ЛОГІКА ЦИТУВАННЯ: Зберігаємо текст ДО видалення повідомлення
     reply_context = None
     if call.data.startswith("chat_reply_"):
-        # Отримуємо текст або підпис
-        raw_text = call.message.text or call.message.caption or ""
-        # Якщо це контакт
-        if call.message.contact:
-            reply_context = f"Контакт: {call.message.contact.first_name} {call.message.contact.phone_number}"
-        # Якщо текст формату "👤 Name:\nText", беремо тільки Text
-        elif "\n" in raw_text:
-            try:
-                reply_context = raw_text.split("\n", 1)[1]
-            except IndexError:
-                reply_context = raw_text
+        # Пробуємо дістати текст
+        raw_text = call.message.text or call.message.caption
+        
+        # Якщо тексту немає, перевіряємо інші типи
+        if not raw_text:
+            if call.message.voice: raw_text = "🎤 [Голосове повідомлення]"
+            elif call.message.video_note: raw_text = "⏺ [Відеоповідомлення]"
+            elif call.message.sticker: raw_text = "👾 [Стікер]"
+            elif call.message.photo: raw_text = "🖼 [Фото]"
+            elif call.message.video: raw_text = "📹 [Відео]"
+            elif call.message.document: raw_text = "📁 [Файл]"
+            elif call.message.location: raw_text = "📍 [Геолокація]"
+            elif call.message.contact: 
+                 raw_text = f"👤 Контакт: {call.message.contact.first_name}"
+            else: raw_text = "📨 [Повідомлення]"
+
+        # Обробка цитати
+        if "\n" in raw_text and not raw_text.startswith("["): 
+             # Якщо це старе текстове повідомлення формату "Name:\nText", пробуємо взяти тільки текст
+             try: reply_context = raw_text.split("\n", 1)[1]
+             except IndexError: reply_context = raw_text
         else:
-            reply_context = raw_text
+             reply_context = raw_text
 
     target_user = get_user(target_user_id)
     if not target_user:
