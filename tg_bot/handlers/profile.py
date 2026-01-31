@@ -20,28 +20,47 @@ async def show_profile(call: types.CallbackQuery, state: FSMContext):
         role = "driver" if user and user['model'] != "-" else "passenger"
         await state.update_data(role=role)
     
-    # 🔥 ВИПРАВЛЕННЯ 1: Красиве відображення замість "None"
+    # Красиве відображення замість "None"
     u_name = user['name'] if user['name'] else "Без імені"
     u_phone = user['phone'] if user['phone'] != "-" else "Не вказано"
+    
+    # Реферальна система
     ref_count = get_referral_count(call.from_user.id)
     bot_info = await call.bot.get_me()
-    ref_link = f"https://t.me/{bot_info.username}?start=ref_{call.from_user.id}"
+    # Посилання, яким ділитиметься користувач
+    share_url = f"https://t.me/share/url?url=https://t.me/{bot_info.username}?start=ref_{call.from_user.id}&text=Привіт! Я їжджу з Підсадка Львів. Приєднуйся!"
+
     if user and user['phone'] != "-":
         avg, count = get_user_rating(call.from_user.id)
         
         if role == "passenger":
-            txt = f"👤 <b>Ваш профіль:</b>\n...\n👥 <b>Запрошено друзів:</b> {ref_count}"
+            # 🔥 ВИПРАВЛЕНО: Додано відображення даних, замість "..."
+            txt = (
+                f"👤 <b>Ваш профіль:</b>\n\n"
+                f"📛 {u_name}\n"
+                f"📱 {u_phone}\n"
+                f"{format_rating(avg, count)}\n\n"
+                f"👥 <b>Запрошено друзів:</b> {ref_count}"
+            )
             kb = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="✏️ Змінити дані", callback_data="edit_personal")],
-                [InlineKeyboardButton(text="🤝 Запросити друга", url=f"https://t.me/share/url?url={ref_link}&text=Привіт! Я їжджу з Підсадка Львів. Приєднуйся!")],
+                [InlineKeyboardButton(text="🤝 Запросити друга", url=share_url)],
                 [InlineKeyboardButton(text="🔙 В меню", callback_data="menu_home")]
             ])
         else:
-            txt = f"🚖 <b>Профіль водія:</b>\n\n📛 {u_name}\n📱 {u_phone}\n🚘 {user['model']} {user['color']}\n🔢 {user['number']}\n{format_rating(avg, count)}"
+            txt = (
+                f"🚖 <b>Профіль водія:</b>\n\n"
+                f"📛 {u_name}\n"
+                f"📱 {u_phone}\n"
+                f"🚘 {user['model']} {user['color']}\n"
+                f"🔢 {user['number']}\n"
+                f"{format_rating(avg, count)}\n\n"
+                f"👥 <b>Запрошено друзів:</b> {ref_count}"
+            )
             kb = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="✏️ Змінити ім'я/телефон", callback_data="edit_personal")],
                 [InlineKeyboardButton(text="🚘 Змінити авто", callback_data="edit_car")],
-                [InlineKeyboardButton(text="🤝 Запросити друга", url=f"https://t.me/share/url?url={ref_link}&text=Привіт! Я їжджу з Підсадка Львів. Приєднуйся!")],
+                [InlineKeyboardButton(text="🤝 Запросити друга", url=share_url)],
                 [InlineKeyboardButton(text="🔙 В меню", callback_data="menu_home")]
             ])
             

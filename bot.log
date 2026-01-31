@@ -1510,3 +1510,55 @@ client_session: <aiohttp.client.ClientSession object at 0x00000284D5659D30>
 2026-01-29 15:03:16,142 - aiogram.event - INFO - Update id=892635744 is handled. Duration 92 ms by bot id=8301191163
 2026-01-29 15:03:17,200 - aiogram.event - INFO - Update id=892635745 is handled. Duration 158 ms by bot id=8301191163
 2026-01-29 15:03:19,023 - aiogram.event - INFO - Update id=892635746 is handled. Duration 211 ms by bot id=8301191163
+2026-01-31 23:25:28,381 - __main__ - INFO - 🚀 Ініціалізація бази даних...
+2026-01-31 23:25:28,396 - __main__ - INFO - ✅ База даних готова (WAL mode on)!
+2026-01-31 23:25:28,396 - __main__ - INFO - 💻 Запуск локально (пряме з'єднання)
+2026-01-31 23:25:28,621 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-01-31 23:25:28,621 - apscheduler.scheduler - INFO - Added job "check_reminders_job" to job store "default"
+2026-01-31 23:25:28,622 - apscheduler.scheduler - INFO - Scheduler started
+2026-01-31 23:25:43,867 - asyncio - ERROR - Unclosed client session
+client_session: <aiohttp.client.ClientSession object at 0x0000014CB0F07230>
+2026-01-31 23:25:53,825 - __main__ - INFO - 🚀 Ініціалізація бази даних...
+2026-01-31 23:25:53,828 - __main__ - INFO - ✅ База даних готова (WAL mode on)!
+2026-01-31 23:25:53,829 - __main__ - INFO - 💻 Запуск локально (пряме з'єднання)
+2026-01-31 23:25:54,050 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-01-31 23:25:54,051 - apscheduler.scheduler - INFO - Added job "check_reminders_job" to job store "default"
+2026-01-31 23:25:54,051 - apscheduler.scheduler - INFO - Scheduler started
+2026-01-31 23:25:54,358 - __main__ - INFO - 🤖 Bot started! Press Ctrl+C to stop.
+2026-01-31 23:25:54,359 - aiogram.dispatcher - INFO - Start polling
+2026-01-31 23:25:54,359 - __main__ - INFO - 🕒 Планувальник фонових задач запущено.
+2026-01-31 23:25:56,535 - aiogram.dispatcher - INFO - Run polling for bot @pidsadkalviv_bot id=8301191163 - 'Підсадка Львів'
+2026-01-31 23:25:58,132 - aiogram.event - INFO - Update id=892636699 is handled. Duration 323 ms by bot id=8301191163
+2026-01-31 23:26:01,686 - aiogram.event - INFO - Update id=892636700 is handled. Duration 477 ms by bot id=8301191163
+2026-01-31 23:26:13,976 - aiogram.event - INFO - Update id=892636701 is handled. Duration 295 ms by bot id=8301191163
+2026-01-31 23:26:15,412 - aiogram.event - INFO - Update id=892636702 is handled. Duration 218 ms by bot id=8301191163
+2026-01-31 23:26:16,610 - aiogram.event - INFO - Update id=892636703 is handled. Duration 235 ms by bot id=8301191163
+2026-01-31 23:26:22,461 - aiogram.event - INFO - Update id=892636704 is handled. Duration 172 ms by bot id=8301191163
+2026-01-31 23:26:47,837 - __main__ - INFO - 🚀 Ініціалізація бази даних...
+2026-01-31 23:26:47,850 - __main__ - INFO - ✅ База даних готова (WAL mode on)!
+2026-01-31 23:26:47,850 - __main__ - INFO - 💻 Запуск локально (пряме з'єднання)
+2026-01-31 23:26:48,057 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-01-31 23:26:48,058 - apscheduler.scheduler - INFO - Added job "check_reminders_job" to job store "default"
+2026-01-31 23:26:48,058 - apscheduler.scheduler - INFO - Scheduler started
+2026-01-31 23:26:48,344 - __main__ - INFO - 🤖 Bot started! Press Ctrl+C to stop.
+2026-01-31 23:26:48,344 - aiogram.dispatcher - INFO - Start polling
+2026-01-31 23:26:48,344 - __main__ - INFO - 🕒 Планувальник фонових задач запущено.
+2026-01-31 23:26:48,460 - aiogram.dispatcher - INFO - Run polling for bot @pidsadkalviv_bot id=8301191163 - 'Підсадка Львів'
+2026-01-31 23:26:54,826 - aiogram.event - INFO - Update id=892636705 is handled. Duration 609 ms by bot id=8301191163
+2026-01-31 23:26:57,065 - aiogram.event - INFO - Update id=892636706 is handled. Duration 537 ms by bot id=8301191163
+2026-01-31 23:27:00,114 - aiogram.event - INFO - Update id=892636707 is handled. Duration 89 ms by bot id=8301191163
+2026-01-31 23:27:01,213 - aiogram.event - INFO - Update id=892636708 is handled. Duration 154 ms by bot id=8301191163
+2026-01-31 23:27:06,917 - aiogram.event - INFO - Update id=892636709 is handled. Duration 264 ms by bot id=8301191163
+2026-01-31 23:27:11,563 - aiogram.event - INFO - Update id=892636710 is handled. Duration 877 ms by bot id=8301191163
+2026-01-31 23:27:15,370 - aiogram.event - INFO - Update id=892636711 is handled. Duration 171 ms by bot id=8301191163
+2026-01-31 23:27:43,187 - aiogram.event - INFO - Update id=892636712 is handled. Duration 311 ms by bot id=8301191163
+2026-01-31 23:27:44,569 - aiogram.event - INFO - Update id=892636713 is handled. Duration 291 ms by bot id=8301191163
+2026-01-31 23:27:46,292 - aiogram.event - INFO - Update id=892636714 is handled. Duration 91 ms by bot id=8301191163
+2026-01-31 23:27:47,574 - aiogram.event - INFO - Update id=892636715 is handled. Duration 309 ms by bot id=8301191163
+2026-01-31 23:27:50,380 - aiogram.event - INFO - Update id=892636716 is handled. Duration 230 ms by bot id=8301191163
+2026-01-31 23:27:54,665 - aiogram.event - INFO - Update id=892636717 is handled. Duration 515 ms by bot id=8301191163
+2026-01-31 23:28:06,174 - aiogram.event - INFO - Update id=892636718 is handled. Duration 175 ms by bot id=8301191163
+2026-01-31 23:28:09,292 - aiogram.event - INFO - Update id=892636719 is handled. Duration 154 ms by bot id=8301191163
+2026-01-31 23:28:48,058 - apscheduler.executors.default - INFO - Running job "check_reminders_job (trigger: interval[0:02:00], next run at: 2026-01-31 23:30:48 EET)" (scheduled at 2026-01-31 23:28:48.057730+02:00)
+2026-01-31 23:28:48,060 - __main__ - ERROR - Scheduler Error: no such column: b.reminded
+2026-01-31 23:28:48,061 - apscheduler.executors.default - INFO - Job "check_reminders_job (trigger: interval[0:02:00], next run at: 2026-01-31 23:30:48 EET)" executed successfully
