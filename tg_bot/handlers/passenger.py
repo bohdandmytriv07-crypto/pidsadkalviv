@@ -1,10 +1,11 @@
 ﻿import asyncio
+import html
 from contextlib import suppress
 from aiogram import Router, F, types, Bot
 from aiogram.fsm.context import FSMContext
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.exceptions import TelegramBadRequest
-
+from utils import safe_html
 # Імпорти утиліт
 from utils import (
     clean_user_input, update_or_send_msg, delete_messages_list,
@@ -223,14 +224,23 @@ async def _render_trips_page(message: types.Message, state: FSMContext):
     
     for trip in trips:
         avg, count = get_user_rating(trip['user_id'], role="driver")
-        desc_line = f"\n💬 <i>{trip['description']}</i>" if trip.get('description') else ""
+        
+        
+        safe_desc = safe_html(trip.get('description', ''))
+        desc_line = f"\n💬 <i>{safe_desc}</i>" if safe_desc else ""
+        
+        safe_driver_name = safe_html(trip['driver_name'])
+        safe_origin = safe_html(trip['origin'])
+        safe_dest = safe_html(trip['destination'])
+        safe_car = safe_html(f"{trip['model']} {trip['color']}")
 
         txt = (
-            f"🚗 <b>{trip['origin']} ➝ {trip['destination']}</b>\n"
+            f"🚗 <b>{safe_origin} ➝ {safe_dest}</b>\n"
             f"📅 {trip['date']} | ⏰ {trip['time']} | 💰 <b>{trip['price']} грн</b>\n"
-            f"👤 {trip['driver_name']} ({format_rating(avg, count)}){desc_line}\n"
-            f"🚙 {trip['model']} {trip['color']}"
-        )
+            f"👤 {safe_driver_name} ({format_rating(avg, count)}){desc_line}\n"
+            f"🚙 {safe_car}"
+        )     
+        
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="✅ Бронювати", callback_data=f"book_{trip['id']}")],
             [InlineKeyboardButton(text="💬 Написати", callback_data=f"chat_start_{trip['user_id']}")]
