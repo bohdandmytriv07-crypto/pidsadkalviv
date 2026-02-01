@@ -1970,3 +1970,16 @@ KeyError: 'body'
 2026-02-01 12:44:57,764 - aiogram.event - INFO - Update id=892636899 is handled. Duration 1 ms by bot id=8301191163
 2026-02-01 12:44:57,975 - aiogram.event - INFO - Update id=892636898 is handled. Duration 212 ms by bot id=8301191163
 2026-02-01 12:45:02,371 - aiogram.event - INFO - Update id=892636900 is handled. Duration 1137 ms by bot id=8301191163
+2026-02-01 12:45:34,724 - aiogram.event - INFO - Update id=892636901 is handled. Duration 169 ms by bot id=8301191163
+2026-02-01 12:45:35,946 - aiogram.event - INFO - Update id=892636902 is handled. Duration 277 ms by bot id=8301191163
+2026-02-01 12:45:37,932 - aiogram.event - INFO - Update id=892636903 is handled. Duration 124 ms by bot id=8301191163
+2026-02-01 12:45:43,244 - aiogram.event - INFO - Update id=892636904 is handled. Duration 263 ms by bot id=8301191163
+2026-02-01 12:45:51,927 - aiogram.event - INFO - Update id=892636905 is handled. Duration 507 ms by bot id=8301191163
+2026-02-01 12:45:54,011 - aiogram.event - INFO - Update id=892636906 is handled. Duration 234 ms by bot id=8301191163
+2026-02-01 12:45:55,270 - aiogram.event - INFO - Update id=892636907 is handled. Duration 110 ms by bot id=8301191163
+2026-02-01 12:45:59,403 - aiogram.event - INFO - Update id=892636908 is handled. Duration 292 ms by bot id=8301191163
+2026-02-01 12:46:04,194 - aiogram.event - INFO - Update id=892636909 is handled. Duration 339 ms by bot id=8301191163
+2026-02-01 12:46:12,408 - aiogram.event - INFO - Update id=892636910 is handled. Duration 647 ms by bot id=8301191163
+2026-02-01 12:46:21,207 - aiogram.event - INFO - Update id=892636911 is handled. Duration 814 ms by bot id=8301191163
+2026-02-01 12:46:48,449 - apscheduler.executors.default - INFO - Running job "check_reminders_job (trigger: interval[0:02:00], next run at: 2026-02-01 12:48:48 EET)" (scheduled at 2026-02-01 12:46:48.448610+02:00)
+2026-02-01 12:46:48,453 - apscheduler.executors.default - INFO - Job "check_reminders_job (trigger: interval[0:02:00], next run at: 2026-02-01 12:48:48 EET)" executed successfully

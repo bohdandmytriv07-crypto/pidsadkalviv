@@ -1,4 +1,5 @@
 ﻿import re
+import asyncio
 from contextlib import suppress
 from aiogram import Router, F, types, Bot
 from aiogram.fsm.context import FSMContext
@@ -137,47 +138,70 @@ async def process_name(message: types.Message, state: FSMContext):
 
 @router.message(ProfileStates.phone)
 async def process_phone(message: types.Message, state: FSMContext):
+    # Перевірка, чи це контакт іншої людини
     if message.contact and message.contact.user_id != message.from_user.id:
         await message.answer("⛔ <b>Це не ваш контакт!</b>")
         return
+    
+    # Тимчасове повідомлення "Зберігаю..." для видалення клавіатури
     rm_msg = await message.answer("⏳ Зберігаю...", reply_markup=ReplyKeyboardRemove())
-    with suppress(Exception): await message.delete()
+    with suppress(Exception): await message.delete() # Видаляємо повідомлення юзера
     
+    # Очистка номеру
     raw_phone = message.contact.phone_number if message.contact else message.text
-    clean_digits = re.sub(r'\D', '', raw_phone) 
-    
-    if len(clean_digits) == 10 and clean_digits.startswith('0'): clean_digits = '38' + clean_digits
-    elif len(clean_digits) == 11 and clean_digits.startswith('80'): clean_digits = '3' + clean_digits
-    
-    if len(clean_digits) != 12 or not clean_digits.startswith('380'):
-        with suppress(Exception): await rm_msg.delete()
+    clean_phone = re.sub(r'[^\d+]', '', raw_phone)
+
+    # Авто-корекція формату (якщо юзер забув + або код країни)
+    if len(clean_phone) == 10 and clean_phone.startswith('0'):
+        clean_phone = '+38' + clean_phone
+    elif len(clean_phone) == 11 and clean_phone.startswith('80'):
+        clean_phone = '+3' + clean_phone[1:]
+    elif not clean_phone.startswith('+'):
+        clean_phone = '+' + clean_phone
+
+    # Перевірка валідності (10-15 цифр)
+    if not re.match(r'^\+\d{10,15}$', clean_phone):
+        with suppress(Exception): await rm_msg.delete() # Видаляємо "Зберігаю..."
+        
+        # 🔥 ВИПРАВЛЕННЯ ТУТ:
+        # Спочатку видаляємо попереднє повідомлення бота (старе питання або стару помилку)
+        await delete_prev_msg(state, message.bot, message.chat.id)
+        
         kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="📱 Надіслати номер", request_contact=True)]], resize_keyboard=True, one_time_keyboard=True)
-        msg = await message.answer("❌ <b>Невірний формат!</b> (+380...)", reply_markup=kb, parse_mode="HTML")
+        msg = await message.answer("❌ <b>Невірний формат!</b>\nНомер має починатися з + (напр. +380...)", reply_markup=kb, parse_mode="HTML")
+        
+        # Запам'ятовуємо ID нової помилки, щоб видалити її наступного разу
         await state.update_data(last_msg_id=msg.message_id)
         return
 
-    final_phone = f"+{clean_digits}"
+    final_phone = clean_phone
     await state.update_data(phone=final_phone)
+    
+    # Видаляємо "Зберігаю..."
     with suppress(Exception): await rm_msg.delete()
+    
+    # Видаляємо останнє повідомлення (це може бути питання про номер або повідомлення про помилку)
     await delete_prev_msg(state, message.bot, message.chat.id)
 
+    # Логіка збереження та переходу далі
     data = await state.get_data()
     edit_mode = data.get("edit_mode")
     role = data.get("role", "passenger")
 
     if edit_mode == "personal" or role == "passenger":
         uname = f"@{message.from_user.username}" if message.from_user.username else None
-        
-        # 🔥 FIX: Гарантуємо, що ім'я існує (беремо зі стану, куди ми його завантажили на старті)
         final_name = data.get('name') 
         
         save_user(message.from_user.id, final_name, uname, final_phone)
         
-        # Перевіряємо відкладене бронювання
         pending_trip_id = data.get("pending_booking_id")
         if pending_trip_id:
             await state.clear()
-            await message.answer("✅ <b>Профіль готовий!</b>\nПовертаємось до вашої поїздки...", reply_markup=ReplyKeyboardRemove(), parse_mode="HTML")
+            # Повідомлення про успіх (пропадає, коли з'являється прев'ю поїздки)
+            temp_suc = await message.answer("✅ <b>Профіль готовий!</b>", reply_markup=ReplyKeyboardRemove(), parse_mode="HTML")
+            await asyncio.sleep(1)
+            with suppress(Exception): await temp_suc.delete()
+            
             from handlers.passenger import show_trip_preview
             await show_trip_preview(message, state, pending_trip_id)
         else:
