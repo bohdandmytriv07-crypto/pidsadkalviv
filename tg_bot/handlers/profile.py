@@ -111,12 +111,27 @@ async def start_edit_car(call: types.CallbackQuery, state: FSMContext):
 # 👤 ОСОБИСТІ ДАНІ
 # ==========================================
 
+# 📂 handlers/profile.py
+
 @router.message(ProfileStates.name)
 async def process_name(message: types.Message, state: FSMContext):
     await clean_user_input(message)
+    
+    # 🔥 ФІКС ПРОБЛЕМИ: Перевіряємо, чи надіслано текст
+    if not message.text:
+        await update_or_send_msg(
+            message.bot, 
+            message.chat.id, 
+            state, 
+            "⚠️ <b>Це не текст!</b>\nБудь ласка, напишіть ваше ім'я літерами:", 
+            kb_back()
+        )
+        return
+
+    # Тепер безпечно обробляємо текст
     name = message.text.strip()
     
-
+    # 1. Валідація довжини
     if len(name) < 2 or len(name) > 50:
         await update_or_send_msg(
             message.bot, 
@@ -127,7 +142,7 @@ async def process_name(message: types.Message, state: FSMContext):
         )
         return
     
-
+    # 2. Валідація символів (теги та слеші)
     if "<" in name or ">" in name or "/" in name:
         await update_or_send_msg(
             message.bot, 
@@ -138,7 +153,7 @@ async def process_name(message: types.Message, state: FSMContext):
         )
         return
 
-
+    # 3. Валідація цифр
     if re.search(r'\d', name):
         await update_or_send_msg(
             message.bot, 
@@ -149,11 +164,10 @@ async def process_name(message: types.Message, state: FSMContext):
         )
         return
     
-
+    # Якщо все ок
     await state.update_data(name=name)
     await state.set_state(ProfileStates.phone)
     
-  
     await delete_prev_msg(state, message.bot, message.chat.id)
     
     kb = ReplyKeyboardMarkup(
