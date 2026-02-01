@@ -249,11 +249,8 @@ async def show_product_stats(call: types.CallbackQuery):
     kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Назад", callback_data="admin_back_home")]])
     await call.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
 
-# ... (Решта функцій: admin_reply_command, find_user, broadcast - ЗАЛИШАЮТЬСЯ ЯК БУЛИ) ...
-# (Скопіюй їх з попереднього файлу, якщо потрібно, або просто залиш, вони сумісні)
-
 # ==========================================
-# 🕵️‍♂️ CRM (Скорочено для контексту, код такий же)
+# 🕵️‍♂️ CRM
 # ==========================================
 @router.message(Command("reply"))
 async def admin_reply_command(message: types.Message, command: CommandObject, bot: Bot):
@@ -275,10 +272,15 @@ async def find_user_start(call: types.CallbackQuery, state: FSMContext):
 @router.message(AdminStates.find_user)
 async def process_find_user(message: types.Message, state: FSMContext, bot: Bot):
     if message.from_user.id not in ADMIN_IDS: return
+    
+    # 🔥 FIX: Захист від стікерів/фото в адмінці
+    if not message.text:
+        await message.answer("⚠️ <b>Це не текст.</b>\nНадішліть ID або Username текстом.")
+        return
+
     with suppress(TelegramBadRequest): await message.delete()
     q = message.text.strip()
     
- 
     with get_connection() as conn:
         if q.isdigit(): 
             u = conn.execute("SELECT * FROM users WHERE user_id=?", (int(q),)).fetchone()
@@ -317,14 +319,14 @@ async def admin_do_action(call: types.CallbackQuery):
     await call.answer(f"Done: {act}")
     await admin_back_home(call, None)
 
-# ... (Broadcast залишається таким же, як був) ...
+# ==========================================
+# 📢 РОЗСИЛКА
+# ==========================================
 @router.callback_query(F.data == "admin_broadcast")
 async def start_broadcast(call: types.CallbackQuery, state: FSMContext):
     if call.from_user.id not in ADMIN_IDS: return
     m = await call.message.edit_text("✍️ Текст/фото для розсилки:", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙", callback_data="admin_back_home")]]))
     await state.set_state(AdminStates.broadcast)
-
-# 📂 admin.py
 
 @router.message(AdminStates.broadcast)
 async def do_broadcast(message: types.Message, state: FSMContext, bot: Bot):
@@ -336,33 +338,30 @@ async def do_broadcast(message: types.Message, state: FSMContext, bot: Bot):
         good = 0
         bad = 0
         
-        # 🔥 ОПТИМІЗАЦІЯ: Відкриваємо з'єднання один раз
+        # 🔥 ОПТИМІЗАЦІЯ: Читаємо по 100 юзерів
         conn = get_connection()
         cursor = conn.cursor()
         
-        # Вибираємо тільки тих, хто не блокував бота
         cursor.execute("SELECT user_id FROM users WHERE is_blocked_bot=0 AND is_banned=0")
         
         while True:
-            # Читаємо по 100 юзерів за раз
             batch = cursor.fetchmany(100)
-            if not batch: break # Якщо список закінчився
+            if not batch: break 
             
             blocked_ids_in_batch = []
             
             for row in batch:
-                user_id = row[0] # row - це кортеж (user_id,)
+                user_id = row[0] 
                 try: 
                     await message.copy_to(user_id)
                     good += 1           
-                    await asyncio.sleep(0.05) # Пауза, щоб не перевищити ліміти Telegram (30 msg/sec)
+                    await asyncio.sleep(0.05) 
                 except TelegramForbiddenError:
                     blocked_ids_in_batch.append(user_id)
                     bad += 1
                 except Exception: 
                     bad += 1
             
-            # Оновлюємо статус заблокованих одразу для цієї пачки
             if blocked_ids_in_batch:
                 placeholders = ','.join('?' for _ in blocked_ids_in_batch)
                 conn.execute(f"UPDATE users SET is_blocked_bot=1 WHERE user_id IN ({placeholders})", blocked_ids_in_batch)
@@ -372,7 +371,8 @@ async def do_broadcast(message: types.Message, state: FSMContext, bot: Bot):
         await bot.send_message(message.chat.id, f"✅ Розсилка завершена:\n👍 Успішно: {good}\n💀 Заблокували бота: {bad}")
 
     asyncio.create_task(worker())
-    # ... далі без змін ...
+    await message.answer("⏳ Процес пішов у фоні. Можете користуватись ботом.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🏠 Додому", callback_data="admin_back_home")]]))
+    await state.clear()
 
 @router.callback_query(F.data == "admin_export_db")
 async def export_db(call: types.CallbackQuery):

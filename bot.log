@@ -2465,3 +2465,102 @@ Traceback (most recent call last):
        ^^^^^^^^^^^^^^^^^^^^^^^
 AttributeError: 'NoneType' object has no attribute 'startswith'
 2026-02-01 13:21:39,111 - aiogram.event - INFO - Update id=892637050 is handled. Duration 162 ms by bot id=8301191163
+2026-02-01 13:23:56,586 - root - INFO - ✅ Sentry успішно підключено! Помилки будуть відслідковуватись.
+2026-02-01 13:23:56,586 - __main__ - INFO - 🚀 Ініціалізація бази даних...
+2026-02-01 13:23:56,588 - __main__ - INFO - ✅ База даних готова (WAL mode on)!
+2026-02-01 13:23:56,589 - __main__ - INFO - 💻 Запуск бота (VPS Mode)...
+2026-02-01 13:23:56,789 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-02-01 13:23:56,790 - apscheduler.scheduler - INFO - Added job "check_reminders_job" to job store "default"
+2026-02-01 13:23:56,790 - apscheduler.scheduler - INFO - Scheduler started
+2026-02-01 13:23:57,083 - __main__ - INFO - 🤖 Bot started! Press Ctrl+C to stop.
+2026-02-01 13:23:57,083 - aiogram.dispatcher - INFO - Start polling
+2026-02-01 13:23:57,083 - __main__ - INFO - 🕒 Планувальник фонових задач запущено.
+2026-02-01 13:23:57,207 - aiogram.dispatcher - INFO - Run polling for bot @pidsadkalviv_bot id=8301191163 - 'Підсадка Львів'
+2026-02-01 13:23:59,099 - aiogram.event - INFO - Update id=892637053 is handled. Duration 424 ms by bot id=8301191163
+2026-02-01 13:24:02,628 - aiogram.event - INFO - Update id=892637054 is handled. Duration 276 ms by bot id=8301191163
+2026-02-01 13:24:05,507 - aiogram.event - INFO - Update id=892637055 is handled. Duration 104 ms by bot id=8301191163
+2026-02-01 13:24:06,647 - aiogram.event - INFO - Update id=892637056 is handled. Duration 149 ms by bot id=8301191163
+2026-02-01 13:24:07,923 - aiogram.event - INFO - Update id=892637057 is handled. Duration 92 ms by bot id=8301191163
+2026-02-01 13:24:10,397 - aiogram.event - INFO - Update id=892637058 is handled. Duration 168 ms by bot id=8301191163
+2026-02-01 13:24:14,104 - aiogram.event - INFO - Update id=892637059 is handled. Duration 194 ms by bot id=8301191163
+2026-02-01 13:24:16,892 - aiogram.event - INFO - Update id=892637060 is handled. Duration 233 ms by bot id=8301191163
+2026-02-01 13:24:18,590 - aiogram.event - INFO - Update id=892637061 is handled. Duration 269 ms by bot id=8301191163
+2026-02-01 13:24:20,793 - aiogram.event - INFO - Update id=892637062 is handled. Duration 98 ms by bot id=8301191163
+2026-02-01 13:24:23,433 - aiogram.event - INFO - Update id=892637063 is handled. Duration 169 ms by bot id=8301191163
+2026-02-01 13:24:27,871 - aiogram.event - INFO - Update id=892637064 is handled. Duration 200 ms by bot id=8301191163
+2026-02-01 13:24:30,895 - aiogram.event - INFO - Update id=892637065 is handled. Duration 181 ms by bot id=8301191163
+2026-02-01 13:24:33,448 - aiogram.event - INFO - Update id=892637066 is handled. Duration 168 ms by bot id=8301191163
+2026-02-01 13:24:37,446 - aiogram.event - INFO - Update id=892637067 is handled. Duration 176 ms by bot id=8301191163
+2026-02-01 13:24:43,342 - aiogram.event - INFO - Update id=892637068 is handled. Duration 184 ms by bot id=8301191163
+2026-02-01 13:24:49,056 - aiogram.event - INFO - Update id=892637069 is handled. Duration 349 ms by bot id=8301191163
+2026-02-01 13:24:51,182 - aiogram.event - INFO - Update id=892637070 is handled. Duration 218 ms by bot id=8301191163
+2026-02-01 13:24:55,716 - aiogram.event - INFO - Update id=892637071 is handled. Duration 141 ms by bot id=8301191163
+2026-02-01 13:24:57,917 - aiogram.event - INFO - Update id=892637072 is handled. Duration 95 ms by bot id=8301191163
+2026-02-01 13:24:59,499 - aiogram.event - INFO - Update id=892637073 is handled. Duration 91 ms by bot id=8301191163
+2026-02-01 13:25:03,566 - aiogram.event - INFO - Update id=892637074 is handled. Duration 342 ms by bot id=8301191163
+2026-02-01 13:25:07,431 - aiogram.event - INFO - Update id=892637075 is handled. Duration 173 ms by bot id=8301191163
+2026-02-01 13:25:11,524 - aiogram.event - INFO - Update id=892637076 is handled. Duration 205 ms by bot id=8301191163
+2026-02-01 13:25:18,675 - aiogram.event - INFO - Update id=892637077 is handled. Duration 0 ms by bot id=8301191163
+2026-02-01 13:25:30,657 - aiogram.event - INFO - Update id=892637078 is handled. Duration 402 ms by bot id=8301191163
+2026-02-01 13:25:32,550 - aiogram.event - INFO - Update id=892637079 is handled. Duration 87 ms by bot id=8301191163
+2026-02-01 13:25:34,807 - __main__ - ERROR - 🔥 Critical Update Error: 'NoneType' object has no attribute 'strip'
+Traceback (most recent call last):
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\middlewares\error.py", line 27, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\middlewares\user_context.py", line 58, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\fsm\middleware.py", line 43, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\event\telegram.py", line 126, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\dispatcher.py", line 283, in _listen_update
+    return await self.propagate_event(update_type=update_type, event=event, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 161, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 153, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 189, in _propagate_event
+    response = await router.propagate_event(update_type=update_type, event=event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 161, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 153, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 181, in _propagate_event
+    response = await observer.trigger(event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\event\telegram.py", line 126, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\source\repos\bohdandmytriv07-crypto\pidsadkalviv\tg_bot\middlewares.py", line 43, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\source\repos\bohdandmytriv07-crypto\pidsadkalviv\tg_bot\middlewares.py", line 76, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\source\repos\bohdandmytriv07-crypto\pidsadkalviv\tg_bot\handlers\admin.py", line 279, in process_find_user
+    q = message.text.strip()
+        ^^^^^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'strip'
+2026-02-01 13:25:34,894 - aiogram.event - INFO - Update id=892637080 is handled. Duration 176 ms by bot id=8301191163
