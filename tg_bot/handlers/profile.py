@@ -115,25 +115,39 @@ async def start_edit_car(call: types.CallbackQuery, state: FSMContext):
 async def process_name(message: types.Message, state: FSMContext):
     await clean_user_input(message)
     name = message.text.strip()
-    
+
     if len(name) < 2 or len(name) > 50:
-        await delete_prev_msg(state, message.bot, message.chat.id)
-        msg = await message.answer("⚠️ <b>Ім'я занадто довге або коротке!</b>", reply_markup=kb_back())
-        await state.update_data(last_msg_id=msg.message_id)
+        await update_or_send_msg(
+            message.bot, 
+            message.chat.id, 
+            state, 
+            "⚠️ <b>Ім'я занадто довге або коротке!</b>\nСпробуйте ще раз:", 
+            kb_back()
+        )
         return
-    
+
     if "<" in name or ">" in name or "/" in name:
-        await delete_prev_msg(state, message.bot, message.chat.id)
-        msg = await message.answer("⚠️ <b>Недопустимі символи.</b>", reply_markup=kb_back())
-        await state.update_data(last_msg_id=msg.message_id)
+        await update_or_send_msg(
+            message.bot, 
+            message.chat.id, 
+            state, 
+            "⚠️ <b>Недопустимі символи.</b>\nВведіть просто ім'я:", 
+            kb_back()
+        )
         return
-    
-    await delete_prev_msg(state, message.bot, message.chat.id)
+
     await state.update_data(name=name)
     await state.set_state(ProfileStates.phone)
+    await delete_prev_msg(state, message.bot, message.chat.id)
     
-    kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="📱 Надіслати номер", request_contact=True)]], resize_keyboard=True, one_time_keyboard=True)
+    kb = ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text="📱 Надіслати номер", request_contact=True)]], 
+        resize_keyboard=True, 
+        one_time_keyboard=True
+    )
     msg = await message.answer("📱 <b>Ваш номер телефону:</b>", reply_markup=kb, parse_mode="HTML")
+    
+    # Обов'язково зберігаємо ID нового повідомлення!
     await state.update_data(last_msg_id=msg.message_id)
 
 @router.message(ProfileStates.phone)
