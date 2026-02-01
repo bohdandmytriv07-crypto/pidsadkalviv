@@ -83,11 +83,21 @@ async def background_tasks(bot: Bot):
                     trip_full_dt = datetime.strptime(f"{trip_dt_str} {row['time']}", "%d.%m.%Y %H:%M")
                     trip_full_dt = kyiv_tz.localize(trip_full_dt)
 
-                    # Логіка зміни року (якщо поїздка в минулому році)
-                    if (trip_full_dt - now).days > 180:
-                        trip_full_dt = trip_full_dt.replace(year=now.year - 1)
+                    # 🔥 FIX: Розумне визначення року
+                    # Рахуємо різницю в днях
+                    diff_days = (trip_full_dt - now).days
 
-                    # Якщо час минув
+                    # 1. Якщо поїздка "в далекому майбутньому" (> 6 міс), значить це був минулий рік
+                    # (наприклад: зараз Січень, а дата "25.12" парситься як наступний грудень)
+                    if diff_days > 180:
+                        trip_full_dt = trip_full_dt.replace(year=now.year - 1)
+                    
+                    # 2. Якщо поїздка "в далекому минулому" (< -6 міс), значить це наступний рік
+                    # (наприклад: зараз Грудень, а дата "01.01" парситься як минулий січень)
+                    elif diff_days < -180:
+                        trip_full_dt = trip_full_dt.replace(year=now.year + 1)
+
+                    # Якщо час поїздки вже минув
                     if trip_full_dt < now:
                         trip_id = row['id']
                         driver_id = row['user_id']
@@ -112,7 +122,7 @@ async def background_tasks(bot: Bot):
             logger.info("♻️ Очистка бази виконана.")
 
         except Exception as e:
-            logger.error(f"⚠️ Background Task Error: {e}")
+            logger.exception(f"⚠️ Background Task Error") # 🔥 Покаже повний трейсбек
             await asyncio.sleep(60)
 
 # ==========================================
@@ -143,8 +153,12 @@ async def check_reminders_job(bot: Bot):
                 trip_dt = datetime.strptime(trip_dt_str, "%d.%m.%Y %H:%M")
                 trip_dt = kyiv_tz.localize(trip_dt)
                 
-                if (trip_dt - now).days > 180:
+                # 🔥 FIX: Така сама логіка років, як і в background_tasks
+                diff_days = (trip_dt - now).days
+                if diff_days > 180:
                     trip_dt = trip_dt.replace(year=now.year - 1)
+                elif diff_days < -180:
+                    trip_dt = trip_dt.replace(year=now.year + 1)
                 
                 diff = (trip_dt - now).total_seconds()
                 
@@ -171,7 +185,7 @@ async def main():
     init_db()
     logger.info("✅ База даних готова (WAL mode on)!")
 
-    # Стандартна ініціалізація бота (без проксі)
+    # Стандартна ініціалізація бота
     logger.info("💻 Запуск бота (VPS Mode)...")
     bot = Bot(token=API_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 
@@ -201,7 +215,9 @@ async def main():
     scheduler.add_job(check_reminders_job, 'interval', minutes=2, kwargs={'bot': bot})
     scheduler.start()
     
-    await bot.delete_webhook(drop_pending_updates=True)
+    # 🔥 FIX: Прибрали drop_pending_updates=True, щоб не губити повідомлення при рестарті
+    await bot.delete_webhook()
+    
     asyncio.create_task(background_tasks(bot))
 
     logger.info("🤖 Bot started! Press Ctrl+C to stop.")
