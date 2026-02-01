@@ -115,6 +115,7 @@ async def start_edit_car(call: types.CallbackQuery, state: FSMContext):
 async def process_name(message: types.Message, state: FSMContext):
     await clean_user_input(message)
     name = message.text.strip()
+    
 
     if len(name) < 2 or len(name) > 50:
         await update_or_send_msg(
@@ -125,6 +126,7 @@ async def process_name(message: types.Message, state: FSMContext):
             kb_back()
         )
         return
+    
 
     if "<" in name or ">" in name or "/" in name:
         await update_or_send_msg(
@@ -136,8 +138,22 @@ async def process_name(message: types.Message, state: FSMContext):
         )
         return
 
+
+    if re.search(r'\d', name):
+        await update_or_send_msg(
+            message.bot, 
+            message.chat.id, 
+            state, 
+            "⚠️ <b>Ім'я не може містити цифри!</b>\nВведіть справжнє ім'я:", 
+            kb_back()
+        )
+        return
+    
+
     await state.update_data(name=name)
     await state.set_state(ProfileStates.phone)
+    
+  
     await delete_prev_msg(state, message.bot, message.chat.id)
     
     kb = ReplyKeyboardMarkup(
@@ -147,7 +163,6 @@ async def process_name(message: types.Message, state: FSMContext):
     )
     msg = await message.answer("📱 <b>Ваш номер телефону:</b>", reply_markup=kb, parse_mode="HTML")
     
-    # Обов'язково зберігаємо ID нового повідомлення!
     await state.update_data(last_msg_id=msg.message_id)
 
 @router.message(ProfileStates.phone)
