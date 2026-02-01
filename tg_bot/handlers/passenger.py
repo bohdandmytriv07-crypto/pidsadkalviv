@@ -289,6 +289,9 @@ from database import get_user, can_user_book, get_user_active_bookings_count, ad
 # Не забудь додати імпорт ReplyKeyboardRemove зверху файлу, якщо його немає
 from aiogram.types import ReplyKeyboardRemove
 
+# Не забудь додати імпорт ReplyKeyboardRemove зверху файлу, якщо його немає
+from aiogram.types import ReplyKeyboardRemove
+
 @router.callback_query(F.data.startswith("book_"))
 async def book_trip(call: types.CallbackQuery, state: FSMContext):
     # Очищаємо всі можливі списки повідомлень, щоб прибрати сміття
@@ -337,9 +340,10 @@ async def book_trip(call: types.CallbackQuery, state: FSMContext):
         log_event(user_id, "booking_success", f"trip_{trip_id}")
         trip = get_trip_details(trip_id)
         
-
+        # 🔥 ФІКС ПРОБЛЕМИ:
+        # 1. Відправляємо пусте повідомлення, щоб прибрати старе Reply-меню
         rm_msg = await call.message.answer("⏳", reply_markup=ReplyKeyboardRemove())
-  
+        # 2. Відразу видаляємо його
         with suppress(Exception): await rm_msg.delete()
 
         kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -353,7 +357,7 @@ async def book_trip(call: types.CallbackQuery, state: FSMContext):
         )
         await state.update_data(last_msg_id=msg.message_id)
         
-  
+        # Сповіщення водію
         with suppress(Exception):
             await call.bot.send_message(
                 trip['user_id'], 
@@ -364,11 +368,10 @@ async def book_trip(call: types.CallbackQuery, state: FSMContext):
             
     else:
         await call.answer(msg_text, show_alert=True)
-  
+        # Якщо помилка, повертаємо меню пасажира
         kb = kb_menu("passenger")
         msg = await call.message.answer("❌ <b>Помилка бронювання.</b>", reply_markup=kb, parse_mode="HTML")
         await state.update_data(last_msg_id=msg.message_id)
-
 # ==========================================
 # 🎫 МОЇ БРОНЮВАННЯ
 # ==========================================
