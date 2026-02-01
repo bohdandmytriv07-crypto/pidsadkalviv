@@ -7,22 +7,23 @@ from config import DB_FILE
 # ==========================================
 
 def get_connection():
-    conn = sqlite3.connect(DB_FILE, timeout=5.0) # Чекаємо 5 сек, якщо база зайнята
+    # Збільшено таймаут до 10 сек, щоб уникнути "database is locked" при навантаженні
+    conn = sqlite3.connect(DB_FILE, timeout=10.0) 
     conn.row_factory = sqlite3.Row
     
-    # 🔥 ТЮНІНГ ПРОДУКТИВНОСТІ (виконується при кожному з'єднанні)
+    # 🔥 ТЮНІНГ ПРОДУКТИВНОСТІ (Session Scope)
+    # Ці налаштування треба застосовувати при кожному підключенні
     
     # 1. Синхронізація: NORMAL (швидше і безпечно в WAL режимі)
     conn.execute("PRAGMA synchronous = NORMAL;")
     
-    # 2. Кеш: -64000 сторінок = ~64 MB RAM (зберігаємо часті дані в пам'яті)
+    # 2. Кеш: -64000 сторінок = ~64 MB RAM
     conn.execute("PRAGMA cache_size = -64000;")
     
     # 3. Тимчасові файли: тільки в RAM
     conn.execute("PRAGMA temp_store = MEMORY;")
     
-    # 4. Memory Map: читаємо базу прямо з RAM (дуже прискорює пошук)
-    # 268435456 байт = 256 MB. Якщо база менша - вона вся залетить в RAM.
+    # 4. Memory Map: читаємо базу прямо з RAM (256 MB)
     conn.execute("PRAGMA mmap_size = 268435456;") 
     
     return conn
@@ -30,11 +31,9 @@ def get_connection():
 def init_db():
     conn = get_connection()
     
-    # 🔥 ГЛОБАЛЬНІ НАЛАШТУВАННЯ (Зберігаються у файлі назавжди)
-    # WAL-режим: дозволяє читати і писати одночасно
+    # 🔥 ГЛОБАЛЬНІ НАЛАШТУВАННЯ (Persistent)
+    # Застосовуються один раз і зберігаються у файлі БД
     conn.execute("PRAGMA journal_mode = WAL;")
-    
-    # Оптимізація розміру сторінки (4KB - стандарт для сучасних ОС)
     conn.execute("PRAGMA page_size = 4096;")
     
     cursor = conn.cursor()
@@ -60,7 +59,6 @@ def init_db():
             last_active DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    # Індекси для швидкого пошуку юзерів
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
     
@@ -80,7 +78,6 @@ def init_db():
             description TEXT DEFAULT '' 
         )
     ''')
-    # Складний індекс для пошуку поїздок (найважливіший!)
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_trips_search ON trips(origin, destination, date, status)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_trips_user ON trips(user_id)")
 
@@ -95,7 +92,6 @@ def init_db():
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    # Індекси для "Моїх бронювань" і "Пасажирів поїздки"
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_bookings_pass ON bookings(passenger_id, status)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_bookings_trip ON bookings(trip_id)")
 
@@ -146,10 +142,8 @@ def init_db():
     conn.commit()
     conn.close()
 
-# ... далі йде решта функцій (get_stats_general і т.д.) без змін ...
-
 # ==========================================
-# 📊 АНАЛІТИКА (РОЗШИРЕНА)
+# 📊 АНАЛІТИКА
 # ==========================================
 
 def get_stats_general():
@@ -166,7 +160,6 @@ def get_stats_extended():
     blocked = conn.execute("SELECT COUNT(*) FROM users WHERE is_blocked_bot=1").fetchone()[0]
     new_today = conn.execute("SELECT COUNT(*) FROM users WHERE date(created_at) = date('now')").fetchone()[0]
     
-    # Розподіл ролей
     drivers = conn.execute("SELECT COUNT(*) FROM users WHERE model != '-'").fetchone()[0]
     passengers = total - drivers
 
@@ -201,15 +194,9 @@ def get_financial_stats():
     return gmv if gmv else 0
 
 def get_efficiency_stats():
-    """Середній чек та заповнюваність."""
     conn = get_connection()
-    
-    # Середня ціна активних поїздок
     avg_price = conn.execute("SELECT AVG(price) FROM trips WHERE status='active'").fetchone()[0]
-    
-    # Заповнюваність (Зайнято / Всього місць)
     occupancy_data = conn.execute("SELECT SUM(seats_taken), SUM(seats_total) FROM trips WHERE status IN ('active', 'finished')").fetchone()
-    
     conn.close()
     
     taken = occupancy_data[0] if occupancy_data and occupancy_data[0] else 0
@@ -265,17 +252,14 @@ def get_user(user_id):
 def save_user(user_id, name, username, phone=None, model='-', number='-', color='-', ref_source=None):
     conn = get_connection()
     if get_user(user_id):
-        # 🔥 FIX: Оновлюємо ім'я та юзернейм тільки якщо вони передані (не None)
         updates = ["last_active=CURRENT_TIMESTAMP"]
         params = []
-        
         if name:
             updates.append("name=?")
             params.append(name)
         if username:
             updates.append("username=?")
             params.append(username)
-            
         if phone: 
             updates.append("phone=?")
             params.append(phone)
@@ -291,13 +275,11 @@ def save_user(user_id, name, username, phone=None, model='-', number='-', color=
         if ref_source:
              updates.append("ref_source = COALESCE(ref_source, ?)")
              params.append(ref_source)
-             
         params.append(user_id)
         
-        if updates: # Якщо є що оновлювати
+        if updates:
             conn.execute(f"UPDATE users SET {', '.join(updates)} WHERE user_id=?", params)
     else:
-        # При створенні нового юзера ім'я обов'язкове
         conn.execute('''
             INSERT INTO users (user_id, username, name, phone, ref_source, created_at, last_active) 
             VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
@@ -399,7 +381,7 @@ def get_chat_history_text(user1, user2):
     return text + "\n➖➖➖➖➖➖\n"
 
 # ==========================================
-# 🏙 МІСТА
+# 🏙 МІСТА & ЛОГИ
 # ==========================================
 
 def add_or_update_city(city_name):
@@ -418,7 +400,6 @@ def get_all_cities_names():
     return [row['name'] for row in rows]
 
 def get_city_suggestion(text):
-    # Заглушка, якщо немає повноцінного пошуку
     return None
 
 def log_event(user_id, event, details):
@@ -430,10 +411,8 @@ def log_event(user_id, event, details):
 # 🚗 ПОЇЗДКИ (ДІЇ)
 # ==========================================
 
-
 def save_trip(trip_id, user_id, origin, destination, date, time, seats, price, description=""):
     conn = get_connection()
-    
     conn.execute(
         "INSERT INTO trips (id, user_id, origin, destination, date, time, seats_total, price, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", 
         (trip_id, user_id, origin, destination, date, time, seats, price, description)
@@ -443,7 +422,6 @@ def save_trip(trip_id, user_id, origin, destination, date, time, seats, price, d
     return trip_id
 
 def create_trip(*args, **kwargs):
-    # Аліас, якщо десь викликається create_trip
     return save_trip(*args, **kwargs)
 
 def get_driver_active_trips(user_id):
@@ -453,7 +431,6 @@ def get_driver_active_trips(user_id):
     return [dict(row) for row in rows]
 
 def get_active_driver_trips(user_id):
-    """Повертає список активних поїздок водія (дата і час)."""
     conn = get_connection()
     rows = conn.execute("SELECT date, time FROM trips WHERE user_id = ? AND status = 'active'", (user_id,)).fetchall()
     conn.close()
@@ -479,7 +456,6 @@ def finish_trip(trip_id):
 
 def delete_trip(trip_id):
     conn = get_connection()
-    # Отримуємо пасажирів, щоб сповістити
     passengers = conn.execute("SELECT passenger_id FROM bookings WHERE trip_id = ? AND status = 'active'", (trip_id,)).fetchall()
     
     conn.execute("UPDATE trips SET status = 'cancelled' WHERE id = ?", (trip_id,))
@@ -501,7 +477,6 @@ def cancel_trip_full(trip_id, driver_id):
 # ==========================================
 
 def search_trips(origin, destination, date, viewer_id):
-    # Залишаємо для сумісності
     trips, _ = search_trips_page(origin, destination, date, viewer_id, 100, 0)
     return trips
 
@@ -537,7 +512,6 @@ def get_trip_details(trip_id):
     return dict(row) if row else None
 
 def get_all_active_trips_paginated(limit, offset):
-    """🔥 Для Адмінки: Отримує активні поїздки з повною інфою."""
     conn = get_connection()
     
     rows = conn.execute('''
@@ -559,7 +533,6 @@ def get_all_active_trips_paginated(limit, offset):
 # ==========================================
 
 def get_user_active_bookings_count(user_id):
-    """Рахує, скільки активних бронювань має пасажир."""
     conn = get_connection()
     count = conn.execute("SELECT count(*) FROM bookings WHERE passenger_id = ? AND status = 'active'", (user_id,)).fetchone()[0]
     conn.close()
@@ -567,25 +540,25 @@ def get_user_active_bookings_count(user_id):
 
 def add_booking(trip_id, passenger_id):
     conn = get_connection()
-    
-    
-    trip = conn.execute("SELECT user_id FROM trips WHERE id = ?", (trip_id,)).fetchone()
-    if not trip:
-        conn.close()
-        return False, "Поїздку не знайдено."
-    
-    if trip['user_id'] == passenger_id:
-        conn.close()
-        return False, "Не можна бронювати у себе."
-
-  
-    exist = conn.execute("SELECT id FROM bookings WHERE trip_id = ? AND passenger_id = ? AND status='active'", (trip_id, passenger_id)).fetchone()
-    if exist:
-        conn.close()
-        return False, "Ви вже забронювали місце."
-
     try:
+        # 🔥 ВИПРАВЛЕНО: Транзакція для атомарності
+        conn.execute("BEGIN IMMEDIATE")
+
+        trip = conn.execute("SELECT user_id FROM trips WHERE id = ?", (trip_id,)).fetchone()
+        if not trip:
+            conn.rollback()
+            return False, "Поїздку не знайдено."
         
+        if trip['user_id'] == passenger_id:
+            conn.rollback()
+            return False, "Не можна бронювати у себе."
+
+        exist = conn.execute("SELECT id FROM bookings WHERE trip_id = ? AND passenger_id = ? AND status='active'", (trip_id, passenger_id)).fetchone()
+        if exist:
+            conn.rollback()
+            return False, "Ви вже забронювали місце."
+
+        # Атомарна перевірка та оновлення місць
         cursor = conn.execute("""
             UPDATE trips 
             SET seats_taken = seats_taken + 1 
@@ -593,19 +566,18 @@ def add_booking(trip_id, passenger_id):
         """, (trip_id,))
         
         if cursor.rowcount == 0:
-           
-            conn.close()
+            conn.rollback()
             return False, "На жаль, місця щойно закінчились."
             
-        
         conn.execute("INSERT INTO bookings (trip_id, passenger_id) VALUES (?, ?)", (trip_id, passenger_id))
         conn.commit()
-        conn.close()
         return True, "Success"
         
     except sqlite3.Error as e:
-        conn.close()
+        conn.rollback()
         return False, f"Помилка бази: {e}"
+    finally:
+        conn.close()
 
 def get_user_bookings(user_id):
     conn = get_connection()
@@ -642,33 +614,71 @@ def get_trip_passengers(trip_id):
     return [dict(row) for row in rows]
 
 def delete_booking(booking_id, passenger_id):
+    """
+    Видалення бронювання з поверненням місця водію.
+    🔥 ВИПРАВЛЕНО: Транзакція для атомарності.
+    """
     conn = get_connection()
-    booking = conn.execute("SELECT trip_id FROM bookings WHERE id = ? AND passenger_id = ?", (booking_id, passenger_id)).fetchone()
-    if not booking: 
-        conn.close()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        
+        booking = conn.execute("SELECT trip_id FROM bookings WHERE id = ? AND passenger_id = ?", (booking_id, passenger_id)).fetchone()
+        if not booking: 
+            conn.rollback()
+            return None
+        
+        trip_id = booking['trip_id']
+        
+        # Отримуємо дані для сповіщення перед видаленням
+        trip_info = conn.execute("""
+            SELECT t.user_id as driver_id, u.name as passenger_name 
+            FROM trips t, users u 
+            WHERE t.id = ? AND u.user_id = ?
+        """, (trip_id, passenger_id)).fetchone()
+        
+        conn.execute("DELETE FROM bookings WHERE id = ?", (booking_id,))
+        conn.execute("UPDATE trips SET seats_taken = seats_taken - 1 WHERE id = ?", (trip_id,))
+        
+        conn.commit()
+        return dict(trip_info) if trip_info else {}
+    except Exception as e:
+        print(f"❌ DB Error delete_booking: {e}")
+        conn.rollback()
         return None
-    
-    trip_id = booking['trip_id']
-    trip = conn.execute("SELECT t.user_id as driver_id, u.name as passenger_name FROM trips t, users u WHERE t.id = ? AND u.user_id = ?", (trip_id, passenger_id)).fetchone()
-    
-    conn.execute("DELETE FROM bookings WHERE id = ?", (booking_id,))
-    conn.execute("UPDATE trips SET seats_taken = seats_taken - 1 WHERE id = ?", (trip_id,))
-    conn.commit()
-    conn.close()
-    return dict(trip)
+    finally:
+        conn.close()
 
 def kick_passenger(booking_id, driver_id):
+    """
+    Водій висаджує пасажира.
+    🔥 ВИПРАВЛЕНО: Транзакція для атомарності.
+    """
     conn = get_connection()
-    booking = conn.execute("SELECT b.trip_id, b.passenger_id FROM bookings b JOIN trips t ON b.trip_id = t.id WHERE b.id = ? AND t.user_id = ?", (booking_id, driver_id)).fetchone()
-    if not booking: 
-        conn.close()
-        return None
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+
+        booking = conn.execute("""
+            SELECT b.trip_id, b.passenger_id 
+            FROM bookings b 
+            JOIN trips t ON b.trip_id = t.id 
+            WHERE b.id = ? AND t.user_id = ?
+        """, (booking_id, driver_id)).fetchone()
         
-    conn.execute("DELETE FROM bookings WHERE id = ?", (booking_id,))
-    conn.execute("UPDATE trips SET seats_taken = seats_taken - 1 WHERE id = ?", (booking['trip_id'],))
-    conn.commit()
-    conn.close()
-    return dict(booking)
+        if not booking: 
+            conn.rollback()
+            return None
+            
+        conn.execute("DELETE FROM bookings WHERE id = ?", (booking_id,))
+        conn.execute("UPDATE trips SET seats_taken = seats_taken - 1 WHERE id = ?", (booking['trip_id'],))
+        
+        conn.commit()
+        return dict(booking)
+    except Exception as e:
+        print(f"❌ DB Error kick_passenger: {e}")
+        conn.rollback()
+        return None
+    finally:
+        conn.close()
 
 # ==========================================
 # ⭐ РЕЙТИНГ & ПІДПИСКИ
@@ -748,19 +758,17 @@ def mark_trip_finished(trip_id):
 def perform_db_cleanup():
     conn = get_connection()
     try:
-        # Видалення старих даних
         conn.execute("DELETE FROM chat_history WHERE timestamp < datetime('now', '-7 days')")
         conn.execute("DELETE FROM trips WHERE status IN ('finished', 'cancelled') AND date < date('now', '-60 days')")
         conn.execute("DELETE FROM search_history WHERE timestamp < datetime('now', '-2 days')")
         conn.execute("DELETE FROM bookings WHERE trip_id NOT IN (SELECT id FROM trips)")
-   
         conn.execute("PRAGMA wal_checkpoint(TRUNCATE);")
-
         conn.commit()
     except Exception as e:
         print(f"Cleanup Error: {e}")
     finally:
         conn.close()
+
 def ban_user_by_id(user_id, reason="Admin Ban"):
     conn = get_connection()
     conn.execute("UPDATE users SET is_banned = 1 WHERE user_id = ?", (user_id,))
@@ -768,39 +776,29 @@ def ban_user_by_id(user_id, reason="Admin Ban"):
     conn.execute("UPDATE bookings SET status = 'cancelled' WHERE passenger_id = ? AND status = 'active'", (user_id,))
     conn.commit()
     conn.close()
+
 def log_cancellation_event(user_id):
-    """Записує факт скасування поїздки."""
     conn = get_connection()
     conn.execute("INSERT INTO cancellation_logs (user_id) VALUES (?)", (user_id,))
-    # Очищаємо старі логи (старші 24 годин), щоб база не розпухала
     conn.execute("DELETE FROM cancellation_logs WHERE timestamp < datetime('now', '-1 day')")
     conn.commit()
     conn.close()
 
 def can_user_book(user_id):
-    """
-    Перевіряє, чи можна користувачу бронювати.
-    Повертає: (True, "") або (False, "причина")
-    Ліміт: 3 скасування за 24 години.
-    """
     conn = get_connection()
-    
-    # Рахуємо скасування за останні 24 години
     count = conn.execute(
         "SELECT COUNT(*) FROM cancellation_logs WHERE user_id = ? AND timestamp > datetime('now', '-1 day')", 
         (user_id,)
     ).fetchone()[0]
-    
     conn.close()
     
     if count >= 3:
-        return False, "🚫 <b>Блокування на 24 години!</b>\nВи занадто часто скасовували бронювання. Це схоже на збір номерів телефонів."
+        return False, "🚫 <b>Блокування на 24 години!</b>\nВи занадто часто скасовували бронювання."
     
     return True, ""
+
 def get_bookings_to_remind():
-    """Шукає бронювання, до яких лишилась ~1 година і ще не було нагадування."""
     conn = get_connection()
-     
     rows = conn.execute("""
         SELECT b.id, b.passenger_id, t.origin, t.destination, t.date, t.time, t.user_id as driver_id
         FROM bookings b
@@ -815,9 +813,9 @@ def mark_booking_reminded(booking_id):
     conn.execute("UPDATE bookings SET reminded = 1 WHERE id = ?", (booking_id,))
     conn.commit()
     conn.close()
+
 def get_referral_count(user_id):
     conn = get_connection()
-    # Рахуємо, скількох людей привів цей user_id (ref_source = 'ref_USERID')
     ref_tag = f"ref_{user_id}"
     count = conn.execute("SELECT COUNT(*) FROM users WHERE ref_source = ?", (ref_tag,)).fetchone()[0]
     conn.close()
