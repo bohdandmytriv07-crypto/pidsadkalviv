@@ -1,7 +1,7 @@
 ﻿import uuid
 import re
-import html
-from datetime import datetime, timedelta  # 🔥 Додано timedelta
+import html  # 🔥 ДОДАНО ДЛЯ ЕКРАНУВАННЯ HTML
+from datetime import datetime, timedelta
 from urllib.parse import quote 
 from contextlib import suppress
 from aiogram import Router, F, types, Bot
@@ -17,7 +17,7 @@ from database import (
     get_last_driver_trip, get_subscribers_for_trip,
     add_or_update_city, finish_trip, log_event,
     get_driver_history, get_active_driver_trips,
-    get_trip_details  # 🔥 Додано цей імпорт для отримання часу поїздки
+    get_trip_details
 )
 from handlers.rating import ask_for_ratings 
 from states import TripStates
@@ -40,12 +40,10 @@ kb_ok = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="✅ З
 
 @router.callback_query(F.data == "drv_create")
 async def start_create_trip_handler(call: types.CallbackQuery, state: FSMContext, bot: Bot):
-    # Очищаємо попередні повідомлення
     await delete_messages_list(state, bot, call.message.chat.id, "trip_msg_ids")
     
     await state.update_data(last_msg_id=call.message.message_id, role="driver")
     
-    # 1. Перевірка профілю
     user = get_user(call.from_user.id)
     if not user: save_user(call.from_user.id, call.from_user.full_name, "-")
 
@@ -57,9 +55,8 @@ async def start_create_trip_handler(call: types.CallbackQuery, state: FSMContext
         await update_or_send_msg(bot, call.message.chat.id, state, "⚠️ <b>Ви не можете створити поїздку!</b>\nПотрібно вказати авто та номер телефону в профілі.", kb)
         return
 
-    # 2. 🔥 АНТИ-СПАМ: Перевірка ліміту активних поїздок
     active_trips = get_driver_active_trips(call.from_user.id)
-    if len(active_trips) >= 2:  # ⛔ ЛІМІТ: Максимум 2 поїздки
+    if len(active_trips) >= 2:
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🗂 Мої поїздки", callback_data="drv_my_trips")],
             [InlineKeyboardButton(text="🔙 В меню", callback_data="menu_home")]
@@ -71,7 +68,6 @@ async def start_create_trip_handler(call: types.CallbackQuery, state: FSMContext
         )
         return
 
-    # 3. Логіка повтору останньої поїздки
     last_trip = get_last_driver_trip(call.from_user.id)
     if last_trip:
         trip_details = (
@@ -113,6 +109,11 @@ async def _start_new_trip_questions(chat_id, state: FSMContext, bot: Bot):
 async def process_origin(message: types.Message, state: FSMContext, bot: Bot):
     await clean_user_input(message)
     
+    # 🛡 ЗАХИСТ: Перевірка на текст
+    if not message.text:
+        await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Це не текст!</b>\nНапишіть назву міста:", kb_back())
+        return
+
     if message.text.startswith("/"):
         await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Це схоже на команду.</b>\nБудь ласка, введіть назву міста:", kb_back())
         return
@@ -136,6 +137,11 @@ async def process_origin(message: types.Message, state: FSMContext, bot: Bot):
 async def process_destination(message: types.Message, state: FSMContext, bot: Bot):
     await clean_user_input(message)
     
+    # 🛡 ЗАХИСТ: Перевірка на текст
+    if not message.text:
+        await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Це не текст!</b>\nНапишіть назву міста:", kb_back())
+        return
+
     if message.text.startswith("/"):
         await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Введіть назву міста, а не команду.</b>", kb_back())
         return
@@ -167,6 +173,11 @@ async def process_date(call: types.CallbackQuery, state: FSMContext):
 async def process_time(message: types.Message, state: FSMContext, bot: Bot):
     await clean_user_input(message)
     
+    # 🛡 ЗАХИСТ: Перевірка на текст
+    if not message.text:
+        await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Це не час!</b>\nВведіть час (напр. 18:30):", kb_back())
+        return
+
     raw_text = message.text.strip()
     h, m = None, None
 
@@ -239,6 +250,12 @@ async def process_time(message: types.Message, state: FSMContext, bot: Bot):
 @router.message(TripStates.seats)
 async def process_seats(message: types.Message, state: FSMContext, bot: Bot):
     await clean_user_input(message)
+    
+    # 🛡 ЗАХИСТ: Перевірка на текст
+    if not message.text:
+        await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Це не число!</b>\nВведіть цифру від 1 до 8:", kb_back())
+        return
+
     val = message.text.strip()
     if not val.isdigit() or not (1 <= int(val) <= 8):
         await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Введіть цифру від 1 до 8:</b>", kb_back())
@@ -290,13 +307,20 @@ async def skip_description(call: types.CallbackQuery, state: FSMContext, bot: Bo
 @router.message(TripStates.description)
 async def process_description(message: types.Message, state: FSMContext, bot: Bot):
     await clean_user_input(message)
+    
+    # 🛡 ЗАХИСТ: Якщо стікер - пропускаємо опис (вважаємо його пустим) або сваримось
+    # Тут логічніше просто попросити текст, бо юзер, мабуть, хотів щось сказати
+    if not message.text:
+        await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Це не текст!</b>\nНапишіть коментар або натисніть 'Пропустити':", kb_back())
+        return
+
     raw_text = message.text.strip()
     
     if len(raw_text) > 200:
         await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Занадто довгий текст!</b> Скоротіть до 200 символів.", kb_back())
         return
         
-    # 🔥 ВИПРАВЛЕННЯ: Дозволяємо будь-які символи, але екрануємо їх для HTML
+    # 🔥 БЕЗПЕЧНЕ ЕКРАНУВАННЯ HTML
     safe_text = html.escape(raw_text)
 
     await finalize_trip_creation(message, state, bot, desc_text=safe_text)
@@ -339,8 +363,6 @@ async def finalize_trip_creation(message: types.Message, state: FSMContext, bot:
     await update_or_send_msg(bot, message.chat.id, state, text, kb)
     await _notify_subscribers(bot, message.chat.id, trip_id, data, final_price, description)
 
-    # 🔥 FIX: ОЧИЩЕННЯ СТАНУ ПІСЛЯ СТВОРЕННЯ
-    # Щоб наступні повідомлення не сприймались як опис нової поїздки
     await state.clear()
     await state.update_data(role="driver")
 
@@ -456,8 +478,6 @@ async def show_driver_history(call: types.CallbackQuery, state: FSMContext):
 async def ask_finish_trip(call: types.CallbackQuery):
     trip_id = call.data.split("_")[3]
     
-    # 🔥 АНТИ-ФРОД: Перевірка часу
-    # Отримуємо дані про поїздку
     trip = get_trip_details(trip_id)
     
     if trip:
@@ -465,31 +485,25 @@ async def ask_finish_trip(call: types.CallbackQuery):
         now = datetime.now(kyiv_tz)
         
         try:
-            # Формуємо дату і час поїздки
             trip_dt_str = f"{trip['date']}.{now.year} {trip['time']}"
             trip_dt = datetime.strptime(trip_dt_str, "%d.%m.%Y %H:%M")
             trip_dt = kyiv_tz.localize(trip_dt)
             
-            # Коригування року, якщо поїздка на межі (грудень/січень)
             if (trip_dt - now).days > 180:
                 trip_dt = trip_dt.replace(year=now.year - 1)
             elif (now - trip_dt).days > 180:
                 trip_dt = trip_dt.replace(year=now.year + 1)
                 
-            # 🔥 УМОВА: Дозволити завершення тільки через 30 хвилин після старту
             min_finish_time = trip_dt + timedelta(minutes=30)
             
             if now < min_finish_time:
-                # Рахуємо скільки лишилось
                 wait_time = min_finish_time - now
                 minutes_left = int(wait_time.total_seconds() / 60) + 1
                 
                 await call.answer(f"⏳ Зарано! Завершити можна через {minutes_left} хв після початку.", show_alert=True)
                 return
 
-        except ValueError:
-            # Якщо формат дати якось пошкоджений - пропускаємо (дозволяємо завершити)
-            pass
+        except ValueError: pass
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="✅ ТАК, завершити", callback_data=f"drv_conf_finish_{trip_id}")],
