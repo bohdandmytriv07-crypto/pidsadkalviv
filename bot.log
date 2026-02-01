@@ -2191,3 +2191,188 @@ AttributeError: 'NoneType' object has no attribute 'strip'
 2026-02-01 13:10:12,728 - aiogram.event - INFO - Update id=892637012 is handled. Duration 236 ms by bot id=8301191163
 2026-02-01 13:11:09,684 - apscheduler.executors.default - INFO - Running job "check_reminders_job (trigger: interval[0:02:00], next run at: 2026-02-01 13:13:09 EET)" (scheduled at 2026-02-01 13:11:09.684032+02:00)
 2026-02-01 13:11:09,687 - apscheduler.executors.default - INFO - Job "check_reminders_job (trigger: interval[0:02:00], next run at: 2026-02-01 13:13:09 EET)" executed successfully
+2026-02-01 13:12:23,049 - root - INFO - ✅ Sentry успішно підключено! Помилки будуть відслідковуватись.
+2026-02-01 13:12:23,050 - __main__ - INFO - 🚀 Ініціалізація бази даних...
+2026-02-01 13:12:23,052 - __main__ - INFO - ✅ База даних готова (WAL mode on)!
+2026-02-01 13:12:23,053 - __main__ - INFO - 💻 Запуск бота (VPS Mode)...
+2026-02-01 13:12:23,259 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-02-01 13:12:23,260 - apscheduler.scheduler - INFO - Added job "check_reminders_job" to job store "default"
+2026-02-01 13:12:23,260 - apscheduler.scheduler - INFO - Scheduler started
+2026-02-01 13:12:23,579 - __main__ - INFO - 🤖 Bot started! Press Ctrl+C to stop.
+2026-02-01 13:12:23,579 - aiogram.dispatcher - INFO - Start polling
+2026-02-01 13:12:23,579 - __main__ - INFO - 🕒 Планувальник фонових задач запущено.
+2026-02-01 13:12:23,694 - aiogram.dispatcher - INFO - Run polling for bot @pidsadkalviv_bot id=8301191163 - 'Підсадка Львів'
+2026-02-01 13:12:23,776 - aiogram.dispatcher - ERROR - Failed to fetch updates - TelegramConflictError: Telegram server says - Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+2026-02-01 13:12:23,782 - aiogram.dispatcher - WARNING - Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 8301191163)
+2026-02-01 13:12:24,807 - aiogram.event - INFO - Update id=892637013 is handled. Duration 521 ms by bot id=8301191163
+2026-02-01 13:12:25,808 - aiogram.dispatcher - INFO - Connection established (tryings = 1, bot id = 8301191163)
+2026-02-01 13:12:26,341 - aiogram.event - INFO - Update id=892637014 is handled. Duration 531 ms by bot id=8301191163
+2026-02-01 13:12:27,853 - aiogram.dispatcher - ERROR - Failed to fetch updates - TelegramConflictError: Telegram server says - Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+2026-02-01 13:12:27,897 - aiogram.dispatcher - WARNING - Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 8301191163)
+2026-02-01 13:12:28,970 - aiogram.dispatcher - ERROR - Failed to fetch updates - TelegramConflictError: Telegram server says - Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+2026-02-01 13:12:28,975 - aiogram.dispatcher - WARNING - Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 8301191163)
+2026-02-01 13:12:30,795 - aiogram.dispatcher - INFO - Connection established (tryings = 1, bot id = 8301191163)
+2026-02-01 13:12:30,932 - aiogram.event - INFO - Update id=892637015 is handled. Duration 136 ms by bot id=8301191163
+2026-02-01 13:12:33,047 - aiogram.dispatcher - ERROR - Failed to fetch updates - TelegramConflictError: Telegram server says - Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+2026-02-01 13:12:33,049 - aiogram.dispatcher - WARNING - Sleep for 1.407297 seconds and try again... (tryings = 1, bot id = 8301191163)
+2026-02-01 13:12:39,100 - root - INFO - ✅ Sentry успішно підключено! Помилки будуть відслідковуватись.
+2026-02-01 13:12:39,101 - __main__ - INFO - 🚀 Ініціалізація бази даних...
+2026-02-01 13:12:39,103 - __main__ - INFO - ✅ База даних готова (WAL mode on)!
+2026-02-01 13:12:39,103 - __main__ - INFO - 💻 Запуск бота (VPS Mode)...
+2026-02-01 13:12:39,308 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-02-01 13:12:39,309 - apscheduler.scheduler - INFO - Added job "check_reminders_job" to job store "default"
+2026-02-01 13:12:39,309 - apscheduler.scheduler - INFO - Scheduler started
+2026-02-01 13:12:39,629 - __main__ - INFO - 🤖 Bot started! Press Ctrl+C to stop.
+2026-02-01 13:12:39,629 - aiogram.dispatcher - INFO - Start polling
+2026-02-01 13:12:39,629 - __main__ - INFO - 🕒 Планувальник фонових задач запущено.
+2026-02-01 13:12:39,740 - aiogram.dispatcher - INFO - Run polling for bot @pidsadkalviv_bot id=8301191163 - 'Підсадка Львів'
+2026-02-01 13:12:40,359 - aiogram.event - INFO - Update id=892637016 is handled. Duration 406 ms by bot id=8301191163
+2026-02-01 13:12:41,578 - aiogram.event - INFO - Update id=892637017 is handled. Duration 167 ms by bot id=8301191163
+2026-02-01 13:12:43,595 - aiogram.event - INFO - Update id=892637018 is handled. Duration 101 ms by bot id=8301191163
+2026-02-01 13:12:45,714 - aiogram.event - INFO - Update id=892637019 is handled. Duration 178 ms by bot id=8301191163
+2026-02-01 13:12:54,938 - aiogram.event - INFO - Update id=892637020 is handled. Duration 394 ms by bot id=8301191163
+2026-02-01 13:13:01,265 - aiogram.event - INFO - Update id=892637021 is handled. Duration 259 ms by bot id=8301191163
+2026-02-01 13:13:03,565 - __main__ - ERROR - 🔥 Critical Update Error: expected string or bytes-like object, got 'NoneType'
+Traceback (most recent call last):
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\middlewares\error.py", line 27, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\middlewares\user_context.py", line 58, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\fsm\middleware.py", line 43, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\event\telegram.py", line 126, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\dispatcher.py", line 283, in _listen_update
+    return await self.propagate_event(update_type=update_type, event=event, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 161, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 153, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 189, in _propagate_event
+    response = await router.propagate_event(update_type=update_type, event=event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 161, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 153, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 181, in _propagate_event
+    response = await observer.trigger(event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\event\telegram.py", line 126, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\source\repos\bohdandmytriv07-crypto\pidsadkalviv\tg_bot\middlewares.py", line 43, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\source\repos\bohdandmytriv07-crypto\pidsadkalviv\tg_bot\middlewares.py", line 76, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\source\repos\bohdandmytriv07-crypto\pidsadkalviv\tg_bot\handlers\profile.py", line 195, in process_phone
+    clean_phone = re.sub(r'[^\d+]', '', raw_phone)
+  File "C:\Program Files\Python314\Lib\re\__init__.py", line 208, in sub
+    return _compile(pattern, flags).sub(repl, string, count)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+TypeError: expected string or bytes-like object, got 'NoneType'
+2026-02-01 13:13:03,644 - aiogram.event - INFO - Update id=892637022 is handled. Duration 256 ms by bot id=8301191163
+2026-02-01 13:17:27,383 - root - INFO - ✅ Sentry успішно підключено! Помилки будуть відслідковуватись.
+2026-02-01 13:17:27,384 - __main__ - INFO - 🚀 Ініціалізація бази даних...
+2026-02-01 13:17:27,386 - __main__ - INFO - ✅ База даних готова (WAL mode on)!
+2026-02-01 13:17:27,386 - __main__ - INFO - 💻 Запуск бота (VPS Mode)...
+2026-02-01 13:17:27,596 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-02-01 13:17:27,597 - apscheduler.scheduler - INFO - Added job "check_reminders_job" to job store "default"
+2026-02-01 13:17:27,597 - apscheduler.scheduler - INFO - Scheduler started
+2026-02-01 13:17:27,910 - __main__ - INFO - 🤖 Bot started! Press Ctrl+C to stop.
+2026-02-01 13:17:27,910 - aiogram.dispatcher - INFO - Start polling
+2026-02-01 13:17:27,910 - __main__ - INFO - 🕒 Планувальник фонових задач запущено.
+2026-02-01 13:17:28,025 - aiogram.dispatcher - INFO - Run polling for bot @pidsadkalviv_bot id=8301191163 - 'Підсадка Львів'
+2026-02-01 13:17:34,593 - aiogram.event - INFO - Update id=892637023 is handled. Duration 606 ms by bot id=8301191163
+2026-02-01 13:17:36,564 - aiogram.event - INFO - Update id=892637024 is handled. Duration 191 ms by bot id=8301191163
+2026-02-01 13:17:37,655 - aiogram.event - INFO - Update id=892637025 is handled. Duration 256 ms by bot id=8301191163
+2026-02-01 13:17:39,379 - aiogram.event - INFO - Update id=892637026 is handled. Duration 104 ms by bot id=8301191163
+2026-02-01 13:17:42,938 - aiogram.event - INFO - Update id=892637027 is handled. Duration 199 ms by bot id=8301191163
+2026-02-01 13:17:46,168 - aiogram.event - INFO - Update id=892637028 is handled. Duration 328 ms by bot id=8301191163
+2026-02-01 13:17:49,629 - aiogram.event - INFO - Update id=892637029 is handled. Duration 642 ms by bot id=8301191163
+2026-02-01 13:17:56,779 - aiogram.event - INFO - Update id=892637030 is handled. Duration 840 ms by bot id=8301191163
+2026-02-01 13:18:00,669 - aiogram.event - INFO - Update id=892637031 is handled. Duration 191 ms by bot id=8301191163
+2026-02-01 13:18:05,844 - __main__ - ERROR - 🔥 Critical Update Error: 'NoneType' object has no attribute 'strip'
+Traceback (most recent call last):
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\middlewares\error.py", line 27, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\middlewares\user_context.py", line 58, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\fsm\middleware.py", line 43, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\event\telegram.py", line 126, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\dispatcher.py", line 283, in _listen_update
+    return await self.propagate_event(update_type=update_type, event=event, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 161, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 153, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 189, in _propagate_event
+    response = await router.propagate_event(update_type=update_type, event=event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 161, in propagate_event
+    return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 153, in _wrapped
+    return await self._propagate_event(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+    )
+    ^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\router.py", line 181, in _propagate_event
+    response = await observer.trigger(event, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\event\telegram.py", line 126, in trigger
+    return await wrapped_inner(event, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\source\repos\bohdandmytriv07-crypto\pidsadkalviv\tg_bot\middlewares.py", line 43, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\source\repos\bohdandmytriv07-crypto\pidsadkalviv\tg_bot\middlewares.py", line 76, in __call__
+    return await handler(event, data)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\AppData\Roaming\Python\Python314\site-packages\aiogram\dispatcher\event\handler.py", line 43, in call
+    return await wrapped()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\source\repos\bohdandmytriv07-crypto\pidsadkalviv\tg_bot\handlers\passenger.py", line 127, in process_search_origin
+    text = message.text.strip()
+           ^^^^^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'strip'
+2026-02-01 13:18:05,906 - aiogram.event - INFO - Update id=892637032 is handled. Duration 171 ms by bot id=8301191163
