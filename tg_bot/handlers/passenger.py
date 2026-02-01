@@ -286,34 +286,39 @@ async def prev_page(call: types.CallbackQuery, state: FSMContext):
 # Переконайтеся, що у вас є ці імпорти зверху файлу:
 from database import get_user, can_user_book, get_user_active_bookings_count, add_booking, get_trip_details
 
+# Не забудь додати імпорт ReplyKeyboardRemove зверху файлу, якщо його немає
+from aiogram.types import ReplyKeyboardRemove
+
 @router.callback_query(F.data.startswith("book_"))
 async def book_trip(call: types.CallbackQuery, state: FSMContext):
+    # Очищаємо всі можливі списки повідомлень, щоб прибрати сміття
     await delete_messages_list(state, call.bot, call.message.chat.id, "search_msg_ids")
+    await delete_messages_list(state, call.bot, call.message.chat.id, "trip_msg_ids")
     
+    # Видаляємо попереднє "останнє" повідомлення (наприклад, меню підписки)
+    await delete_prev_msg(state, call.bot, call.message.chat.id)
+
     user_id = call.from_user.id
     
-
+    # Перевірка на бан/ліміти
     allowed, reason = can_user_book(user_id)
     if not allowed:
         await call.answer("Блокування дій!", show_alert=True)
         await call.message.answer(reason, parse_mode="HTML")
         return
 
-
     active_count = get_user_active_bookings_count(user_id)
     if active_count >= 2:
         await call.answer("⚠️ Ліміт! У вас вже є 2 активні поїздки.", show_alert=True)
         return
 
-
     user = get_user(user_id)
     
- 
+    # Видаляємо картку, на якій натиснули "Бронювати"
     with suppress(TelegramBadRequest): await call.message.delete()
 
-
+    # Перевірка профілю
     if not user or user['phone'] == "-":
-
         trip_id = call.data.split("_")[1]
         await state.update_data(pending_booking_id=trip_id)
 
@@ -332,6 +337,11 @@ async def book_trip(call: types.CallbackQuery, state: FSMContext):
         log_event(user_id, "booking_success", f"trip_{trip_id}")
         trip = get_trip_details(trip_id)
         
+
+        rm_msg = await call.message.answer("⏳", reply_markup=ReplyKeyboardRemove())
+  
+        with suppress(Exception): await rm_msg.delete()
+
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="💬 Написати водію", callback_data=f"chat_start_{trip['user_id']}")],
             [InlineKeyboardButton(text="🏠 В меню", callback_data="menu_home")]
@@ -343,7 +353,7 @@ async def book_trip(call: types.CallbackQuery, state: FSMContext):
         )
         await state.update_data(last_msg_id=msg.message_id)
         
-
+  
         with suppress(Exception):
             await call.bot.send_message(
                 trip['user_id'], 
@@ -354,6 +364,7 @@ async def book_trip(call: types.CallbackQuery, state: FSMContext):
             
     else:
         await call.answer(msg_text, show_alert=True)
+  
         kb = kb_menu("passenger")
         msg = await call.message.answer("❌ <b>Помилка бронювання.</b>", reply_markup=kb, parse_mode="HTML")
         await state.update_data(last_msg_id=msg.message_id)
