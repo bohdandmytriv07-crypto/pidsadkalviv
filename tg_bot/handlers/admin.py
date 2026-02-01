@@ -7,7 +7,6 @@ from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
-from aiogram.exceptions import TelegramBadRequest
 
 # Імпорти з бази даних
 from database import (
@@ -32,9 +31,10 @@ class AdminStates(StatesGroup):
 
 async def render_admin_dashboard(message: types.Message, edit: bool = False):
     """Головна сторінка: стан системи на поточну хвилину."""
-    gen_stats = get_stats_general()
-    ext_stats = get_stats_extended()
-    total_gmv = get_financial_stats()
+    # 🔥 Виконуємо запити в окремому потоці, щоб не блокувати бота
+    gen_stats = await asyncio.to_thread(get_stats_general)
+    ext_stats = await asyncio.to_thread(get_stats_extended)
+    total_gmv = await asyncio.to_thread(get_financial_stats)
 
     text = (
         f"👨‍💻 <b>ПАНЕЛЬ АДМІНІСТРАТОРА v2.1</b>\n"
@@ -70,7 +70,9 @@ async def render_admin_dashboard(message: types.Message, edit: bool = False):
 
     if edit:
         try: await message.edit_text(text, reply_markup=kb, parse_mode="HTML")
-        except: await message.delete(); await message.answer(text, reply_markup=kb, parse_mode="HTML")
+        except: 
+            with suppress(Exception): await message.delete()
+            await message.answer(text, reply_markup=kb, parse_mode="HTML")
     else:
         await message.answer(text, reply_markup=kb, parse_mode="HTML")
 
@@ -118,8 +120,8 @@ async def _render_trip_card(message: types.Message, state: FSMContext):
     data = await state.get_data()
     page = data.get('trip_page', 0)
     
-    # Отримуємо 1 поїздку для поточної сторінки
-    trips, total_count = get_all_active_trips_paginated(limit=1, offset=page)
+    # 🔥 Асинхронний запит до БД
+    trips, total_count = await asyncio.to_thread(get_all_active_trips_paginated, limit=1, offset=page)
     
     if not trips:
         kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Назад", callback_data="admin_back_home")]])
@@ -134,7 +136,8 @@ async def _render_trip_card(message: types.Message, state: FSMContext):
         return
 
     trip = trips[0]
-    passengers = get_trip_passengers(trip['id'])
+    # 🔥 Асинхронний запит до БД
+    passengers = await asyncio.to_thread(get_trip_passengers, trip['id'])
     
     pass_list = ""
     if passengers:
@@ -175,19 +178,24 @@ async def _render_trip_card(message: types.Message, state: FSMContext):
     try: await message.edit_text(text, reply_markup=kb, parse_mode="HTML")
     except: await message.answer(text, reply_markup=kb, parse_mode="HTML")
 
+# Допоміжна функція для отримання ID власника
+def _get_trip_owner_id(trip_id):
+    conn = get_connection()
+    row = conn.execute("SELECT user_id FROM trips WHERE id = ?", (trip_id,)).fetchone()
+    conn.close()
+    return row['user_id'] if row else None
+
 @router.callback_query(F.data.startswith("admin_trip_del_"))
 async def admin_delete_trip_handler(call: types.CallbackQuery, state: FSMContext):
     if call.from_user.id not in ADMIN_IDS: return
     trip_id = call.data.split("_")[3]
     
-    # Знаходимо власника для коректного скасування
-    conn = get_connection()
-    trip_data = conn.execute("SELECT user_id FROM trips WHERE id = ?", (trip_id,)).fetchone()
-    conn.close()
+    # Знаходимо власника асинхронно
+    driver_id = await asyncio.to_thread(_get_trip_owner_id, trip_id)
     
-    if trip_data:
-        driver_id = trip_data['user_id']
-        trip_info, passengers = cancel_trip_full(trip_id, driver_id)
+    if driver_id:
+        # Скасовуємо поїздку (це включає SQL транзакції, тому теж в потік)
+        trip_info, passengers = await asyncio.to_thread(cancel_trip_full, trip_id, driver_id)
         
         await call.answer("Поїздку видалено.", show_alert=True)
         
@@ -198,7 +206,7 @@ async def admin_delete_trip_handler(call: types.CallbackQuery, state: FSMContext
     else:
         await call.answer("Поїздка вже не існує.", show_alert=True)
 
-    # Оновлюємо картку (покаже наступну або попередню)
+    # Оновлюємо картку
     await _render_trip_card(call.message, state)
 
 
@@ -209,8 +217,8 @@ async def admin_delete_trip_handler(call: types.CallbackQuery, state: FSMContext
 @router.callback_query(F.data == "admin_stats_users")
 async def show_users_stats(call: types.CallbackQuery):
     if call.from_user.id not in ADMIN_IDS: return
-    stats = get_stats_extended()
-    top_sources = get_top_sources()
+    stats = await asyncio.to_thread(get_stats_extended)
+    top_sources = await asyncio.to_thread(get_top_sources)
     sources_text = "".join([f"├ 🔗 {src}: <b>{count}</b>\n" for src, count in top_sources]) or "├ (немає даних)\n"
     
     text = (
@@ -229,9 +237,9 @@ async def show_users_stats(call: types.CallbackQuery):
 @router.callback_query(F.data == "admin_stats_product")
 async def show_product_stats(call: types.CallbackQuery):
     if call.from_user.id not in ADMIN_IDS: return
-    conversion = get_conversion_rate()
-    failed = get_top_failed_searches()
-    eff = get_efficiency_stats() # 🔥 Нова статистика
+    conversion = await asyncio.to_thread(get_conversion_rate)
+    failed = await asyncio.to_thread(get_top_failed_searches)
+    eff = await asyncio.to_thread(get_efficiency_stats)
     
     text = (
         f"🛒 <b>ПРОДУКТ ТА ЕКОНОМІКА</b>\n"
@@ -269,18 +277,8 @@ async def find_user_start(call: types.CallbackQuery, state: FSMContext):
     await state.update_data(menu_msg_id=msg.message_id)
     await state.set_state(AdminStates.find_user)
 
-@router.message(AdminStates.find_user)
-async def process_find_user(message: types.Message, state: FSMContext, bot: Bot):
-    if message.from_user.id not in ADMIN_IDS: return
-    
-    # 🔥 FIX: Захист від стікерів/фото в адмінці
-    if not message.text:
-        await message.answer("⚠️ <b>Це не текст.</b>\nНадішліть ID або Username текстом.")
-        return
-
-    with suppress(TelegramBadRequest): await message.delete()
-    q = message.text.strip()
-    
+# Допоміжна функція пошуку
+def _db_search_user(q):
     with get_connection() as conn:
         if q.isdigit(): 
             u = conn.execute("SELECT * FROM users WHERE user_id=?", (int(q),)).fetchone()
@@ -293,11 +291,29 @@ async def process_find_user(message: types.Message, state: FSMContext, bot: Bot)
                  u = conn.execute("SELECT * FROM users WHERE phone LIKE ?", (f"%{q}%",)).fetchone()
             else:
                  u = conn.execute("SELECT * FROM users WHERE username=?", (f"@{q}",)).fetchone()
+        return dict(u) if u else None
+
+@router.message(AdminStates.find_user)
+async def process_find_user(message: types.Message, state: FSMContext, bot: Bot):
+    if message.from_user.id not in ADMIN_IDS: return
+    
+    if not message.text:
+        await message.answer("⚠️ <b>Це не текст.</b>")
+        return
+
+    with suppress(TelegramBadRequest): await message.delete()
+    q = message.text.strip()
+    
+    # 🔥 Асинхронний пошук
+    u = await asyncio.to_thread(_db_search_user, q)
+
     data = await state.get_data()
     mid = data.get("menu_msg_id")
     
     if not u:
-        if mid: await bot.edit_message_text(f"❌ Не знайдено: {q}", chat_id=message.chat.id, message_id=mid, reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙", callback_data="admin_back_home")]]))
+        if mid: 
+            with suppress(Exception):
+                await bot.edit_message_text(f"❌ Не знайдено: {q}", chat_id=message.chat.id, message_id=mid, reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙", callback_data="admin_back_home")]]))
         return
     
     txt = f"👤 <b>{u['name']}</b>\n🆔 <code>{u['user_id']}</code>\n📞 {u['phone']}\n⭐ {u['rating_driver']:.1f} / {u['rating_pass']:.1f}\nStatus: {'🚫 BAN' if u['is_banned'] else 'OK'}"
@@ -306,21 +322,29 @@ async def process_find_user(message: types.Message, state: FSMContext, bot: Bot)
         [InlineKeyboardButton(text=f"{'🟢 Unban' if u['is_banned'] else '🔴 BAN'}", callback_data=f"admin_do_{act}_{u['user_id']}")],
         [InlineKeyboardButton(text="🔙 Назад", callback_data="admin_back_home")]
     ])
-    if mid: await bot.edit_message_text(txt, chat_id=message.chat.id, message_id=mid, reply_markup=kb, parse_mode="HTML")
+    if mid: 
+        with suppress(Exception):
+            await bot.edit_message_text(txt, chat_id=message.chat.id, message_id=mid, reply_markup=kb, parse_mode="HTML")
     await state.clear()
+
+def _db_update_ban(uid, is_ban):
+    conn = get_connection()
+    conn.execute("UPDATE users SET is_banned = ? WHERE user_id = ?", (1 if is_ban else 0, uid))
+    conn.commit()
+    conn.close()
 
 @router.callback_query(F.data.startswith("admin_do_"))
 async def admin_do_action(call: types.CallbackQuery):
     if call.from_user.id not in ADMIN_IDS: return
     act, uid = call.data.split("_")[2], int(call.data.split("_")[3])
-    conn = get_connection()
-    conn.execute("UPDATE users SET is_banned = ? WHERE user_id = ?", (1 if act=="ban" else 0, uid))
-    conn.commit(); conn.close()
+    
+    await asyncio.to_thread(_db_update_ban, uid, act=="ban")
+    
     await call.answer(f"Done: {act}")
     await admin_back_home(call, None)
 
 # ==========================================
-# 📢 РОЗСИЛКА
+# 📢 РОЗСИЛКА (OPTIMIZED & SAFE)
 # ==========================================
 @router.callback_query(F.data == "admin_broadcast")
 async def start_broadcast(call: types.CallbackQuery, state: FSMContext):
@@ -328,47 +352,66 @@ async def start_broadcast(call: types.CallbackQuery, state: FSMContext):
     m = await call.message.edit_text("✍️ Текст/фото для розсилки:", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙", callback_data="admin_back_home")]]))
     await state.set_state(AdminStates.broadcast)
 
+# Функції для безпечної роботи з БД у потоках
+def _get_all_broadcast_users():
+    conn = get_connection()
+    # Беремо ВСІХ активних юзерів одразу (список int займає мало пам'яті)
+    rows = conn.execute("SELECT user_id FROM users WHERE is_blocked_bot=0 AND is_banned=0").fetchall()
+    conn.close()
+    return [r[0] for r in rows]
+
+def _mark_users_blocked_batch(user_ids):
+    if not user_ids: return
+    conn = get_connection()
+    placeholders = ','.join('?' for _ in user_ids)
+    conn.execute(f"UPDATE users SET is_blocked_bot=1 WHERE user_id IN ({placeholders})", user_ids)
+    conn.commit()
+    conn.close()
+
 @router.message(AdminStates.broadcast)
 async def do_broadcast(message: types.Message, state: FSMContext, bot: Bot):
     if message.from_user.id not in ADMIN_IDS: return
     
-    await message.answer(f"🚀 Починаю розсилку...")
+    status_msg = await message.answer(f"🚀 <b>Підготовка...</b>\nЗавантажую список користувачів.")
+    
+    # 1. Швидко отримуємо всі ID (не тримаємо з'єднання відкритим)
+    all_users = await asyncio.to_thread(_get_all_broadcast_users)
+    total_users = len(all_users)
+    
+    await status_msg.edit_text(f"🚀 <b>Починаю розсилку!</b>\nЦіль: {total_users} юзерів.")
 
     async def worker():
         good = 0
         bad = 0
+        batch_size = 50
         
-        # 🔥 ОПТИМІЗАЦІЯ: Читаємо по 100 юзерів
-        conn = get_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute("SELECT user_id FROM users WHERE is_blocked_bot=0 AND is_banned=0")
-        
-        while True:
-            batch = cursor.fetchmany(100)
-            if not batch: break 
+        # Розбиваємо на пачки
+        for i in range(0, total_users, batch_size):
+            batch = all_users[i : i + batch_size]
+            blocked_in_this_batch = []
             
-            blocked_ids_in_batch = []
-            
-            for row in batch:
-                user_id = row[0] 
+            # 2. Обробляємо пачку (Async I/O)
+            for user_id in batch:
                 try: 
                     await message.copy_to(user_id)
                     good += 1           
-                    await asyncio.sleep(0.05) 
+                    await asyncio.sleep(0.04) # Невеликий сліп для лімітів Telegram
                 except TelegramForbiddenError:
-                    blocked_ids_in_batch.append(user_id)
+                    blocked_in_this_batch.append(user_id)
                     bad += 1
                 except Exception: 
                     bad += 1
             
-            if blocked_ids_in_batch:
-                placeholders = ','.join('?' for _ in blocked_ids_in_batch)
-                conn.execute(f"UPDATE users SET is_blocked_bot=1 WHERE user_id IN ({placeholders})", blocked_ids_in_batch)
-                conn.commit()
+            # 3. Оновлюємо статус в БД для заблокованих (Sync DB I/O)
+            if blocked_in_this_batch:
+                await asyncio.to_thread(_mark_users_blocked_batch, blocked_in_this_batch)
+                
+            # Оновлюємо статус раз на 10 пачок (500 юзерів)
+            if i % 500 == 0 and i > 0:
+                with suppress(Exception):
+                    await status_msg.edit_text(f"📤 <b>Прогрес:</b> {i}/{total_users}\n✅ {good} | ❌ {bad}")
 
-        conn.close()
-        await bot.send_message(message.chat.id, f"✅ Розсилка завершена:\n👍 Успішно: {good}\n💀 Заблокували бота: {bad}")
+        await bot.send_message(message.chat.id, f"✅ <b>Розсилка завершена!</b>\n👍 Успішно: {good}\n💀 Заблокували: {bad}")
 
     asyncio.create_task(worker())
     await message.answer("⏳ Процес пішов у фоні. Можете користуватись ботом.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🏠 Додому", callback_data="admin_back_home")]]))
@@ -376,5 +419,6 @@ async def do_broadcast(message: types.Message, state: FSMContext, bot: Bot):
 
 @router.callback_query(F.data == "admin_export_db")
 async def export_db(call: types.CallbackQuery):
-    if call.from_user.id in ADMIN_IDS and os.path.exists(DB_FILE): await call.message.answer_document(FSInputFile(DB_FILE))
+    if call.from_user.id in ADMIN_IDS and os.path.exists(DB_FILE): 
+        await call.message.answer_document(FSInputFile(DB_FILE))
     await call.answer()
