@@ -196,7 +196,7 @@ async def back_to_menu_handler(call: types.CallbackQuery, state: FSMContext, bot
     await update_or_send_msg(bot, call.message.chat.id, state, f"Меню {menu_title}:", kb_menu(role))
 
 # ==========================================
-# 🆘 ПІДТРИМКА (Оновлено)
+# 🆘 ПІДТРИМКА (Оновлено для альбомів)
 # ==========================================
 
 @router.message(Command("support"))
@@ -209,7 +209,7 @@ async def cb_support(call: types.CallbackQuery, state: FSMContext, bot: Bot):
     await call.answer()
 
 async def _start_support(chat_id, state, bot):
-    # Очищаємо попередні списки
+    # Очищаємо попередні списки повідомлень інтерфейсу
     await delete_messages_list(state, bot, chat_id, "trip_msg_ids")
     
     # Створюємо пустий список для повідомлень юзера в сапорті
@@ -226,67 +226,87 @@ async def _start_support(chat_id, state, bot):
     )
     await update_or_send_msg(bot, chat_id, state, text, kb)
 
-@router.callback_query(F.data == "support_finish")
-async def support_finish(call: types.CallbackQuery, state: FSMContext, bot: Bot):
-    await call.answer("Запит надіслано!", show_alert=True)
-    
-    # 🔥 FIX 2: Видаляємо всі повідомлення, які юзер надіслав у тікет
-    chat_id = call.message.chat.id
-    data = await state.get_data()
-    user_msgs = data.get("support_user_msgs", [])
-    
-    for mid in user_msgs:
-        with suppress(Exception):
-            await bot.delete_message(chat_id, mid)
-            await asyncio.sleep(0.05) # Невеличка затримка для стабільності
-            
-    # Повертаємо на вибір ролі
-    await back_to_start_handler(call, state)
 
 @router.message(SupportStates.waiting_for_message)
 async def process_support(message: types.Message, state: FSMContext, bot: Bot):
-    user = message.from_user
-    text = message.text or message.caption or ""
-
-    # Додаємо ID повідомлення в список для видалення в кінці
+    # 1. Тільки зберігаємо ID повідомлення (текст, фото, відео - не важливо)
     data = await state.get_data()
     current_list = data.get("support_user_msgs", [])
     current_list.append(message.message_id)
+    
     await state.update_data(support_user_msgs=current_list)
 
-    # Заголовок
-    header = f"🆘 <b>Тікет від:</b> {user.full_name} (ID: <code>{user.id}</code>)\n"
-    if user.username: header += f"User: @{user.username}\n\n"
-    else: header += "\n"
-
-    try:
-        # Пересилаємо адміну
-        # Використовуємо copy_to, щоб зберегти тип контенту (фото/відео/текст)
-        await message.copy_to(SUPPORT_CHANNEL_ID, caption=header + text, parse_mode="HTML")
-        
-        # 🔥 Оновлюємо інтерфейс (кнопку "Завершити")
-        # Робимо це хитро: не видаляємо і шлемо нове, а пробуємо редагувати старе повідомлення бота,
-        # щоб воно завжди було знизу.
-        
-        last_bot_msg_id = data.get("last_msg_id")
+    # 2. Оновлюємо інтерфейс ТІЛЬКИ якщо це перше повідомлення в серії.
+    # Якщо летить альбом з 10 фото, цей блок спрацює тільки для першого, 
+    # щоб не спамити новими повідомленнями бота.
+    if len(current_list) == 1:
         kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="✅ Надіслати все і вийти", callback_data="support_finish")]
+            [InlineKeyboardButton(text="✅ Надіслати все і завершити", callback_data="support_finish")]
         ])
         
-        # Якщо це перше повідомлення - оновлюємо текст бота, щоб юзер бачив, що процес йде
-        if len(current_list) == 1:
-             msg = await bot.send_message(
-                message.chat.id,
-                "✅ <b>Отримано!</b>\nНадсилайте ще або завершіть:", 
-                reply_markup=kb, 
-                parse_mode="HTML"
-            )
-           
-             await delete_prev_msg(state, bot, message.chat.id)
-             await state.update_data(last_msg_id=msg.message_id)
-             
+        # Видаляємо попереднє повідомлення-інструкцію ("Опишіть проблему...")
+        await delete_prev_msg(state, bot, message.chat.id)
+        
+        # Надсилаємо нове меню
+        msg = await bot.send_message(
+            message.chat.id,
+            "📥 <b>Повідомлення прийнято!</b>\nДодайте ще файли або натисніть кнопку:", 
+            reply_markup=kb, 
+            parse_mode="HTML"
+        )
+        await state.update_data(last_msg_id=msg.message_id)
+
+
+@router.callback_query(F.data == "support_finish")
+async def support_finish(call: types.CallbackQuery, state: FSMContext, bot: Bot):
+    user = call.from_user
+    data = await state.get_data()
+    user_msgs = data.get("support_user_msgs", [])
+    
+    if not user_msgs:
+        await call.answer("Ви нічого не додали!", show_alert=True)
+        return
+
+    await call.answer("Відправка...", show_alert=False)
+
+    # 1. Формуємо шапку тікета
+    header = f"🆘 <b>Тікет від:</b> {user.full_name} (ID: <code>{user.id}</code>)\n"
+    if user.username: header += f"User: @{user.username}\n"
+    header += "➖➖➖➖➖➖➖➖"
+
+    try:
+        # 2. Відправляємо шапку адміну
+        await bot.send_message(SUPPORT_CHANNEL_ID, header, parse_mode="HTML")
+
+        # 3. Пересилаємо всі повідомлення юзера (зберігаючи контент)
+        for mid in user_msgs:
+            try:
+                await bot.copy_message(
+                    chat_id=SUPPORT_CHANNEL_ID, 
+                    from_chat_id=call.message.chat.id, 
+                    message_id=mid
+                )
+                # Маленька пауза, щоб зберегти порядок повідомлень
+                await asyncio.sleep(0.1) 
+            except Exception as e:
+                print(f"Failed to copy support msg {mid}: {e}")
+
+        # 4. Повідомляємо юзеру успіх
+        await call.answer("Запит надіслано успішно!", show_alert=True)
+
+        # 5. Чистимо чат (видаляємо повідомлення юзера)
+        chat_id = call.message.chat.id
+        for mid in user_msgs:
+            with suppress(Exception):
+                await bot.delete_message(chat_id, mid)
+                await asyncio.sleep(0.05)
+                
     except Exception as e:
-        print(f"Support Error: {e}")
+        print(f"Global Support Error: {e}")
+        await call.message.answer("⚠️ Помилка відправки. Спробуйте пізніше.")
+
+    # Повертаємо на головне меню
+    await back_to_start_handler(call, state)
 
 # ==========================================
 # 🗑 УНІВЕРСАЛЬНА КНОПКА "ЗРОЗУМІЛО" (Видаляє повідомлення)
