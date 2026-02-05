@@ -131,7 +131,10 @@ async def process_search_origin(message: types.Message, state: FSMContext, bot: 
         await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Введіть коректну назву міста (без команд).</b>", kb_back())
         return
 
-    clean_city = get_city_suggestion(text) or await validate_city_real(text)
+    clean_city = await asyncio.to_thread(get_city_suggestion, text)
+    
+    if not clean_city:
+        clean_city = await validate_city_real(text)
     
     if clean_city:
         add_or_update_city(clean_city)
@@ -156,7 +159,10 @@ async def process_search_dest(message: types.Message, state: FSMContext, bot: Bo
         await update_or_send_msg(bot, message.chat.id, state, "⚠️ <b>Введіть коректну назву міста.</b>", kb_back())
         return
 
-    clean_city = get_city_suggestion(text) or await validate_city_real(text)
+    clean_city = await asyncio.to_thread(get_city_suggestion, text)
+    
+    if not clean_city:
+        clean_city = await validate_city_real(text)
     
     if clean_city:
         data = await state.get_data()

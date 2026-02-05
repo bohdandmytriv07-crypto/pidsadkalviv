@@ -1,5 +1,6 @@
 ﻿import uuid
 import re
+import asyncio
 import html  # 🔥 ДОДАНО ДЛЯ ЕКРАНУВАННЯ HTML
 from datetime import datetime, timedelta
 from urllib.parse import quote 
@@ -120,7 +121,8 @@ async def process_origin(message: types.Message, state: FSMContext, bot: Bot):
 
     raw_text = message.text.strip()
     
-    clean_city = get_city_suggestion(raw_text)
+    clean_city = await asyncio.to_thread(get_city_suggestion, raw_text)
+
     if not clean_city:
         clean_city = await validate_city_real(raw_text)
     
@@ -148,7 +150,8 @@ async def process_destination(message: types.Message, state: FSMContext, bot: Bo
 
     raw_text = message.text.strip()
     
-    clean_city = get_city_suggestion(raw_text)
+    clean_city = await asyncio.to_thread(get_city_suggestion, raw_text)
+
     if not clean_city:
         clean_city = await validate_city_real(raw_text)
 
