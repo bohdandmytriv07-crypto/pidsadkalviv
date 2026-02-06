@@ -39,27 +39,21 @@ def setup_logging():
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(formatter)
     
-    # Створюємо файл логів (максимум 5 МБ)
     file_handler = RotatingFileHandler("bot.log", maxBytes=5*1024*1024, backupCount=1, encoding="utf-8")
     file_handler.setFormatter(formatter)
     
     logging.basicConfig(level=logging.INFO, handlers=[console_handler, file_handler])
 
-    # Підключення Sentry (якщо є ключ в config.py)
     if SENTRY_DSN:
-        sentry_sdk.init(
-            dsn=SENTRY_DSN,
-            traces_sample_rate=1.0,
-            profiles_sample_rate=1.0,
-        )
-        logging.info("✅ Sentry успішно підключено! Помилки будуть відслідковуватись.")
+        sentry_sdk.init(dsn=SENTRY_DSN, traces_sample_rate=1.0, profiles_sample_rate=1.0)
+        logging.info("✅ Sentry успішно підключено!")
     else:
-        logging.warning("⚠️ SENTRY_DSN не знайдено. Логування в Sentry вимкнено.")
+        logging.warning("⚠️ SENTRY_DSN не знайдено.")
 
 logger = logging.getLogger(__name__)
 
 # ==========================================
-# 🕒 ФОНОВІ ЗАДАЧІ (NON-BLOCKING)
+# 🕒 ФОНОВІ ЗАДАЧІ (FIXED & OPTIMIZED)
 # ==========================================
 async def background_tasks(bot: Bot):
     logger.info("🕒 Планувальник фонових задач запущено.")
@@ -67,10 +61,12 @@ async def background_tasks(bot: Bot):
     kyiv_tz = pytz.timezone('Europe/Kyiv')
     
     while True:
+        # 🔥 FIX: Спочатку робимо роботу, потім спимо!
+        # Це гарантує очистку одразу при старті бота.
         try:
-            await asyncio.sleep(600)  # Перевірка раз на 10 хв
+            logger.info("🧹 Перевірка актуальності поїздок...")
             
-            # Отримуємо старі поїздки з бази
+            # Отримуємо тільки АКТИВНІ поїздки (це не навантажує базу)
             active_trips = await asyncio.to_thread(archive_old_trips_db)
             
             now = datetime.now(kyiv_tz)
@@ -78,34 +74,30 @@ async def background_tasks(bot: Bot):
             
             for row in active_trips:
                 try:
-                    # Формуємо дату
+                    # Парсимо дату
                     trip_dt_str = f"{row['date']}.{now.year}"
                     trip_full_dt = datetime.strptime(f"{trip_dt_str} {row['time']}", "%d.%m.%Y %H:%M")
                     trip_full_dt = kyiv_tz.localize(trip_full_dt)
 
-                    # 🔥 FIX: Розумне визначення року
-                    # Рахуємо різницю в днях
+                    # Логіка зміни року (щоб не архівувати майбутні поїздки в січні/грудні)
                     diff_days = (trip_full_dt - now).days
 
-                    # 1. Якщо поїздка "в далекому майбутньому" (> 6 міс), значить це був минулий рік
-                    # (наприклад: зараз Січень, а дата "25.12" парситься як наступний грудень)
-                    if diff_days > 180:
+                    if diff_days > 180: # Якщо дата аж в наступному році (напр. грудень зараз січень)
                         trip_full_dt = trip_full_dt.replace(year=now.year - 1)
-                    
-                    # 2. Якщо поїздка "в далекому минулому" (< -6 міс), значить це наступний рік
-                    # (наприклад: зараз Грудень, а дата "01.01" парситься як минулий січень)
-                    elif diff_days < -180:
+                    elif diff_days < -180: # Якщо дата була в минулому році (напр. січень зараз грудень)
                         trip_full_dt = trip_full_dt.replace(year=now.year + 1)
 
-                    # Якщо час поїздки вже минув
+                    # Перевіряємо: якщо час поїздки минув
                     if trip_full_dt < now:
                         trip_id = row['id']
                         driver_id = row['user_id']
                         
-                        # Завершуємо
+                        logger.info(f"🏁 Архівуємо стару поїздку: {row['origin']}->{row['destination']} ({row['date']} {row['time']})")
+
+                        # Завершуємо в базі
                         await asyncio.to_thread(mark_trip_finished, trip_id)
                         
-                        # Просимо рейтинг
+                        # Просимо рейтинг (фоново, не чекаємо)
                         passengers = await asyncio.to_thread(get_trip_passengers, trip_id)
                         if passengers:
                             asyncio.create_task(ask_for_ratings(bot, trip_id, driver_id, passengers))
@@ -115,15 +107,18 @@ async def background_tasks(bot: Bot):
                     continue 
             
             if archived_count > 0:
-                logger.info(f"🏁 Завершено автоматично {archived_count} поїздок.")
+                logger.info(f"✅ Автоматично завершено {archived_count} старих поїздок.")
+            else:
+                logger.info("👌 Всі поїздки актуальні.")
 
-            # Очистка сміття в базі
+            # Очистка сміття в базі (видалення дуже старих записів)
             await asyncio.to_thread(perform_db_cleanup)
-            logger.info("♻️ Очистка бази виконана.")
 
         except Exception as e:
-            logger.exception(f"⚠️ Background Task Error") # 🔥 Покаже повний трейсбек
-            await asyncio.sleep(60)
+            logger.exception(f"⚠️ Background Task Error") 
+        
+        # 🔥 Чекаємо 10 хвилин до наступної перевірки
+        await asyncio.sleep(600)
 
 # ==========================================
 # 🚫 ОБРОБКА БЛОКУВАНЬ КОРИСТУВАЧАМИ
@@ -131,10 +126,8 @@ async def background_tasks(bot: Bot):
 async def on_user_block(event: ChatMemberUpdated):
     user_id = event.from_user.id
     if event.new_chat_member.status == KICKED:
-        logger.info(f"User {user_id} blocked bot.")
         await asyncio.to_thread(set_user_blocked_bot, user_id, True)
     elif event.new_chat_member.status == MEMBER:
-        logger.info(f"User {user_id} unblocked bot.")
         await asyncio.to_thread(set_user_blocked_bot, user_id, False)
 
 async def global_error_handler(event: types.ErrorEvent):
@@ -153,20 +146,20 @@ async def check_reminders_job(bot: Bot):
                 trip_dt = datetime.strptime(trip_dt_str, "%d.%m.%Y %H:%M")
                 trip_dt = kyiv_tz.localize(trip_dt)
                 
-                # 🔥 FIX: Така сама логіка років, як і в background_tasks
                 diff_days = (trip_dt - now).days
-                if diff_days > 180:
-                    trip_dt = trip_dt.replace(year=now.year - 1)
-                elif diff_days < -180:
-                    trip_dt = trip_dt.replace(year=now.year + 1)
+                if diff_days > 180: trip_dt = trip_dt.replace(year=now.year - 1)
+                elif diff_days < -180: trip_dt = trip_dt.replace(year=now.year + 1)
                 
                 diff = (trip_dt - now).total_seconds()
                 
-                # Нагадуємо за 1 годину (діапазон 30-90 хв)
+                # Нагадування за 1 годину (30-90 хв)
                 if 1800 < diff < 5400:
                     text = f"⏰ <b>Нагадування!</b>\nЧерез годину ({b['time']}) поїздка: {b['origin']} ➝ {b['destination']}."
-                    await bot.send_message(b['passenger_id'], text)
-                    await asyncio.to_thread(mark_booking_reminded, b['id'])
+                    with sentry_sdk.push_scope() as scope: # Ігноруємо помилки, якщо юзер заблокував бота
+                        try:
+                            await bot.send_message(b['passenger_id'], text)
+                            await asyncio.to_thread(mark_booking_reminded, b['id'])
+                        except Exception: pass
                     
             except Exception as e:
                 logger.error(f"Reminder Error for {b['id']}: {e}")
@@ -183,12 +176,9 @@ async def main():
     
     logger.info("🚀 Ініціалізація бази даних...")
     init_db()
-    logger.info("✅ База даних готова (WAL mode on)!")
-
-    # Стандартна ініціалізація бота
-    logger.info("💻 Запуск бота (VPS Mode)...")
+    
+    logger.info("💻 Запуск бота...")
     bot = Bot(token=API_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-
     dp = Dispatcher(storage=MemoryStorage())
 
     # Middleware
@@ -197,11 +187,10 @@ async def main():
     dp.message.middleware(AntiFloodMiddleware(limit=0.7))
     dp.callback_query.middleware(AntiFloodMiddleware(limit=0.5))
 
-    # Реєстрація хендлерів подій
+    # Handlers
     dp.my_chat_member.register(on_user_block, ChatMemberUpdatedFilter(member_status_changed=KICKED | MEMBER))
     dp.errors.register(global_error_handler)
 
-    # Підключення роутерів
     dp.include_router(admin.router)
     dp.include_router(common.router)
     dp.include_router(profile.router)
@@ -210,17 +199,17 @@ async def main():
     dp.include_router(chat.router)
     dp.include_router(rating.router)
 
-    # Планувальник завдань
+    # Scheduler
     scheduler = AsyncIOScheduler()
     scheduler.add_job(check_reminders_job, 'interval', minutes=2, kwargs={'bot': bot})
     scheduler.start()
     
-    # 🔥 FIX: Прибрали drop_pending_updates=True, щоб не губити повідомлення при рестарті
     await bot.delete_webhook()
     
+    # 🔥 Запускаємо фонові задачі (в т.ч. очистку старих поїздок)
     asyncio.create_task(background_tasks(bot))
 
-    logger.info("🤖 Bot started! Press Ctrl+C to stop.")
+    logger.info("🤖 Bot started!")
     try:
         await dp.start_polling(bot)
     except Exception as e:

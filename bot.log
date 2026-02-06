@@ -2589,3 +2589,92 @@ client_session: <aiohttp.client.ClientSession object at 0x000001B662DDE120>
 2026-02-03 19:38:35,834 - aiogram.event - INFO - Update id=892637084 is handled. Duration 202 ms by bot id=8301191163
 2026-02-03 19:38:37,035 - aiogram.event - INFO - Update id=892637085 is handled. Duration 258 ms by bot id=8301191163
 2026-02-03 19:38:38,547 - aiogram.event - INFO - Update id=892637086 is handled. Duration 179 ms by bot id=8301191163
+2026-02-05 22:50:37,101 - root - INFO - ✅ Sentry успішно підключено! Помилки будуть відслідковуватись.
+2026-02-05 22:50:37,102 - __main__ - INFO - 🚀 Ініціалізація бази даних...
+2026-02-05 22:50:37,112 - __main__ - INFO - ✅ База даних готова (WAL mode on)!
+2026-02-05 22:50:37,112 - __main__ - INFO - 💻 Запуск бота (VPS Mode)...
+2026-02-05 22:50:37,349 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-02-05 22:50:37,350 - apscheduler.scheduler - INFO - Added job "check_reminders_job" to job store "default"
+2026-02-05 22:50:37,350 - apscheduler.scheduler - INFO - Scheduler started
+2026-02-05 22:50:37,669 - __main__ - INFO - 🤖 Bot started! Press Ctrl+C to stop.
+2026-02-05 22:50:37,670 - aiogram.dispatcher - INFO - Start polling
+2026-02-05 22:50:37,670 - __main__ - INFO - 🕒 Планувальник фонових задач запущено.
+2026-02-05 22:50:39,970 - aiogram.dispatcher - INFO - Run polling for bot @pidsadkalviv_bot id=8301191163 - 'Підсадка Львів'
+2026-02-05 22:50:40,055 - aiogram.event - INFO - Update id=892637088 is handled. Duration 11 ms by bot id=8301191163
+2026-02-05 22:50:40,610 - aiogram.event - INFO - Update id=892637089 is handled. Duration 566 ms by bot id=8301191163
+2026-02-05 22:50:42,763 - aiogram.event - INFO - Update id=892637090 is handled. Duration 91 ms by bot id=8301191163
+2026-02-05 22:50:44,143 - aiogram.event - INFO - Update id=892637091 is handled. Duration 210 ms by bot id=8301191163
+2026-02-05 22:50:47,705 - aiogram.event - INFO - Update id=892637092 is handled. Duration 224 ms by bot id=8301191163
+2026-02-05 22:50:51,954 - aiogram.event - INFO - Update id=892637093 is handled. Duration 886 ms by bot id=8301191163
+2026-02-05 22:50:58,604 - aiogram.event - INFO - Update id=892637094 is handled. Duration 895 ms by bot id=8301191163
+2026-02-05 22:51:01,760 - aiogram.event - INFO - Update id=892637095 is handled. Duration 179 ms by bot id=8301191163
+2026-02-05 22:51:05,479 - aiogram.event - INFO - Update id=892637096 is handled. Duration 96 ms by bot id=8301191163
+2026-02-05 22:51:07,344 - aiogram.event - INFO - Update id=892637097 is handled. Duration 211 ms by bot id=8301191163
+2026-02-05 22:51:11,439 - aiogram.event - INFO - Update id=892637098 is handled. Duration 461 ms by bot id=8301191163
+2026-02-05 22:51:39,227 - aiogram.event - INFO - Update id=892637099 is handled. Duration 288 ms by bot id=8301191163
+2026-02-05 22:51:41,481 - aiogram.event - INFO - Update id=892637100 is handled. Duration 133 ms by bot id=8301191163
+2026-02-05 22:51:42,522 - aiogram.event - INFO - Update id=892637101 is handled. Duration 117 ms by bot id=8301191163
+2026-02-05 22:51:45,007 - aiogram.event - INFO - Update id=892637102 is handled. Duration 183 ms by bot id=8301191163
+2026-02-05 22:51:49,199 - aiogram.event - INFO - Update id=892637103 is handled. Duration 179 ms by bot id=8301191163
+2026-02-05 22:51:51,226 - aiogram.event - INFO - Update id=892637104 is handled. Duration 176 ms by bot id=8301191163
+2026-02-05 22:51:52,702 - aiogram.event - INFO - Update id=892637105 is handled. Duration 95 ms by bot id=8301191163
+2026-02-05 22:51:55,988 - aiogram.event - INFO - Update id=892637106 is handled. Duration 196 ms by bot id=8301191163
+2026-02-05 22:51:57,882 - aiogram.event - INFO - Update id=892637107 is handled. Duration 175 ms by bot id=8301191163
+2026-02-05 22:52:00,069 - aiogram.event - INFO - Update id=892637108 is handled. Duration 183 ms by bot id=8301191163
+2026-02-05 22:52:18,072 - aiogram.event - INFO - Update id=892637109 is handled. Duration 538 ms by bot id=8301191163
+2026-02-05 22:52:19,180 - aiogram.event - INFO - Update id=892637110 is handled. Duration 187 ms by bot id=8301191163
+2026-02-05 22:52:25,903 - aiogram.event - INFO - Update id=892637111 is handled. Duration 1050 ms by bot id=8301191163
+2026-02-05 22:52:28,610 - aiogram.event - INFO - Update id=892637112 is handled. Duration 181 ms by bot id=8301191163
+2026-02-05 22:52:31,861 - aiogram.event - INFO - Update id=892637113 is handled. Duration 154 ms by bot id=8301191163
+2026-02-05 22:52:33,116 - aiogram.event - INFO - Update id=892637114 is handled. Duration 165 ms by bot id=8301191163
+2026-02-05 22:52:35,476 - aiogram.dispatcher - ERROR - Failed to fetch updates - TelegramNetworkError: HTTP Client says - ClientOSError: [WinError 10054] An existing connection was forcibly closed by the remote host
+2026-02-05 22:52:36,225 - aiogram.dispatcher - WARNING - Sleep for 1.000000 seconds and try again... (tryings = 0, bot id = 8301191163)
+2026-02-05 22:52:37,349 - apscheduler.executors.default - INFO - Running job "check_reminders_job (trigger: interval[0:02:00], next run at: 2026-02-05 22:54:37 EET)" (scheduled at 2026-02-05 22:52:37.349073+02:00)
+2026-02-05 22:52:37,353 - apscheduler.executors.default - INFO - Job "check_reminders_job (trigger: interval[0:02:00], next run at: 2026-02-05 22:54:37 EET)" executed successfully
+2026-02-06 20:38:34,579 - root - INFO - ✅ Sentry успішно підключено! Помилки будуть відслідковуватись.
+2026-02-06 20:38:34,580 - __main__ - INFO - 🚀 Ініціалізація бази даних...
+2026-02-06 20:38:34,589 - __main__ - INFO - ✅ База даних готова (WAL mode on)!
+2026-02-06 20:38:34,590 - __main__ - INFO - 💻 Запуск бота (VPS Mode)...
+2026-02-06 20:38:34,827 - apscheduler.scheduler - INFO - Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-02-06 20:38:34,828 - apscheduler.scheduler - INFO - Added job "check_reminders_job" to job store "default"
+2026-02-06 20:38:34,828 - apscheduler.scheduler - INFO - Scheduler started
+2026-02-06 20:38:35,063 - __main__ - INFO - 🤖 Bot started! Press Ctrl+C to stop.
+2026-02-06 20:38:35,063 - aiogram.dispatcher - INFO - Start polling
+2026-02-06 20:38:35,063 - __main__ - INFO - 🕒 Планувальник фонових задач запущено.
+2026-02-06 20:38:37,565 - aiogram.dispatcher - INFO - Run polling for bot @pidsadkalviv_bot id=8301191163 - 'Підсадка Львів'
+2026-02-06 20:40:34,827 - apscheduler.executors.default - INFO - Running job "check_reminders_job (trigger: interval[0:02:00], next run at: 2026-02-06 20:42:34 EET)" (scheduled at 2026-02-06 20:40:34.826965+02:00)
+2026-02-06 20:40:34,834 - apscheduler.executors.default - INFO - Job "check_reminders_job (trigger: interval[0:02:00], next run at: 2026-02-06 20:42:34 EET)" executed successfully
+2026-02-06 20:42:34,828 - apscheduler.executors.default - INFO - Running job "check_reminders_job (trigger: interval[0:02:00], next run at: 2026-02-06 20:44:34 EET)" (scheduled at 2026-02-06 20:42:34.826965+02:00)
+2026-02-06 20:42:34,831 - apscheduler.executors.default - INFO - Job "check_reminders_job (trigger: interval[0:02:00], next run at: 2026-02-06 20:44:34 EET)" executed successfully
+2026-02-06 20:43:42,356 - aiogram.event - INFO - Update id=892637115 is handled. Duration 355 ms by bot id=8301191163
+2026-02-06 20:43:45,924 - aiogram.event - INFO - Update id=892637116 is handled. Duration 69 ms by bot id=8301191163
+2026-02-06 20:43:47,164 - aiogram.event - INFO - Update id=892637117 is handled. Duration 148 ms by bot id=8301191163
+2026-02-06 20:43:50,473 - aiogram.event - INFO - Update id=892637118 is handled. Duration 246 ms by bot id=8301191163
+2026-02-06 20:43:53,875 - aiogram.event - INFO - Update id=892637119 is handled. Duration 279 ms by bot id=8301191163
+2026-02-06 20:43:57,304 - aiogram.event - INFO - Update id=892637120 is handled. Duration 461 ms by bot id=8301191163
+2026-02-06 20:44:00,125 - aiogram.event - INFO - Update id=892637121 is handled. Duration 113 ms by bot id=8301191163
+2026-02-06 20:44:01,855 - aiogram.event - INFO - Update id=892637122 is handled. Duration 148 ms by bot id=8301191163
+2026-02-06 20:44:06,034 - aiogram.event - INFO - Update id=892637123 is handled. Duration 133 ms by bot id=8301191163
+2026-02-06 20:44:09,545 - aiogram.event - INFO - Update id=892637124 is handled. Duration 72 ms by bot id=8301191163
+2026-02-06 20:44:11,383 - aiogram.event - INFO - Update id=892637125 is handled. Duration 358 ms by bot id=8301191163
+2026-02-06 20:44:15,307 - aiogram.event - INFO - Update id=892637126 is handled. Duration 426 ms by bot id=8301191163
+2026-02-06 20:44:18,551 - aiogram.event - INFO - Update id=892637127 is handled. Duration 372 ms by bot id=8301191163
+2026-02-06 20:44:21,717 - aiogram.event - INFO - Update id=892637129 is handled. Duration 55 ms by bot id=8301191163
+2026-02-06 20:44:21,923 - aiogram.event - INFO - Update id=892637130 is handled. Duration 53 ms by bot id=8301191163
+2026-02-06 20:44:22,133 - aiogram.event - INFO - Update id=892637128 is handled. Duration 568 ms by bot id=8301191163
+2026-02-06 20:44:26,444 - aiogram.event - INFO - Update id=892637131 is handled. Duration 358 ms by bot id=8301191163
+2026-02-06 20:44:34,828 - apscheduler.executors.default - INFO - Running job "check_reminders_job (trigger: interval[0:02:00], next run at: 2026-02-06 20:46:34 EET)" (scheduled at 2026-02-06 20:44:34.826965+02:00)
+2026-02-06 20:44:34,831 - apscheduler.executors.default - INFO - Job "check_reminders_job (trigger: interval[0:02:00], next run at: 2026-02-06 20:46:34 EET)" executed successfully
+2026-02-06 20:44:36,944 - aiogram.event - INFO - Update id=892637132 is handled. Duration 445 ms by bot id=8301191163
+2026-02-06 20:44:44,989 - aiogram.event - INFO - Update id=892637133 is handled. Duration 396 ms by bot id=8301191163
+2026-02-06 20:45:04,778 - aiogram.event - INFO - Update id=892637134 is handled. Duration 425 ms by bot id=8301191163
+2026-02-06 20:45:12,175 - aiogram.event - INFO - Update id=892637135 is handled. Duration 134 ms by bot id=8301191163
+2026-02-06 20:45:16,783 - aiogram.event - INFO - Update id=892637136 is handled. Duration 286 ms by bot id=8301191163
+2026-02-06 20:45:20,075 - aiogram.event - INFO - Update id=892637137 is handled. Duration 81 ms by bot id=8301191163
+2026-02-06 20:45:22,073 - aiogram.event - INFO - Update id=892637138 is handled. Duration 661 ms by bot id=8301191163
+2026-02-06 20:46:34,828 - apscheduler.executors.default - INFO - Running job "check_reminders_job (trigger: interval[0:02:00], next run at: 2026-02-06 20:48:34 EET)" (scheduled at 2026-02-06 20:46:34.826965+02:00)
+2026-02-06 20:46:34,831 - apscheduler.executors.default - INFO - Job "check_reminders_job (trigger: interval[0:02:00], next run at: 2026-02-06 20:48:34 EET)" executed successfully
+2026-02-06 20:48:34,828 - apscheduler.executors.default - INFO - Running job "check_reminders_job (trigger: interval[0:02:00], next run at: 2026-02-06 20:50:34 EET)" (scheduled at 2026-02-06 20:48:34.826965+02:00)
+2026-02-06 20:48:34,831 - apscheduler.executors.default - INFO - Job "check_reminders_job (trigger: interval[0:02:00], next run at: 2026-02-06 20:50:34 EET)" executed successfully
+2026-02-06 20:48:37,542 - __main__ - INFO - 🏁 Завершено автоматично 2 поїздок.
+2026-02-06 20:48:37,546 - __main__ - INFO - ♻️ Очистка бази виконана.
