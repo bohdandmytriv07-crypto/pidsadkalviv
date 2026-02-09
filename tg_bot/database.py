@@ -7,23 +7,14 @@ from config import DB_FILE
 # ==========================================
 
 def get_connection():
-    # Збільшено таймаут до 10 сек, щоб уникнути "database is locked" при навантаженні
-    conn = sqlite3.connect(DB_FILE, timeout=10.0) 
+    # Збільшено таймаут до 30 сек для стабільності
+    conn = sqlite3.connect(DB_FILE, timeout=30.0) 
     conn.row_factory = sqlite3.Row
     
     # 🔥 ТЮНІНГ ПРОДУКТИВНОСТІ (Session Scope)
-    # Ці налаштування треба застосовувати при кожному підключенні
-    
-    # 1. Синхронізація: NORMAL (швидше і безпечно в WAL режимі)
     conn.execute("PRAGMA synchronous = NORMAL;")
-    
-    # 2. Кеш: -64000 сторінок = ~64 MB RAM
     conn.execute("PRAGMA cache_size = -64000;")
-    
-    # 3. Тимчасові файли: тільки в RAM
     conn.execute("PRAGMA temp_store = MEMORY;")
-    
-    # 4. Memory Map: читаємо базу прямо з RAM (256 MB)
     conn.execute("PRAGMA mmap_size = 268435456;") 
     
     return conn
@@ -32,7 +23,6 @@ def init_db():
     conn = get_connection()
     
     # 🔥 ГЛОБАЛЬНІ НАЛАШТУВАННЯ (Persistent)
-    # Застосовуються один раз і зберігаються у файлі БД
     conn.execute("PRAGMA journal_mode = WAL;")
     conn.execute("PRAGMA page_size = 4096;")
     
@@ -745,7 +735,8 @@ def get_recent_searches(user_id):
 
 def archive_old_trips_db():
     conn = get_connection()
-    rows = conn.execute("SELECT id, user_id, date, time FROM trips WHERE status='active'").fetchall()
+    # 🔥 FIX: Додано origin та destination, щоб не було KeyError в логах
+    rows = conn.execute("SELECT id, user_id, date, time, origin, destination FROM trips WHERE status='active'").fetchall()
     conn.close()
     return [dict(row) for row in rows]
 
@@ -762,7 +753,10 @@ def perform_db_cleanup():
         conn.execute("DELETE FROM trips WHERE status IN ('finished', 'cancelled') AND date < date('now', '-60 days')")
         conn.execute("DELETE FROM search_history WHERE timestamp < datetime('now', '-2 days')")
         conn.execute("DELETE FROM bookings WHERE trip_id NOT IN (SELECT id FROM trips)")
-        conn.execute("PRAGMA wal_checkpoint(TRUNCATE);")
+        
+        # 🔥 FIX: Замість блокуючого TRUNCATE використовуємо безпечний OPTIMIZE
+        conn.execute("PRAGMA optimize;")
+        
         conn.commit()
     except Exception as e:
         print(f"Cleanup Error: {e}")
